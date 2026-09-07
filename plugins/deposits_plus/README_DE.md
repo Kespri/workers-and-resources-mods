@@ -291,7 +291,7 @@ Die DLL prüft diese Grenzen. Ein Wert außerhalb schaltet die Verteilung für d
 | 2  | mittel (Standard) |   350–550 m    |
 | 3  | groß              |   550–750 m    |
 
-**Hinweis:** Die Größe skaliert den ganzen Feldverlauf, nicht einzelne Punkte. Felder sind länglich und verzweigt, keine Kreise; mehrere getrennte Teilflächen eines Feldes zählen als ein Feld. Ist eine Voreinstellung gesetzt, überschreibt sie die alten Detailangaben, gemischte Angaben werden im Log gemeldet.
+**Hinweis:** Die Größe skaliert den ganzen Feldverlauf, nicht einzelne Punkte. Felder sind länglich und verzweigt, keine Kreise; mehrere getrennte Teilflächen eines Feldes zählen als ein Feld. Entlang seiner Hauptachse reicht ein Feld etwa über das 3,4- bis 4,6-Fache des Grundradius, große Felder brauchen entsprechend mehr freie Fläche. Ist eine Voreinstellung gesetzt, überschreibt sie die alten Detailangaben, gemischte Angaben werden im Log gemeldet.
 
 ---
 
@@ -493,7 +493,7 @@ MeinSpiel\
 
 ### Versionskompatibilität
 
-- **Zurück auf eine ältere Fassung:** alte DLL und die dazugehörige INI wiederherstellen
+- **Zurück auf eine ältere Fassung:** alte DLL und die dazugehörige INI wiederherstellen; für einen Rückweg vor 1.6 zusätzlich den alten Spielstand, weil Kanalzuordnung und Sanddaten in `tesmio_deposits.bin` nicht zurückmigriert werden
 - **Update auf 1.8.0:** automatisch, neue Funktionen sind optional
 - **Mit Deposit Depletion:** funktioniert weiter wie immer, der Schlüssel `deplete` wird an das Plugin depletion durchgereicht
 

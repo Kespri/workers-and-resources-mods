@@ -291,7 +291,7 @@ The DLL checks these limits. A value outside them switches generation off for th
 | 2   | medium (default) |   350–550 m   |
 | 3   | large            |   550–750 m   |
 
-**Note:** the size scales the whole course of a field, not single points. Fields are elongated and branched, not circles; several separated pieces of one field count as one field. A preset overrides the legacy detail settings; mixed settings are reported in the log.
+**Note:** the size scales the whole course of a field, not single points. Fields are elongated and branched, not circles; several separated pieces of one field count as one field. Along its main axis a field spans about 3.4 to 4.6 times the base radius, so large fields need correspondingly more free area. A preset overrides the legacy detail settings; mixed settings are reported in the log.
 
 ---
 
@@ -493,7 +493,7 @@ MyGame\
 
 ### Version compatibility
 
-- **Going back to an older version:** restore the old DLL and its matching INI
+- **Going back to an older version:** restore the old DLL and its matching INI; for a way back before 1.6 also the old savegame, because channel mapping and sand data in `tesmio_deposits.bin` are not migrated back
 - **Update to 1.8.0:** automatic, the new functions are optional
 - **With Deposit Depletion:** keeps working as before; the key `deplete` is passed on to the depletion plugin
 
