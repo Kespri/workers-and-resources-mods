@@ -1,9 +1,0 @@
-Technical Service Storage v0.3.1-beta
-Base: v0.3.0-beta functionality unchanged; INI fallback beside the DLL added
-Companion: weather_roads v0.2.11-beta, vanilla_buildings v1.3 unchanged
-Game: WRSR 1.1.1.9; Loader API 4
-Build: MSVC x64, /std:c++17 /O2 /MT /W4 /EHsc
-Changes: LoadConfigFile uses plugins\technical_service_storage.ini when present, otherwise the INI beside the DLL (Workshop package under SML or the Workshop Bridge); "Configuration file:" logged; Workshop package My Plugins\technical_service_storage with RMM editor schema (keyed_list)
-Balance, native fuel, save formats, priorities and migration contracts unchanged.
-Verification: migration, runtime, configuration/material-section tests and DLL metadata smoke test
-Historical source and binaries are retained in the release backup, not renamed.

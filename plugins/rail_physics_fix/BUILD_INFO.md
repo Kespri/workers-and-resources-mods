@@ -1,194 +1,190 @@
-# Build-Nachweis
+# Rail Physics Fix – build notes
 
-## Aktuelle Version: 1.3.4-beta (07.09.2026)
+Windows/TesmioLoader port of RailPhysics 1.3.0 by Meow Meow (TheRealMeowMeow00,
+https://github.com/TheRealMeowMeow00/WRSR_RailPhysics, Workshop item 3776784867), GPL v3.
+Target: SOVIET64.exe 1.1.1.9 (build 23935965), TesmioLoader API 4. History newest first.
 
-Anlass: Quelltextvergleich mit dem Original RailPhysics 1.3.0 (`Desktop\railphysics`).
-Ergebnis des Vergleichs: Physik, Entscheidungslogik, Signaturen, Offsets, Schluessel und
-Standardwerte identisch; die Portierung behebt drei ABI-Fehler der Original-Stubs
-(5. Argument des Bremshelfers, Register im Shadow Space, xmm0 im Kurven-Stub), einen
-Use-after-free im Korridoraufbau, ungepruefte Lesezugriffe und das locale-abhaengige
-`atof`. Kritik: an einigen Stellen stoppte 1.3.2 den Zug oder verwarf alle Zonen, wo das
-Original degradierte. 1.3.4 stellt dort das Original-Verhalten wieder her; keine Formel,
-kein Hook und kein Schluessel wurde geaendert:
+## 1.3.4-beta (2026-09-07)
 
-- `ComputePhysics`: Vorpruefung ueber `ReadableFast` (Regionscache) statt `ReadablePtr`
-  (ein VirtualQuery je Wagen und Frame); inaktive Wagen werden vor dem Typzugriff
-  uebersprungen (Original Z. 307-308). Bremshelfer und Kurvencache pruefen ebenfalls
-  ueber den Cache.
-- `rp_curve_helper`: nicht endliches natives Limit wird durchgereicht (vorher 0.0).
-- `CollectStationNodes`: unlesbare Kette oder Tabelle -> `continue` statt Abbruch.
-- `BuildCorridors`: Abbruch wegen Speicher/Kapazitaet veroeffentlicht die gefundenen
-  Korridore (Original) mit Warnung RP103.
-- `RescanStations`: schlaegt der Aufbau fehl, bleiben die vorherigen kompletten Tabellen
-  (`RestoreZones`) statt 30 s ohne Zonen.
-- Streckenvorschau: unlesbares Segment, ungueltige Laenge, unlesbarer Endknoten,
-  ungueltige Polylinie, nicht endlicher Punkt -> Lauf endet mit den gesammelten Punkten
-  (Original `break`), Warnung RP_ROUTE. Nur Speicherfehler bleiben `CurveScanFailure`
-  (letztes Limit bei gleichem Ursprung).
-- `SpanCount`: Rest wird abgerundet wie die Zeigerdivision des Originals.
+Trigger: a full source review against the original RailPhysics 1.3.0. Result of the review:
+physics, decision logic, signatures, offsets, keys and defaults are identical; the port fixes
+three ABI bugs of the original stubs (fifth argument of the brake helper, saved registers in
+the callee's shadow space, xmm0 in the curve stub), a use-after-free in the corridor build,
+unchecked reads and the locale-dependent `atof`. Criticism: in a few places 1.3.2 stalled the
+train or dropped every zone where the original degraded. 1.3.4 restores the original's
+behaviour there; no formula, hook or key changed:
 
-Offline-Tests (`tests\run_tests.bat`, 17 Prozesse): `allocations` prueft jetzt je
-Fehlstelle "vorherige Tabellen erhalten oder Teilkorridore veroeffentlicht, kein Leck,
-Wiederholung erfolgreich" (15 erhalten, 3 partiell); `guards` neu: inaktiver Wagen mit
-totem Typzeiger wird uebersprungen, aktiver Wagen haelt die nativen Aufrufe fern,
-zerrissenes zweites Streckenstueck liefert Teilvorschau ohne Scanfehler, NaN-Limit
-wird durchgereicht; `SpanCount(8,25,8) == 2`. Protokolle:
+- `ComputePhysics`: preflight through `ReadableFast` (region cache) instead of `ReadablePtr`
+  (one VirtualQuery per wagon and frame); inactive wagons are skipped before their type is
+  read (original lines 307-308). The brake helper and the curve cache check through the
+  cache as well.
+- `rp_curve_helper`: a non-finite native limit passes through (previously 0.0).
+- `CollectStationNodes`: an unreadable chain or table -> `continue` instead of failing the scan.
+- `BuildCorridors`: an allocation/capacity stop publishes the corridors found so far (as the
+  original does) with warning RP103.
+- `RescanStations`: when the rebuild fails, the previous complete tables stay (`RestoreZones`)
+  instead of 30 s without zones.
+- Route lookahead: unreadable segment, invalid length, unreadable end node, invalid polyline,
+  non-finite point -> the walk ends with the points collected so far (original `break`),
+  warning RP_ROUTE. Only allocation failures remain `CurveScanFailure` (last limit kept for the
+  same origin).
+- `SpanCount`: a remainder is truncated like the original's pointer division.
+
+Offline tests (`tests\run_tests.bat`, 17 processes): `allocations` now checks per failure
+site "previous tables kept or partial corridors published, no leak, retry succeeds"
+(15 kept, 3 partial); new in `guards`: an inactive wagon with a dead type pointer is skipped,
+an active one keeps the native calls away, a torn second route leg yields a partial lookahead
+without a scan failure, a NaN limit passes through; `SpanCount(8,25,8) == 2`. Logs:
 `verification\version-1.3.4-beta-build.log`, `verification\version-1.3.4-beta-tests.log`.
 
-Spieltest: NICHT ausgefuehrt. Vorgeschlagenes Protokoll (Kopie eines Spielstands):
-1. Langer Gueterzug (>= 20 Wagen) am Berg: Anfahren, Steigung, Gefaelle; Log auf RP100/
-   RP101 pruefen (darf bei gesunden Zuegen nicht erscheinen).
-2. Zug mit abgekuppelten/inaktiven Wagen im Depot und auf Strecke.
-3. Bahnhofseinfahrt mit `log_decisions = 1`: Bremsband sichtbar (planned), keine
-   Pulszuege.
-4. Grosse Karte, 30 min Zeitraffer: `subsystem(s) patched`, RP103/RP104/RP105 zaehlen,
-   Frame-Zeit gegen 1.3.3 vergleichen.
-5. Zollanfahrt: Korridore vorhanden (`log_curves = 1`), Einfahrt mit customs_entry_kmh.
+In-game test: NOT run. Proposed protocol (copy of a savegame):
+1. Long freight train (>= 20 wagons) on a hill: start, climb, descent; check the log for
+   RP100/RP101 (must not appear for healthy trains).
+2. Train with uncoupled/inactive wagons in the depot and on the line.
+3. Station approach with `log_decisions = 1`: braking band visible (planned), no pulse trains.
+4. Large map, 30 min fast forward: `subsystem(s) patched`, count RP103/RP104/RP105, compare
+   frame time against 1.3.3.
+5. Customs approach: corridors present (`log_curves = 1`), entry at customs_entry_kmh.
 
-Sicherung des Vorstands: `_backups\rail_physics_fix_1.3.3-beta_before_1.3.4-beta_*`.
+Backup of the previous state: `_backups\rail_physics_fix_1.3.3-beta_before_1.3.4-beta_*`.
 
-## Aktuelle Version: 1.3.3-beta (07.09.2026)
+## 1.3.3-beta (2026-09-07)
 
-Einzige Aenderung am Plugin: die Wahl der Konfigurationsdatei. `ResolveConfigFile`
-prueft `plugins\rail_physics_fix.ini` unter dem Loader-Basisordner; existiert die
-Datei, laufen alle Lesezugriffe wie bisher ueber `H->configInt`/`H->configString`
-mit dem unveraenderten Dateinamen. Fehlt sie, wird `rail_physics_fix.ini` neben
-der eigenen DLL (GetModuleHandleEx auf die eigene Adresse) mit
-GetPrivateProfileIntA/GetPrivateProfileStringA und demselben Trim wie im Loader
-gelesen (`CfgInt`/`CfgString`). Schluessel, Code-Standardwerte, RP201/RP202,
-grid_boost-Regel, Hooks, Bruecken und Physik sind unveraendert. Neue Logzeile
-`rail_physics_fix  configuration file: <pfad>`.
+Only change to the plugin: the choice of the configuration file. `ResolveConfigFile` checks
+`plugins\rail_physics_fix.ini` below the loader base directory; when the file exists, every
+read goes through `H->configInt`/`H->configString` with the unchanged file name as before.
+When it is missing, `rail_physics_fix.ini` beside the DLL (GetModuleHandleEx on the DLL's own
+address) is read with GetPrivateProfileIntA/GetPrivateProfileStringA and the same trim the
+loader uses (`CfgInt`/`CfgString`). Keys, code defaults, RP201/RP202, the grid_boost rule,
+hooks, bridges and physics are unchanged. New log line
+`rail_physics_fix  configuration file: <path>`.
 
-Offline-Tests: `tests\run_tests.bat` legt jetzt `build\plugins\rail_physics_fix.ini`
-an (der Offline-Host nennt `build` als Basisordner, die klassische INI liegt dort
-unter plugins\) und fuehrt zusaetzlich das Szenario `beside_dll` aus (Basisordner
-ohne plugins\-INI, kein Host-Leseaufruf, gelieferte Werte aus der INI neben dem
-Testprogramm). 17 Prozesse. Versionspruefung im direkten und DLL-Exportpfad auf
-`1.3.3-beta` umgestellt.
+Offline tests: `tests\run_tests.bat` now creates `build\plugins\rail_physics_fix.ini` (the
+offline host names `build` as its base directory, so the classic INI lives below plugins\
+there) and additionally runs the `beside_dll` scenario (base directory without a plugins\
+INI, no host read call, supplied values from the INI beside the test executable).
+17 processes. Version check in the direct and DLL-export paths switched to `1.3.3-beta`.
 
-Workshop-Paket: `My Plugins\rail_physics_fix` (soviet.mod.ini mit local_copy,
-Presentation-Schema mit vier Reitern, DE/EN, READMEs nach Vorlage, LICENSE GPL v3).
-Sicherung des Vorstands: `_backups\rail_physics_fix_1.3.2-beta_before_1.3.3-beta_*`.
+Workshop package: `My Plugins\rail_physics_fix` (soviet.mod.ini with local_copy,
+presentation schema with four tabs, DE/EN, READMEs per template, LICENSE GPL v3).
+Backup of the previous state: `_backups\rail_physics_fix_1.3.2-beta_before_1.3.3-beta_*`.
 
-## Umbenennung zu rail_physics_fix (05.09.2026)
+## Rename to rail_physics_fix (2026-09-05)
 
-Das Plugin heisst seit dem 05.09.2026 `rail_physics_fix`, damit es sich vom
-Standard-`rail_physics` unterscheidet. Umbenannt wurden Plugin-Name, DLL, INI,
-Detail-Log (`tesmioloader.rail_physics_fix.log`), Log-Praefix, die Quelldateien
-`rail_physics_fix.cpp`, `rail_physics_fix_support.h`, `rail_physics_fix_stubs.h/.S`,
-`tests\test_rail_physics_fix.cpp` sowie Build-Skripte, Werkzeuge und READMEs.
-Unveraendert: der INI-Abschnitt `[railphysics]` (Kompatibilitaet zum Original),
-die Version 1.3.2-beta und die Physik. Die folgenden Abschnitte und Hash-Tabellen
-beziehen sich auf die Dateinamen vor der Umbenennung.
+Since 2026-09-05 the plugin is called `rail_physics_fix` to keep it apart from the stock
+`rail_physics`. Renamed: plugin name, DLL, INI, detail log (`tesmioloader.rail_physics_fix.log`),
+log prefix, the sources `rail_physics_fix.cpp`, `rail_physics_fix_support.h`,
+`rail_physics_fix_stubs.h/.S`, `tests\test_rail_physics_fix.cpp`, build scripts, tools and
+READMEs. Unchanged: the INI section `[railphysics]` (compatibility with the original), the
+version 1.3.2-beta and the physics. The sections and hash tables below refer to the file
+names before the rename.
 
-## Aktuelle Version: 1.3.2-beta
+## 1.3.2-beta (2026-09-03)
 
-Erstellt am 03.09.2026, Windows x64. Reine Versionskorrektur von
-`1.3.2-tesmio-beta` auf `1.3.2-beta`, keine Änderung der Physik oder Einstellungen.
-Im Produktionsquelltext wurden nur die Kopfzeile und `kRailVersion` geändert.
-Die Loader-Schnittstelle bleibt API 4; Brücken, Support-Header und SDK unverändert.
+Built on 2026-09-03, Windows x64. Pure version relabel from `1.3.2-tesmio-beta` to
+`1.3.2-beta`, no change to physics or settings. In the production source only the header
+line and `kRailVersion` changed. The loader interface stays API 4; bridges, support header
+and SDK unchanged.
 
-Erneut geprüft:
+Re-verified:
 
-- Release-Build mit `build.bat` erfolgreich (MSVC 14.52.36615, x64, `/MT`).
-- Alle 16 Prozesse von `tests/run_tests.bat` erfolgreich, inklusive ausdrücklicher
-  Prüfung von `TsmPluginInfo.version == "1.3.2-beta"` im direkten und DLL-Exportpfad.
-- Kompatibilitätsbuild mit den Root-Build-Flags erfolgreich.
-- Exporte weiterhin `TsmPluginApiVersion`, `TsmPluginInit`, `TsmPluginStart`;
-  einzige DLL-Abhängigkeit weiterhin `KERNEL32.dll`.
-- INI-Inhalt bis auf den Versionskommentar unverändert; dies gilt getrennt für
-  Quellprojekt, Desktop-Build und installierte Spielkonfiguration.
+- Release build with `build.bat` succeeded (MSVC 14.52.36615, x64, `/MT`).
+- All 16 processes of `tests/run_tests.bat` succeeded, including an explicit check of
+  `TsmPluginInfo.version == "1.3.2-beta"` in the direct and the DLL-export path.
+- Compatibility build with the root build flags succeeded.
+- Exports still `TsmPluginApiVersion`, `TsmPluginInit`, `TsmPluginStart`; the only DLL
+  dependency is still `KERNEL32.dll`.
+- INI content unchanged apart from the version comment; verified separately for the source
+  project, the desktop build and the installed game configuration.
 
-Neue Protokolle: `verification/version-1.3.2-beta-build.log`,
-`verification/version-1.3.2-beta-tests.log`,
-`verification/version-1.3.2-beta-root-build.log`.
-Die Tests laufen mit synthetischen Daten und einer privaten Datenkopie der EXE;
-kein Spielcode wird ausgeführt. Kein neuer Ingame-Test dieser Versionskorrektur.
+New logs: `verification/version-1.3.2-beta-build.log`,
+`verification/version-1.3.2-beta-tests.log`, `verification/version-1.3.2-beta-root-build.log`.
+The tests run with synthetic data and a private data copy of the executable; no game code is
+executed. No new in-game test of this relabel.
 
-| Aktuelle Datei | SHA-256 |
+| File at that time | SHA-256 |
 |---|---|
 | `rail_physics.dll` | `E9B4CBF46BF40E12AD9124AEFC3B36705E535808FAA7B3AF28235CC05A13DB01` |
 | `rail_physics.cpp` | `77B8242FD403FAD89C883C4231E71A3AA8A77CA35F2BD4CC094BCA6C10A6FF15` |
 | `rail_physics.ini` | `C2ED544B7AC5987B5AF90AB1730D9F7958DB69B18936F1FF8297C2C54099B105` |
 
-## Historischer Nachweis vom 02.09.2026 (unverändert)
+## Historical evidence of 2026-09-02 (unchanged)
 
-Die folgenden Angaben und die nicht mit `version-1.3.2-beta-` beginnenden
-Protokolle dokumentieren ausschließlich den damaligen Build, nicht die aktuelle DLL.
+The following statements and the logs not starting with `version-1.3.2-beta-` document
+that build only, not the current DLL.
 
-Erstellt am 02.09.2026, Windows x64, Version `1.3.2-tesmio-beta`.
-Kein laufendes Spiel wurde verändert. Keine Datei wurde in den aktiven
-Spiel-/Loader-Ordner installiert. Noch kein Ingame-Test dieser Portierung.
+Built on 2026-09-02, Windows x64, version `1.3.2-tesmio-beta`. No running game was changed.
+No file was installed into the active game/loader folder. No in-game test of this port yet.
 
-## Werkzeugkette
+### Toolchain
 
-- Microsoft C++ / Linker 14.52.36615, x64, statische Laufzeit (`/MT`).
+- Microsoft C++ / linker 14.52.36615, x64, static runtime (`/MT`).
 - Release: `/std:c++17 /utf-8 /O2 /MT /W4 /wd4505 /EHsc /LD`.
-- `4505` betrifft unbenutzte statische SDK-Hilfsfunktionen; keine anderen
-  Warnungskategorien wurden für diesen Build abgeschaltet.
-- Separater Kompatibilitätsbuild mit den normalen Root-Build-Flags
-  `/O2 /MT /W3 /EHsc /LD`: erfolgreich, ohne zusätzlichen Assembler-Linkschritt.
-- Clang 22.1.3 nur zum Generieren/Prüfen der Brücken und für den Test-Harness.
-- DLL-Abhängigkeit: `KERNEL32.dll`. Keine zusätzliche MinGW-/Clang-Laufzeit-DLL.
-- Exporte: `TsmPluginApiVersion`, `TsmPluginInit`, `TsmPluginStart`; API 4.
+- `4505` concerns unused static SDK helper functions; no other warning category was
+  disabled for this build.
+- Separate compatibility build with the normal root build flags `/O2 /MT /W3 /EHsc /LD`:
+  succeeded, without an additional assembler link step.
+- Clang 22.1.3 only to generate/verify the bridges and for the test harness.
+- DLL dependency: `KERNEL32.dll`. No additional MinGW/Clang runtime DLL.
+- Exports: `TsmPluginApiVersion`, `TsmPluginInit`, `TsmPluginStart`; API 4.
 
-## Prüfungen
+### Checks
 
-Alle 16 Testprozesse aus `tests/run_tests.bat` erfolgreich. Die Tests verwenden
-synthetische Fahrzeuge/Gleise und eine Datenkopie der EXE, keine Spielfunktionen.
-Der echte DLL-Exportpfad wird in einem künstlichen Host geprüft.
+All 16 test processes of `tests/run_tests.bat` succeeded. The tests use synthetic
+vehicles/tracks and a data copy of the executable, no game functions. The real DLL export
+path is exercised in an artificial host.
 
-- Alle zwölf Quellsignaturen geprüft: elf eindeutige Treffer; zwei Referenzen
-  der zwölften Signatur stimmen auf dieselbe globale Adresse überein.
-- Fünf ersetzte Befehlsblöcke, drei Funktionsaufrufe und zwei Zweigziele geprüft.
-- Alle fünf ausführbaren Brücken getestet; 996 Byte, 15 interne Symbole.
-- Kräfte/Bremsen/Verbrauch, gerade/gebogene Route, Bahnhof und Halteparabel geprüft.
-- Zoll-Korridor mit 1.100 Knoten, 1.099 Segmenten und mehreren Hash-Rehashes geprüft.
-- Falsche Version, kaputte/mehrdeutige Signaturen, doppelte DLL und Fehlerpfade geprüft.
-- Vier unveränderte Cache-/Tabellenfunktionen im Quelltextvergleich erhalten.
-- Rechenvergleich mit 1.3.1: 5.120 gültige Eingabefälle, 62.464 Zahlenwerte;
-  bitweise Ergebnis-Prüfsumme beider Programme: `E927BA1BB84487F7`.
-- 18 fehlschlagende Reservierungsstellen des Tabellen-Testfalls, Freigabe aller
-  beteiligten Puffer und erfolgreicher Wiederanlauf geprüft.
-- Guard-Pages, NaN/Überlauf, Fehler bei Routenreservierung mit Cache-Erhalt,
-  genau eine native Treibstoffbuchung, Warnungsbegrenzung und Win32-Fehler geprüft.
-- Alle 30 gelieferten INI-Werte unverändert.
+- All twelve source signatures verified: eleven unique hits; two references of the twelfth
+  signature agree on the same global address.
+- Five replaced instruction blocks, three function calls and two branch targets verified.
+- All five executable bridges tested; 996 bytes, 15 internal symbols.
+- Forces/braking/consumption, straight/curved route, station and stop parabola verified.
+- Customs corridor with 1,100 nodes, 1,099 segments and several hash rehashes verified.
+- Wrong version, broken/ambiguous signatures, duplicate DLL and error paths verified.
+- Four unchanged cache/table functions preserved in the source comparison.
+- Numeric comparison with 1.3.1: 5,120 valid input cases, 62,464 values; bitwise result
+  checksum of both programs: `E927BA1BB84487F7`.
+- 18 failing allocation sites of the table test case, release of every involved buffer and
+  successful restart verified.
+- Guard pages, NaN/overflow, route allocation failure with cache retention, exactly one
+  native fuel call, warning throttling and Win32 errors verified.
+- All 30 supplied INI values unchanged.
 
-Die Meldung `only 3/9 requested patches installed` im Testprotokoll gehört zum
-**absichtlich simulierten Ausfall** aller Inline-Hooks. Im regulären Offline-Test
-werden 9/9 installiert. Der Test prüft, dass nach Teilinstallation die DLL nicht
-entladen und der Steigungszweig nicht unvollständig umgeschaltet wird.
+The message `only 3/9 requested patches installed` in the test log belongs to the
+**deliberately simulated failure** of all inline hooks. In the regular offline test 9/9 are
+installed. The test verifies that after a partial installation the DLL is not unloaded and
+the slope branch is not switched incompletely.
 
-Ausführliche Protokolle: `verification/build.log`, `verification/tests.log`,
+Detailed logs: `verification/build.log`, `verification/tests.log`,
 `verification/root-build.log`, `verification/game-verification.log`,
 `verification/parity.log`, `verification/stubs.log`, `verification/source-parity.log`.
 
-## SHA-256
+### SHA-256
 
-| Datei | SHA-256 |
+| File | SHA-256 |
 |---|---|
-| Ausgelieferte `rail_physics.dll` | `ACE4EED6C0E57780E4ECF0F08F6D033A8E9F004481748E06196DACE6A31DECD1` |
+| Shipped `rail_physics.dll` | `ACE4EED6C0E57780E4ECF0F08F6D033A8E9F004481748E06196DACE6A31DECD1` |
 | `rail_physics.cpp` | `0D4D898D17C7DD8F864D9D041CC1153F8FCE0CB28CFF4C94A0AB9D0154B55075` |
 | `rail_physics_support.h` | `04C5BF42699536FB44428A4BFAF573EB06912813CD700E41CD4BAAF0B4E37A83` |
 | `rail_physics.ini` | `D61C22946A9BA0503977580A0343DEAE2BE0715FEED43E6EA531A06E9F3B8DB8` |
 | `rail_physics_stubs.h` | `3516D15E6CDA89216B462AC800EFA37824424E19BF78ECBFCEAB28D556D168D5` |
-| Ursprüngliche `railphysics.dll` | `EE54F6430BF0773CCD79FD7452B108B364F8778326EB6D3D3342863A36B9FCC7` |
-| Ursprüngliche `railphysics.cpp` | `7F40A955B2CA54E448650C669BFDC9AFAD78F94BA4D15B05C34A1B08D3D19340` |
-| Ursprüngliche `railphysics.ini` | `F22BE07D5AF977B4F3E7D71A7DADE0AECE11369680FADE1DEEE82B06E1FB7981` |
-| Geprüfte `SOVIET64.exe` | `296644A9F207D609031FC2AE73FED2DCB34619A1D55A35D1C7B51965CE6841B8` |
+| Original `railphysics.dll` | `EE54F6430BF0773CCD79FD7452B108B364F8778326EB6D3D3342863A36B9FCC7` |
+| Original `railphysics.cpp` | `7F40A955B2CA54E448650C669BFDC9AFAD78F94BA4D15B05C34A1B08D3D19340` |
+| Original `railphysics.ini` | `F22BE07D5AF977B4F3E7D71A7DADE0AECE11369680FADE1DEEE82B06E1FB7981` |
+| Verified `SOVIET64.exe` | `296644A9F207D609031FC2AE73FED2DCB34619A1D55A35D1C7B51965CE6841B8` |
 
-Die geprüfte EXE hat PE-Zeitstempel `0x6A3EB6AD` und ImageSize `0xA9D000`.
-Die Header entsprechen bytegleich dem zum Build vorhandenen TesmioLoader-SDK.
-Die EXE, Original-DLL und Originalquelle werden nicht als Teil dieses Plugin-Ordners verteilt.
+The verified executable has PE timestamp `0x6A3EB6AD` and ImageSize `0xA9D000`. The headers
+match the TesmioLoader SDK available at build time byte for byte. The executable, the
+original DLL and the original source are not distributed as part of this plugin folder.
 
-## Einordnung
+### Assessment
 
-Die neuen Schutzmaßnahmen greifen bei fehlgeschlagenen Reservierungen, ungültigen
-Speicherbereichen/Zahlen oder Windows-API-Fehlern. Gültige Physik- und Routendaten
-werden mit den bisherigen Formeln verarbeitet. Ein fehlgeschlagener Zonenaufbau
-schaltet diese zusätzlichen Zonen bis zum nächsten erfolgreichen 30-Sekunden-Scan
-ab; Teilzustände und ungeprüfte alte Weltzeiger werden nicht wiederverwendet.
+The added safeguards act on failed allocations, invalid memory ranges/numbers or Windows
+API errors. Valid physics and route data are processed with the previous formulas. A failed
+zone build switches those additional zones off until the next successful 30-second scan;
+partial states and unverified old world pointers are not reused. (Superseded in 1.3.4:
+the previous tables are kept.)
 
-Zeitbasis, Simulationstick-Erkennung, Objektlebensdauer/Caches, INI-Politik,
-Scanbudgets und Hook-Gruppierung wurden nicht grundlegend umgebaut. Der direkte
-Rechenvergleich und die Offline-Tests ersetzen keinen Test im laufenden Spiel.
+Time base, simulation-tick detection, object lifetime/caches, INI policy, scan budgets and
+hook grouping were not fundamentally rebuilt. The direct numeric comparison and the offline
+tests do not replace a test in the running game.
