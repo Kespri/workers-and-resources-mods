@@ -336,7 +336,7 @@ static bool GenerationRun(void* terrain) {
             const char* reason=nullptr;
             if(!g_generationEnabled) reason="global generation disabled";
             else if(!d.generation.enabled) reason="resource generation disabled";
-            else if(!d.generation.count) reason="generation_count is zero";
+            else if(!d.generation.count) reason="region count is zero";
             else if(!g_generateLegacyEmpty && (priorPending || (g_generationLegacy && !g_generationHadState)))
                 reason="generate_existing_empty=0 protects legacy/pending empty records";
             else if(r.width!=DG::Side || r.height!=DG::Side) reason="generation requires 1024x1024 resource maps";
