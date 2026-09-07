@@ -1,0 +1,145 @@
+test_rail_physics.cpp
+   Bibliothek "build\test_rail_physics.lib" und Objekt "build\test_rail_physics.exp" werden erstellt.
+PASS: short host rejected
+rail_physics  [INFO] [general] [RP000] enabled = 0, nothing to do
+PASS: disabled, no writes
+rail_physics  [WARN] [config] [RP201] invalid numeric value curve_lateral_ms2='nan', using 0.9
+rail_physics  [INFO] [general] [RP000] 1.3.2-beta initialized; hooks deferred to Start; config=plugins\rail_physics.ini [railphysics]
+PASS: non-finite INI value rejected
+rail_physics  [INFO] [general] [RP000] 1.3.2-beta initialized; hooks deferred to Start; config=plugins\rail_physics.ini [railphysics]
+PASS: native mass/power, traction, resistance, signed grade, fuel, braking, span guards
+PASS: straight route, station zone, smooth-stop parabola, curved route
+PASS: 1100-node customs corridor, distances/component IDs stable through hash growth
+PASS: all 5 x64 bridges, fifth stack argument, shadow-space clobber, registers, flags, curve branch, grid SIB
+rail_physics  [INFO] [general] [RP000] 1.3.2-beta initialized; hooks deferred to Start; config=plugins\rail_physics.ini [railphysics]
+rail_physics  [WARN] [runtime] [RP104] realloc failed; previous allocation retained; suppressed repeats=0
+rail_physics  [WARN] [runtime] [RP103] station/customs table rebuild failed (allocation, span or geometry); incomplete tables discarded, retry at normal scan interval; suppressed repeats=0
+PASS: all 18 required zone-allocation sites fail cleanly, old/partial tables freed, retry succeeds; realloc preserves owner
+rail_physics  [INFO] [general] [RP000] 1.3.2-beta initialized; hooks deferred to Start; config=plugins\rail_physics.ini [railphysics]
+rail_physics  [WARN] [runtime] [RP100] unreadable vehicle; suppressed repeats=0
+rail_physics  [WARN] [runtime] [RP101] invalid wagon vector; suppressed repeats=0
+rail_physics  [WARN] [runtime] [RP102] invalid locomotive slope/weight/power; suppressed repeats=0
+rail_physics  [WARN] [runtime] [RP104] realloc failed; previous allocation retained; suppressed repeats=0
+rail_physics  [WARN] [runtime] [RP105] route point allocation failed; no partial limit published; suppressed repeats=0
+PASS: guard-page vehicle/vector/node bounds; numeric fallbacks; single fuel call; route-allocation recovery
+rail_physics  [INFO] [general] [RP000] 1.3.2-beta initialized; hooks deferred to Start; config=plugins\rail_physics.ini [railphysics]
+rail_physics  [ERROR] [patch] [RP301] call thunk RX: VirtualProtect(000002D0C8C9D000, 16) failed, Win32=5
+rail_physics  [ERROR] [patch] [RP301] call site write: VirtualProtect(000002D0C88A7970, 5) failed, Win32=5
+rail_physics  [ERROR] [patch] [RP302] call thunk publish: FlushInstructionCache(000002D0C8C9F000, 12) failed, Win32=1
+rail_physics  [ERROR] [patch] [RP301] call site restore: VirtualProtect(000002D0C88A7970, 5) failed, Win32=5
+rail_physics  [INFO] [general] [RP000] published fault call site redirected
+rail_physics  [ERROR] [patch] [RP302] call site publish: FlushInstructionCache(000002D0C88A7970, 5) failed, Win32=1
+rail_physics  [INFO] [general] [RP000] published fault call site redirected
+rail_physics  [ERROR] [patch] [RP301] slope branch write: VirtualProtect(000002D0C88A8655, 2) failed, Win32=5
+rail_physics  [ERROR] [patch] [RP302] slope branch publish: FlushInstructionCache(000002D0C88A8655, 2) failed, Win32=1
+rail_physics  [INFO] [general] [RP000] upstream slope branch redirect installed (1.1.1.9)
+rail_physics  [ERROR] [patch] [RP301] bridges RX: VirtualProtect(000002D0C7540000, 996) failed, Win32=5
+rail_physics  [ERROR] [patch] [RP302] bridges publish: FlushInstructionCache(000002D0C7540000, 996) failed, Win32=1
+PASS: protect/flush failures before publication leave site untouched; after publication hook stays counted/alive; RX bridges recover
+rail_physics  [INFO] [general] [RP000] 1.3.2-beta initialized; hooks deferred to Start; config=plugins\rail_physics.ini [railphysics]
+rail_physics  [WARN] [runtime] [RP102] repeat test; suppressed repeats=0
+rail_physics  [WARN] [runtime] [RP102] repeat test; suppressed repeats=999
+rail_physics  [INFO] [general] [RP000] customs: chain 0000022149DB8E10 entry[0]: seg=0000022149DBA020 n0=0000022149DB4720 n1=0000022149DB4590 e30=0000022149DB4720 (== seg n0) e30segs=1
+rail_physics  [INFO] [general] [RP000] customs: chain entry raw +0x00: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+rail_physics  [INFO] [general] [RP000] customs: chain entry raw +0x10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+rail_physics  [INFO] [general] [RP000] customs: chain entry raw +0x20: 20 a0 db 49 21 02 00 00 00 00 00 00 00 00 00 00 
+rail_physics  [INFO] [general] [RP000] customs: chain entry raw +0x30: 20 47 db 49 21 02 00 00 00 00 00 00 00 00 00 00 
+rail_physics  [INFO] [general] [RP000] customs: chain entry raw +0x40: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+rail_physics  [INFO] [general] [RP000] customs: chain entry raw +0x50: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+rail_physics  [INFO] [general] [RP000] customs: e30 node raw +0x00: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+rail_physics  [INFO] [general] [RP000] customs: e30 node raw +0x10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+rail_physics  [INFO] [general] [RP000] customs: e30 node raw +0x20: 00 00 00 00 00 00 00 00 28 f8 d1 78 33 00 00 00 
+rail_physics  [INFO] [general] [RP000] customs: e30 node raw +0x30: 30 f8 d1 78 33 00 00 00 00 00 00 00 00 00 00 00 
+rail_physics  [INFO] [general] [RP000] customs: zone 0: 1 segs, 1 conn seeds
+rail_physics  [INFO] [general] [RP000] customs: zone seed[0] 0000022149DB4590: +28=0000003378D1F828 +30=0000003378D1F830 -> 1 segs (ok)
+rail_physics  [INFO] [general] [RP000] customs: zone seed[1] 0000022149DB4720: +28=0000003378D1F828 +30=0000003378D1F830 -> 1 segs (ok)
+rail_physics  [INFO] [general] [RP000] customs: conn seed[0] 0000022149DB4720: +28=0000003378D1F828 +30=0000003378D1F830 -> 1 segs (ok)
+rail_physics  [INFO] [general] [RP000] customs: corridor build: 2 zone + 1 conn seeds, 2 nodes visited, 1 segs tagged (complete)
+rail_physics  [INFO] [general] [RP000] stations: 1 track segments in station zones, 2 stop nodes
+rail_physics  [INFO] [general] [RP000] customs: 1 segments in 1 customhouse zones, max depth 100 m, corridors 1 segs / max 0 m
+PASS: warnings limited per rule, warning recovery, debug-off customs silence, debug-on diagnostics, separate plugin log
+rail_physics  [INFO] [general] [RP000] 1.3.2-beta initialized; hooks deferred to Start; config=plugins\rail_physics.ini [railphysics]
+rail_physics  [ERROR] [compatibility] [RP401] unsupported executable: timestamp=00000000 image=00A9D000; require WRSR 1.1.1.9 b23935965
+rail_physics  [ERROR] [compatibility] [RP402] could not find .text, aborting
+PASS: unsupported/conflicting image rejected without writes
+rail_physics  [INFO] [general] [RP000] 1.3.2-beta initialized; hooks deferred to Start; config=plugins\rail_physics.ini [railphysics]
+rail_physics  [INFO] [general] [RP000] curve site at +006A8436 (sig CURVE)
+rail_physics  [INFO] [general] [RP000] brake site at +006A8553 (sig BRAKE)
+rail_physics  [INFO] [general] [RP000] slope site A at +006A862D (sig SLOPE_A)
+rail_physics  [INFO] [general] [RP000] slope site B at +006A8676 (sig SLOPE_B)
+rail_physics  [INFO] [general] [RP000] grid site at +001BDF8C (sig GRID)
+rail_physics  [INFO] [general] [RP000] divisor call at +006A7970 -> fn +00698C50 (sig CALL_DIV)
+rail_physics  [INFO] [general] [RP000] fuel calls at +006A784F/+006A7896 -> fn +006B3B50 (sig CALL_FUEL)
+rail_physics  [INFO] [general] [RP000] chain vector at +009E6A18 (sig CHAIN_VEC)
+rail_physics  [ERROR] [compatibility] [RP403] slope A: missing/changed 1.1.1.9 instruction block (or conflicting plugin); no hooks installed
+PASS: unsupported/conflicting image rejected without writes
+rail_physics  [INFO] [general] [RP000] 1.3.2-beta initialized; hooks deferred to Start; config=plugins\rail_physics.ini [railphysics]
+rail_physics  [INFO] [general] [RP000] curve site at +006A8436 (sig CURVE)
+rail_physics  [INFO] [general] [RP000] slope site A at +006A862D (sig SLOPE_A)
+rail_physics  [INFO] [general] [RP000] slope site B at +006A8676 (sig SLOPE_B)
+rail_physics  [INFO] [general] [RP000] grid site at +001BDF8C (sig GRID)
+rail_physics  [INFO] [general] [RP000] divisor call at +006A7970 -> fn +00698C50 (sig CALL_DIV)
+rail_physics  [INFO] [general] [RP000] fuel calls at +006A784F/+006A7896 -> fn +006B3B50 (sig CALL_FUEL)
+rail_physics  [INFO] [general] [RP000] chain vector at +009E6A18 (sig CHAIN_VEC)
+rail_physics  [ERROR] [compatibility] [RP403] brake: missing/changed 1.1.1.9 instruction block (or conflicting plugin); no hooks installed
+PASS: unsupported/conflicting image rejected without writes
+rail_physics  [INFO] [general] [RP000] 1.3.2-beta initialized; hooks deferred to Start; config=plugins\rail_physics.ini [railphysics]
+rail_physics  [INFO] [general] [RP000] curve site at +006A8436 (sig CURVE)
+rail_physics  [INFO] [general] [RP000] slope site A at +006A862D (sig SLOPE_A)
+rail_physics  [INFO] [general] [RP000] slope site B at +006A8676 (sig SLOPE_B)
+rail_physics  [INFO] [general] [RP000] grid site at +001BDF8C (sig GRID)
+rail_physics  [INFO] [general] [RP000] divisor call at +006A7970 -> fn +00698C50 (sig CALL_DIV)
+rail_physics  [INFO] [general] [RP000] fuel calls at +006A784F/+006A7896 -> fn +006B3B50 (sig CALL_FUEL)
+rail_physics  [INFO] [general] [RP000] chain vector at +009E6A18 (sig CHAIN_VEC)
+rail_physics  [ERROR] [compatibility] [RP403] brake: missing/changed 1.1.1.9 instruction block (or conflicting plugin); no hooks installed
+PASS: unsupported/conflicting image rejected without writes
+rail_physics  [INFO] [general] [RP000] 1.3.2-beta initialized; hooks deferred to Start; config=plugins\rail_physics.ini [railphysics]
+rail_physics  [INFO] [general] [RP000] curve site at +006A8436 (sig CURVE)
+rail_physics  [INFO] [general] [RP000] brake site at +006A8553 (sig BRAKE)
+rail_physics  [INFO] [general] [RP000] slope site A at +006A862D (sig SLOPE_A)
+rail_physics  [INFO] [general] [RP000] slope site B at +006A8676 (sig SLOPE_B)
+rail_physics  [INFO] [general] [RP000] grid site at +001BDF8C (sig GRID)
+rail_physics  [INFO] [general] [RP000] divisor call at +006A7970 -> fn +00698C50 (sig CALL_DIV)
+rail_physics  [INFO] [general] [RP000] fuel calls at +006A784F/+006A7896 -> fn +006B3B50 (sig CALL_FUEL)
+rail_physics  [INFO] [general] [RP000] chain vector at +009E6A18 (sig CHAIN_VEC)
+rail_physics  [INFO] [general] [RP000] accel/divisor call site redirected
+rail_physics  [INFO] [general] [RP000] fuel (cruise) call site redirected
+rail_physics  [INFO] [general] [RP000] fuel (station) call site redirected
+rail_physics  [INFO] [general] [RP000] upstream slope branch redirect installed (1.1.1.9)
+rail_physics  [INFO] [general] [RP000] 9 subsystem(s) patched
+PASS: Init/Start, call rewrites, inline hooks, RX bridges, repeated Start; active patches never unloaded
+rail_physics  [INFO] [general] [RP000] 1.3.2-beta initialized; hooks deferred to Start; config=plugins\rail_physics.ini [railphysics]
+rail_physics  [INFO] [general] [RP000] curve site at +006A8436 (sig CURVE)
+rail_physics  [INFO] [general] [RP000] brake site at +006A8553 (sig BRAKE)
+rail_physics  [INFO] [general] [RP000] slope site A at +006A862D (sig SLOPE_A)
+rail_physics  [INFO] [general] [RP000] slope site B at +006A8676 (sig SLOPE_B)
+rail_physics  [INFO] [general] [RP000] grid site at +001BDF8C (sig GRID)
+rail_physics  [INFO] [general] [RP000] divisor call at +006A7970 -> fn +00698C50 (sig CALL_DIV)
+rail_physics  [INFO] [general] [RP000] fuel calls at +006A784F/+006A7896 -> fn +006B3B50 (sig CALL_FUEL)
+rail_physics  [INFO] [general] [RP000] chain vector at +009E6A18 (sig CHAIN_VEC)
+rail_physics  [INFO] [general] [RP000] accel/divisor call site redirected
+rail_physics  [INFO] [general] [RP000] fuel (cruise) call site redirected
+rail_physics  [INFO] [general] [RP000] fuel (station) call site redirected
+rail_physics  [WARN] [patch] [RP304] slope hook installation incomplete; branch remains unchanged
+rail_physics  [INFO] [general] [RP000] 3 subsystem(s) patched
+rail_physics  [WARN] [patch] [RP303] only 3/9 requested patches installed; keep DLL loaded for safety, restart to retry
+PASS: Init/Start, call rewrites, inline hooks, RX bridges, repeated Start; active patches never unloaded
+rail_physics  [INFO] [general] [RP000] 1.3.2-beta initialized; hooks deferred to Start; config=plugins\rail_physics.ini [railphysics]
+rail_physics  [ERROR] [compatibility] [RP404] original railphysics.dll is also loaded; remove one version before restarting
+PASS: legacy-name duplicate rejected before publishing any hook
+rail_physics  [INFO] [general] [RP000] 1.3.2-beta initialized; hooks deferred to Start; config=plugins\rail_physics.ini [railphysics]
+rail_physics  [INFO] [general] [RP000] 1.3.2-beta initialized; hooks deferred to Start; config=plugins\rail_physics.ini [railphysics]
+rail_physics  [INFO] [general] [RP000] curve site at +006A8436 (sig CURVE)
+rail_physics  [INFO] [general] [RP000] brake site at +006A8553 (sig BRAKE)
+rail_physics  [INFO] [general] [RP000] slope site A at +006A862D (sig SLOPE_A)
+rail_physics  [INFO] [general] [RP000] slope site B at +006A8676 (sig SLOPE_B)
+rail_physics  [INFO] [general] [RP000] grid site at +001BDF8C (sig GRID)
+rail_physics  [INFO] [general] [RP000] divisor call at +006A7970 -> fn +00698C50 (sig CALL_DIV)
+rail_physics  [INFO] [general] [RP000] fuel calls at +006A784F/+006A7896 -> fn +006B3B50 (sig CALL_FUEL)
+rail_physics  [INFO] [general] [RP000] chain vector at +009E6A18 (sig CHAIN_VEC)
+rail_physics  [INFO] [general] [RP000] accel/divisor call site redirected
+rail_physics  [INFO] [general] [RP000] fuel (cruise) call site redirected
+rail_physics  [INFO] [general] [RP000] fuel (station) call site redirected
+rail_physics  [INFO] [general] [RP000] upstream slope branch redirect installed (1.1.1.9)
+rail_physics  [INFO] [general] [RP000] 9 subsystem(s) patched
+PASS: built DLL exports, version 1.3.2-beta and actual cross-module API-4 Init/Start in offline host

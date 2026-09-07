@@ -1,0 +1,8 @@
+parity_driver.cpp
+   Bibliothek "build\parity_reference.lib" und Objekt "build\parity_reference.exp" werden erstellt.
+parity_driver.cpp
+   Bibliothek "build\parity_current.lib" und Objekt "build\parity_current.exp" werden erstellt.
+Vergleichen der Dateien BUILD\parity_reference.txt und BUILD\PARITY_CURRENT.TXT
+FC: Keine Unterschiede gefunden
+
+cases=5120 values=62464 hash=E927BA1BB84487F7

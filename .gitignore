@@ -40,3 +40,14 @@ desktop.ini
 # WICHTIG: Folgende Spieldateien werden NIEMALS ignoriert und landen sicher im Repo:
 # .ini, .dds, .ntr, .lua, .txt, .xml, .obj, .fbx
 # =======================================================================
+
+# --- Build-Ausgaben der Plugins (nur Quelltext im Repository) ---
+build/
+runs/
+*.dll
+*.exp
+*.lib
+*.pdb
+*.ilk
+*.exe
+!plugins/*/verification/*.log

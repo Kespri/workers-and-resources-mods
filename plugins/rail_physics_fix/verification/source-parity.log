@@ -1,0 +1,3 @@
+PASS: 4 unchanged cache/table-query function bodies preserved
+Model/route runtime parity requires tests/compare_reference.bat (separate test).
+PASS: all 30 supplied INI entries preserved
