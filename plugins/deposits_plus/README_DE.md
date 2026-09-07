@@ -54,7 +54,7 @@ Vollständig konfigurierbare Rohstoffvorkommen für *Workers & Resources: Soviet
 - Auslaufende Ergiebigkeit (reich → schwach → leer)
 - Automatische Anpassung an Landesgrenze und Wasserläufe
 - Keine Überschneidung mit anderen Vorkommen
-- Zufälliger oder fester Startwert (Seed) je Spielwelt
+- Zufälliger oder fester Seed je Spielwelt
 
 #### 2️⃣ **Sandige Wiese** (`sand_surface`)
 - Visuelle Bodentextur auf Sandvorkommen
@@ -139,7 +139,7 @@ Falls `plugins\deposits.dll` existiert:
 
 ## 🧰 Republic Mod Manager
 
-Das Paket enthält im Ordner `config` ein Editor-Schema. Republic Mod Manager (ab 0.22.0) zeigt Deposits Plus damit in drei Reitern, deutsch und englisch:
+Das Paket enthält im Ordner `config` ein Editor-Schema. Republic Mod Manager (ab Version 0.4.0) zeigt Deposits Plus damit in drei Reitern, deutsch und englisch:
 
 - **Allgemein:** Hinweise, „Dateien nur lokal“, Knöpfe für diese Anleitung und die Plugin-Schalter Code-Patch, Minimap-Ebenen, Editor-Pinsel
 - **Sand-Struktur:** Sandige Wiese und Natürliche Verteilung
@@ -176,7 +176,7 @@ editor = 1
 generation = 1
 ; 1 füllt auch Kanäle, die früher als leer erfasst wurden; 0 schützt alte leere Kanäle
 generate_existing_empty = 1
-; 0 = zufälliger Startwert je neuer Welt; jede andere Zahl = reproduzierbar
+; 0 = zufälliger Seed je neuer Welt; jede andere Zahl = immer dieselbe Verteilung
 generation_seed = 0
 
 ; Abstände
@@ -212,7 +212,7 @@ map = terrain
 component = 1
 ; 1 legt einen eigenen Ressourcenkanal an und kopiert vorhandenen Sand dorthin
 independent_map = 1
-; 7 = Mine (Standard), 92 = Wasserwerk
+; 7 = Mine (Standard), 92 = Wasserbrunnen
 building_type = 7
 ; Suchradius der Mine: oil, ore, bauxite, gravel, wood, water, watersurface oder eine Zahl in Metern
 radius = gravel
@@ -285,7 +285,7 @@ Die DLL prüft diese Grenzen. Ein Wert außerhalb schaltet die Verteilung für d
 | 2  | mittel (Standard) |   350–550 m    |
 | 3  | groß              |   550–750 m    |
 
-**Hinweis:** Die Größe skaliert den ganzen Feldverlauf, nicht einzelne Punkte. Felder sind länglich und verzweigt, keine Kreise; mehrere getrennte Teilflächen eines Feldes zählen als ein Feld. Entlang seiner Hauptachse reicht ein Feld etwa über das 3,4- bis 4,6-Fache des Grundradius, große Felder brauchen entsprechend mehr freie Fläche. Ist eine Voreinstellung gesetzt, überschreibt sie die alten Detailangaben, gemischte Angaben werden im Log gemeldet.
+**Hinweis:** Die Größe skaliert das ganze Feld, nicht einzelne Punkte. Felder sind länglich und verzweigt, keine Kreise; getrennte Teilflächen zählen als ein Feld. Entlang seiner Hauptachse reicht ein Feld etwa über das 3,4- bis 4,6-Fache des Grundradius, große Felder brauchen entsprechend Platz.
 
 ---
 
@@ -401,7 +401,7 @@ sand surface shader preparation: 13/13 verified native programs augmented
 
 ### Was macht es?
 
-Ein Vorkommen kann die Fahrzeugfähigkeit des Kiesabbaus übernehmen. Beispiel: Sand mit **Kiesbagger**.
+Ein Vorkommen kann die Fahrzeugfähigkeit des Kiesabbaus übernehmen. Beispiel: Sand mit den **Baggern, die auch Kies fördern**.
 
 ### Einstellung
 
@@ -418,7 +418,7 @@ building_type         = 7
 
 Ein anderer Wert ergibt eine Warnung im Log und wirkt wie `none`. Groß- und Kleinschreibung ist egal.
 
-**Zwingend notwendig**
+**Voraussetzung**
 - `building_type = 7` (Mine). Sonst wird die Fahrzeugzuordnung mit Warnung abgeschaltet, das Vorkommen bleibt erhalten.
 
 ### Wie funktioniert es?
@@ -471,8 +471,8 @@ Ist `plugins\deposits.dll` vorhanden und in tesmioloader.ini eingeschaltet:
 - **`tesmio_deposits.bin`** speichert zusätzlich:
   - Vorkommen-Identitäten (Token)
   - Kanal-Zuordnungen
-  - Startwert der Verteilung (Reproduzierbarkeit)
-  - Historie entfernter Vorkommen
+  - Seed der Verteilung (gleicher Seed, gleiche Verteilung)
+  - Liste der entfernten Vorkommen
 
 ### Spielstandsicherung
 
@@ -488,7 +488,7 @@ MeinSpiel\
 ### Versionskompatibilität
 
 - **Zurück auf eine ältere Fassung:** alte DLL und die dazugehörige INI wiederherstellen; für einen Rückweg vor 1.6 zusätzlich den alten Spielstand, weil Kanalzuordnung und Sanddaten in `tesmio_deposits.bin` nicht zurückmigriert werden
-- **Update auf 0.4.0 (vorher 1.8.x):** automatisch; die alten Detailschlüssel `generation_count`, `generation_radius_min_m` und `generation_radius_max_m` werden nicht mehr gelesen, Häufigkeit und Größenklasse ersetzen sie Die Versionszählung beginnt mit der Überarbeitung neu in der Beta; 0.4.0 folgt auf 1.8.1.
+- **Update auf 0.4.0 (vorher 1.8.x):** automatisch; die alten Detailschlüssel `generation_count`, `generation_radius_min_m` und `generation_radius_max_m` werden nicht mehr gelesen, Häufigkeit und Größenklasse ersetzen sie. Die Versionszählung beginnt mit der Überarbeitung neu in der Beta; 0.4.0 folgt auf 1.8.1.
 - **Mit Deposit Depletion:** funktioniert weiter wie immer, der Schlüssel `deplete` wird an das Plugin depletion durchgereicht
 
 ---
@@ -502,8 +502,8 @@ MeinSpiel\
 | Deposits Plus tut nichts    | Original deposits eingeschaltet                             | Log auf `deposits_plus  idle` prüfen, Original ausschalten                       |
 | Vorkommen nicht verteilt    | `generation = 0` oder ungültiger Wert                       | Log auf `generation WARN` prüfen, Wert in den Bereich bringen                    |
 | Texturen nicht sichtbar     | Assets-Ordner fehlt oder kein eigener Kanal                 | `deposits_plus\assets` neben der DLL oder unter `plugins`; `independent_map = 1` |
-| Fahrzeuge fahren nicht      | `working_vehicle_skill` falsch oder `building_type` nicht 7 | Log auf `vehicles WARN` prüfen                                                   |
-| Alte Vorkommen weg          | INI zu stark geändert                                       | Spielstand wiederherstellen, neu übernehmen                                      |
+| Bagger arbeiten nicht       | `working_vehicle_skill` falsch oder `building_type` nicht 7 | Log auf `vehicles WARN` prüfen                                                   |
+| Alte Vorkommen weg          | INI stark umgebaut                                          | Spielstand wiederherstellen, neu übernehmen                                      |
 
 ### Logging
 

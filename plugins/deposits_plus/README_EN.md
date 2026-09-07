@@ -139,7 +139,7 @@ If `plugins\deposits.dll` exists:
 
 ## 🧰 Republic Mod Manager
 
-The package ships an editor schema in the `config` folder. Republic Mod Manager (0.22.0 and later) shows Deposits Plus with three tabs, in German and English:
+The package ships an editor schema in the `config` folder. Republic Mod Manager (version 0.4.0 and later) shows Deposits Plus with three tabs, in German and English:
 
 - **General:** notices, "Files local only", buttons for this guide, and the plugin switches code patch, minimap layers, editor brushes
 - **Sand structure:** sandy meadow and natural generation
@@ -176,7 +176,7 @@ editor = 1
 generation = 1
 ; 1 also fills channels recorded as empty earlier; 0 protects old empty channels
 generate_existing_empty = 1
-; 0 = random seed per new world; any other number = reproducible
+; 0 = random seed per new world; any other number = always the same layout
 generation_seed = 0
 
 ; Distances
@@ -285,7 +285,7 @@ The DLL checks these limits. A value outside them switches generation off for th
 | 2   | medium (default) |   350–550 m   |
 | 3   | large            |   550–750 m   |
 
-**Note:** the size scales the whole course of a field, not single points. Fields are elongated and branched, not circles; several separated pieces of one field count as one field. Along its main axis a field spans about 3.4 to 4.6 times the base radius, so large fields need correspondingly more free area. A preset overrides the legacy detail settings; mixed settings are reported in the log.
+**Note:** the size scales the whole field, not single points. Fields are elongated and branched, not circles; separate pieces count as one field. Along its main axis a field spans about 3.4 to 4.6 times the base radius, so large fields need room.
 
 ---
 
@@ -401,7 +401,7 @@ sand surface shader preparation: 13/13 verified native programs augmented
 
 ### What does it do?
 
-A deposit can borrow the vehicle skill of gravel mining. Example: sand with a **gravel excavator**.
+A deposit can borrow the vehicle skill of gravel mining. Example: sand with the **excavators that also mine gravel**.
 
 ### Setting
 
@@ -418,7 +418,7 @@ building_type         = 7
 
 Any other value produces a warning in the log and acts like `none`. Case does not matter.
 
-**Mandatory**
+**Requirement**
 - `building_type = 7` (mine). Otherwise the vehicle assignment is disabled with a warning; the deposit itself is kept.
 
 ### How does it work?
@@ -471,8 +471,8 @@ If `plugins\deposits.dll` exists and is enabled in tesmioloader.ini:
 - **`tesmio_deposits.bin`** additionally stores:
   - deposit identities (tokens)
   - channel assignments
-  - the generation seed (reproducibility)
-  - the history of removed deposits
+  - the generation seed (same seed, same layout)
+  - the list of removed deposits
 
 ### Backing up saves
 
@@ -488,7 +488,7 @@ MyGame\
 ### Version compatibility
 
 - **Going back to an older version:** restore the old DLL and its matching INI; for a way back before 1.6 also the old savegame, because channel mapping and sand data in `tesmio_deposits.bin` are not migrated back
-- **Update to 0.4.0 (previously 1.8.x):** automatic; the legacy detail keys `generation_count`, `generation_radius_min_m` and `generation_radius_max_m` are no longer read, frequency and size class replace them Version numbering restarts in beta with the rework; 0.4.0 follows 1.8.1.
+- **Update to 0.4.0 (previously 1.8.x):** automatic; the legacy detail keys `generation_count`, `generation_radius_min_m` and `generation_radius_max_m` are no longer read, frequency and size class replace them. Version numbering restarts in beta with the rework; 0.4.0 follows 1.8.1.
 - **With Deposit Depletion:** keeps working as before; the key `deplete` is passed on to the depletion plugin
 
 ---
@@ -502,8 +502,8 @@ MyGame\
 | Deposits Plus does nothing | original deposits enabled                                  | check the log for `deposits_plus  idle`, switch the original off                |
 | Deposits not generated     | `generation = 0` or an invalid value                       | check the log for `generation WARN`, bring the value into range                 |
 | Textures not visible       | assets folder missing or no independent channel            | `deposits_plus\assets` beside the DLL or under `plugins`; `independent_map = 1` |
-| Vehicles do not work       | `working_vehicle_skill` wrong or `building_type` not 7     | check the log for `vehicles WARN`                                               |
-| Old deposits gone          | INI changed too much                                       | restore the saved game, adopt it again                                          |
+| Excavators do not work     | `working_vehicle_skill` wrong or `building_type` not 7     | check the log for `vehicles WARN`                                               |
+| Old deposits gone          | INI heavily rebuilt                                        | restore the saved game, adopt it again                                          |
 
 ### Logging
 
