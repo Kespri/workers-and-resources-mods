@@ -1,4 +1,4 @@
-# 🏭 Deposits Plus 1.8.1-beta
+# 🏭 Deposits Plus 0.4.0
 
 **Extension of the TesmioLoader plugin deposits**
 
@@ -488,8 +488,7 @@ MyGame\
 ### Version compatibility
 
 - **Going back to an older version:** restore the old DLL and its matching INI; for a way back before 1.6 also the old savegame, because channel mapping and sand data in `tesmio_deposits.bin` are not migrated back
-- **Update to 1.8.0:** automatic, the new functions are optional
-- **Update to 1.8.1:** automatic; the legacy detail keys `generation_count`, `generation_radius_min_m` and `generation_radius_max_m` are no longer read, frequency and size class replace them
+- **Update to 0.4.0 (previously 1.8.x):** automatic; the legacy detail keys `generation_count`, `generation_radius_min_m` and `generation_radius_max_m` are no longer read, frequency and size class replace them Version numbering restarts in beta with the rework; 0.4.0 follows 1.8.1.
 - **With Deposit Depletion:** keeps working as before; the key `deplete` is passed on to the depletion plugin
 
 ---
@@ -592,5 +591,5 @@ A: No. Republic Mod Manager shows every setting with a description, checks the v
 
 ---
 
-**Last update:** Deposits Plus 1.8.1-beta  
+**Last update:** Deposits Plus 0.4.0  
 **For:** WRSR 1.1.1.9 | TesmioLoader API 4

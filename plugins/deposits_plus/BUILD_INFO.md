@@ -9,7 +9,11 @@ hash helper (see below). Service name `deposits` and the savegame file `tesmio_d
 deliberately stay identical to the original so consumers such as Depletion keep working.
 User documentation: README_DE.md / README_EN.md. History newest first.
 
-## 1.8.1-beta (2026-09-07)
+## 0.4.0 (2026-09-07)
+
+Version numbering restarts in beta with the September rework: 0.4.0 supersedes the unreleased
+1.8.1-beta build of the same day and follows 1.8.0-beta. Scheme from here on: 0.M.P, patch
+increments per change, the next minor when a change is large.
 
 - The legacy detail keys `generation_count`, `generation_radius_min_m` and
   `generation_radius_max_m` are no longer read; `generation_frequency` (1..6 regions) and

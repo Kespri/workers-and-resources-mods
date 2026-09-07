@@ -508,7 +508,7 @@ static void ValidateDeposits()
                 Logf("generation WARN [%s] independent map unavailable: no free channel; terrain left unchanged",d->name);
             }
         }
-        // Resolve presets after parsing the WHOLE section. Since 1.8.1 the presets
+        // Resolve presets after parsing the WHOLE section. Since 0.4.0 (the rework that followed 1.8.1) the presets
         // are the only way to size the generation: generation_count and the
         // radius keys are no longer read, an absent preset keeps the defaults.
         if(d->generationFrequency && !DG::ApplyFrequency(d->generation,d->generationFrequency)) d->generationInvalid=true;
@@ -3313,7 +3313,7 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
 {
     TsmBind(host);
     info->name    = "deposits_plus";
-    info->version = "1.8.1-beta";
+    info->version = "0.4.0";
 
     // deposits_plus is a fork of the upstream deposits plugin: same code sites,
     // same service name, same save file. Both loaded at once would double the

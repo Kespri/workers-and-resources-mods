@@ -1,4 +1,4 @@
-# 🏭 Deposits Plus 1.8.1-beta
+# 🏭 Deposits Plus 0.4.0
 
 **Erweiterung des TesmioLoader-Plugins deposits**
 
@@ -488,8 +488,7 @@ MeinSpiel\
 ### Versionskompatibilität
 
 - **Zurück auf eine ältere Fassung:** alte DLL und die dazugehörige INI wiederherstellen; für einen Rückweg vor 1.6 zusätzlich den alten Spielstand, weil Kanalzuordnung und Sanddaten in `tesmio_deposits.bin` nicht zurückmigriert werden
-- **Update auf 1.8.0:** automatisch, neue Funktionen sind optional
-- **Update auf 1.8.1:** automatisch; die alten Detailschlüssel `generation_count`, `generation_radius_min_m` und `generation_radius_max_m` werden nicht mehr gelesen, Häufigkeit und Größenklasse ersetzen sie
+- **Update auf 0.4.0 (vorher 1.8.x):** automatisch; die alten Detailschlüssel `generation_count`, `generation_radius_min_m` und `generation_radius_max_m` werden nicht mehr gelesen, Häufigkeit und Größenklasse ersetzen sie Die Versionszählung beginnt mit der Überarbeitung neu in der Beta; 0.4.0 folgt auf 1.8.1.
 - **Mit Deposit Depletion:** funktioniert weiter wie immer, der Schlüssel `deplete` wird an das Plugin depletion durchgereicht
 
 ---
@@ -592,5 +591,5 @@ A: Nein. Republic Mod Manager zeigt alle Einstellungen mit Beschreibung, prüft 
 
 ---
 
-**Letzte Aktualisierung:** Deposits Plus 1.8.1-beta  
+**Letzte Aktualisierung:** Deposits Plus 0.4.0  
 **Für:** WRSR 1.1.1.9 | TesmioLoader API 4
