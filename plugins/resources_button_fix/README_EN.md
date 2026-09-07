@@ -331,7 +331,7 @@ Through the Bridge or SML only the effective INI sits in `plugins`, the DLL stay
 
 ## 📜 Licence & credits
 
-The plugin contains no third-party code. The source code lives in the TesmioLoader source tree under `my_plugins\resources_button_fix`, not in this package.
+**GNU GPL v3**, see `LICENSE` in the package. The plugin contains no third-party code; the loader SDK header comes from the TesmioLoader by MaxLegend (GPL v3). The complete source lives at https://github.com/Kespri/workers-and-resources-mods/tree/main/plugins/resources_button_fix.
 
 ---
 

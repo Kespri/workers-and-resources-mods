@@ -400,7 +400,7 @@ tesmioloader\build\
 
 ## 📜 Licence & credits
 
-The plugin contains no third-party code. The source code lives in the TesmioLoader source tree under `my_plugins\technical_service_storage`, not in this package. The service header `grit_spreader_api.h` connects it with Weather Roads.
+**GNU GPL v3**, see `LICENSE` in the package. The plugin contains no third-party code; the loader SDK header comes from the TesmioLoader by MaxLegend (GPL v3). The complete source lives at https://github.com/Kespri/workers-and-resources-mods/tree/main/plugins/technical_service_storage. The service header `grit_spreader_api.h` connects it with Weather Roads.
 
 ---
 

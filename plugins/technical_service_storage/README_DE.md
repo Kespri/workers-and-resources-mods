@@ -400,7 +400,7 @@ tesmioloader\build\
 
 ## 📜 Lizenz & Credits
 
-Das Plugin enthält keinen fremden Code. Der Quellcode liegt im TesmioLoader-Quellbaum unter `my_plugins\technical_service_storage`, nicht in diesem Paket. Der Service-Header `grit_spreader_api.h` verbindet es mit Weather Roads.
+**GNU GPL v3**, siehe `LICENSE` im Paket. Das Plugin enthält keinen fremden Code; der Loader-SDK-Header stammt aus dem TesmioLoader von MaxLegend (GPL v3). Der vollständige Quelltext liegt unter https://github.com/Kespri/workers-and-resources-mods/tree/main/plugins/technical_service_storage. Der Service-Header `grit_spreader_api.h` verbindet es mit Weather Roads.
 
 ---
 
