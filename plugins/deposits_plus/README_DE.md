@@ -1,4 +1,4 @@
-# 🏭 Deposits Plus 1.8.0-beta
+# 🏭 Deposits Plus 1.8.1-beta
 
 **Erweiterung des TesmioLoader-Plugins deposits**
 
@@ -232,10 +232,6 @@ generation = 1
 generation_frequency = 5
 ; Größenklasse 1 bis 3 (siehe Tabelle), Standard 2
 generation_size = 3
-; Alte Detailangaben, nur wirksam, solange die Voreinstellung darüber fehlt:
-; generation_count = 3
-; generation_radius_min_m = 350
-; generation_radius_max_m = 550
 ; Ergiebigkeit 0.001 bis 1, unabhängig von den Voreinstellungen
 ; generation_richness_min = 0.45
 ; generation_richness_max = 1.00
@@ -260,8 +256,6 @@ Die DLL prüft diese Grenzen. Ein Wert außerhalb schaltet die Verteilung für d
 | `generation_water_clearance_m` | 0 bis 50 m | 2 |
 | `generation_frequency` | 1 bis 6 | 3 |
 | `generation_size` | 1 bis 3 | 2 |
-| `generation_count` | 0 bis 128 | 3 |
-| `generation_radius_min_m`, `_max_m` | 20 bis 3000 m | 350 / 550 |
 | `generation_richness_min`, `_max` | 0.001 bis 1 | 0.45 / 1.00 |
 | `sand_surface_strength` | 0 bis 1, sonst Bodendarstellung aus | 1.0 |
 | `type` | 10 bis 127 | Pflicht |
@@ -495,6 +489,7 @@ MeinSpiel\
 
 - **Zurück auf eine ältere Fassung:** alte DLL und die dazugehörige INI wiederherstellen; für einen Rückweg vor 1.6 zusätzlich den alten Spielstand, weil Kanalzuordnung und Sanddaten in `tesmio_deposits.bin` nicht zurückmigriert werden
 - **Update auf 1.8.0:** automatisch, neue Funktionen sind optional
+- **Update auf 1.8.1:** automatisch; die alten Detailschlüssel `generation_count`, `generation_radius_min_m` und `generation_radius_max_m` werden nicht mehr gelesen, Häufigkeit und Größenklasse ersetzen sie
 - **Mit Deposit Depletion:** funktioniert weiter wie immer, der Schlüssel `deplete` wird an das Plugin depletion durchgereicht
 
 ---
@@ -597,5 +592,5 @@ A: Nein. Republic Mod Manager zeigt alle Einstellungen mit Beschreibung, prüft 
 
 ---
 
-**Letzte Aktualisierung:** Deposits Plus 1.8.0-beta  
+**Letzte Aktualisierung:** Deposits Plus 1.8.1-beta  
 **Für:** WRSR 1.1.1.9 | TesmioLoader API 4

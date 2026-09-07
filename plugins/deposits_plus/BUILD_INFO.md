@@ -9,6 +9,19 @@ hash helper (see below). Service name `deposits` and the savegame file `tesmio_d
 deliberately stay identical to the original so consumers such as Depletion keep working.
 User documentation: README_DE.md / README_EN.md. History newest first.
 
+## 1.8.1-beta (2026-09-07)
+
+- The legacy detail keys `generation_count`, `generation_radius_min_m` and
+  `generation_radius_max_m` are no longer read; `generation_frequency` (1..6 regions) and
+  `generation_size` (1..3 radius classes) are the only way to size the generation, an absent
+  preset keeps the defaults (3 regions, class 2). The mixed-settings warning went with them;
+  an old INI that still carries the keys gets the usual unknown-key handling. Shipped INI,
+  READMEs and the RMM schema of the Workshop package no longer mention them.
+- Workshop package texts (schema, de/en) reworked by the user: shorter descriptions, the
+  saved-game warning moved to the Deposits tab, headings "Natural generation" and "Working
+  vehicles" in the detail panel (needs Republic Mod Manager 0.34.4).
+- No change to hooks, savegame format or `tesmio_deposits.bin`.
+
 ## 1.8.0-beta (2026-09-06)
 
 - Assets are looked up beside the DLL first (`<DLL folder>\deposits_plus\assets`), then under

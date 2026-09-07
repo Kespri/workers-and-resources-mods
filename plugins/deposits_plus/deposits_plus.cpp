@@ -130,8 +130,7 @@ struct DepositDef
     bool  workingVehicleSkillSet;
     DG::Settings generation;
     bool generationInvalid;
-    unsigned generationFrequency, generationSize;
-    bool generationCountSet, generationRadiusSet;
+    unsigned generationFrequency, generationSize;   // presets; 0 = default (3 regions, size class 2)
     bool independentMap;
     int legacyTerrainComponent;
 
@@ -205,9 +204,6 @@ static bool GenerationSetting(DepositDef* d,const char* key,const char* value)
         else if(KeyIs(key,"independent_map")) { valid=GenerationNumber(value,0,1,&n) && n==floor(n); if(valid) d->independentMap=n!=0; }
         else if(KeyIs(key,"generation_frequency")) { valid=GenerationNumber(value,1,6,&n) && n==floor(n); if(valid) d->generationFrequency=(unsigned)n; }
         else if(KeyIs(key,"generation_size")) { valid=GenerationNumber(value,1,3,&n) && n==floor(n); if(valid) d->generationSize=(unsigned)n; }
-        else if(KeyIs(key,"generation_count")) { valid=GenerationNumber(value,0,128,&n) && n==floor(n); d->generationCountSet=true; if(valid) d->generation.count=(unsigned)n; }
-        else if(KeyIs(key,"generation_radius_min_m")) { valid=GenerationNumber(value,20,3000,&n); d->generationRadiusSet=true; if(valid) d->generation.radiusMin=(float)n; }
-        else if(KeyIs(key,"generation_radius_max_m")) { valid=GenerationNumber(value,20,3000,&n); d->generationRadiusSet=true; if(valid) d->generation.radiusMax=(float)n; }
         else if(KeyIs(key,"generation_richness_min")) { valid=GenerationNumber(value,.001,1,&n); if(valid) d->generation.richnessMin=(float)n; }
         else if(KeyIs(key,"generation_richness_max")) { valid=GenerationNumber(value,.001,1,&n); if(valid) d->generation.richnessMax=(float)n; }
         else known=false;
@@ -512,21 +508,16 @@ static void ValidateDeposits()
                 Logf("generation WARN [%s] independent map unavailable: no free channel; terrain left unchanged",d->name);
             }
         }
-        // Resolve presets after parsing the WHOLE section; line order must not
-        // decide precedence. Legacy exact values still work without presets.
-        if(d->generationFrequency) {
-            if(d->generationCountSet) Logf("generation WARN [%s] generation_frequency=%u overrides generation_count; remove the detail key to avoid mixed settings",d->name,d->generationFrequency);
-            if(!DG::ApplyFrequency(d->generation,d->generationFrequency)) d->generationInvalid=true;
-        }
-        if(d->generationSize) {
-            if(d->generationRadiusSet) Logf("generation WARN [%s] generation_size=%u overrides generation_radius_min_m/max_m; remove detail keys to avoid mixed settings",d->name,d->generationSize);
-            if(!DG::ApplySize(d->generation,d->generationSize)) d->generationInvalid=true;
-        }
+        // Resolve presets after parsing the WHOLE section. Since 1.8.1 the presets
+        // are the only way to size the generation: generation_count and the
+        // radius keys are no longer read, an absent preset keeps the defaults.
+        if(d->generationFrequency && !DG::ApplyFrequency(d->generation,d->generationFrequency)) d->generationInvalid=true;
+        if(d->generationSize && !DG::ApplySize(d->generation,d->generationSize)) d->generationInvalid=true;
         if(d->generationInvalid || !DG::ValidSettings(d->generation)) {
             d->generation.enabled=false;
             Logf("generation WARN [%s] invalid radius/richness bounds; automatic placement disabled",d->name);
         }
-        Logf("generation settings [%s]: enabled=%d shape=natural frequency=%u size=%u regions=%u base_radius=%.0f..%.0fm richness=%.2f..%.2f (preset 0=legacy/default)",
+        Logf("generation settings [%s]: enabled=%d shape=natural frequency=%u size=%u regions=%u base_radius=%.0f..%.0fm richness=%.2f..%.2f (preset 0=default)",
              d->name,d->generation.enabled,d->generationFrequency,d->generationSize,d->generation.count,
              d->generation.radiusMin,d->generation.radiusMax,d->generation.richnessMin,d->generation.richnessMax);
 
@@ -3322,7 +3313,7 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
 {
     TsmBind(host);
     info->name    = "deposits_plus";
-    info->version = "1.8.0-beta";
+    info->version = "1.8.1-beta";
 
     // deposits_plus is a fork of the upstream deposits plugin: same code sites,
     // same service name, same save file. Both loaded at once would double the
