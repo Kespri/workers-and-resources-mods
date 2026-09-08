@@ -1,4 +1,4 @@
-# 🚆 Rail Physics Fix 1.3.4-beta
+# 🚆 Rail Physics Fix 1.3.5
 
 **TesmioLoader plugin for physical train dynamics**
 
@@ -51,6 +51,10 @@ Extends the train physics of *Workers & Resources: Soviet Republic* 1.1.1.9: tra
 - ✅ Optional grid-wide transfer-ceiling multiplier
 - ✅ Strict executable preflight, signature check of every hook site, verified bridges and allocations
 - ✅ Three independent diagnostic switches; warnings always stay visible
+
+### 🆕 New in 1.3.5
+- ✅ Every Republic Mod Manager text reworked in player style: notice and info box on General, "Log settings" instead of "Diagnostic log", brake margin with the brakes, "curve and route look-ahead" everywhere.
+- ✅ In-game test confirmed in the log: 9 subsystems patched, curve limits, station stop, station zone and consumption model working. Physics, hooks and values unchanged from 1.3.4.
 
 ### 🆕 New in 1.3.4
 A source comparison with the original RailPhysics 1.3.0 showed that some of the 1.3.2 safeguards were stricter than the original and could stall a train or discard every zone where the original kept going. 1.3.4 returns to the original's degrading behaviour there; the physics is unchanged:
@@ -129,9 +133,9 @@ Choose **one** of the four methods. The same DLL must never be loaded twice, and
 
 The package contains a presentation schema in the `config` folder. Republic Mod Manager shows Rail Physics Fix in four tabs, German and English:
 
-- **General:** notes, "Files local only", a button for this guide; feature switches and diagnostic logging
-- **Traction and braking:** adhesion, power, Davis coefficients, grade scale, brake rates
-- **Curves and stations:** station limit, lateral acceleration, brake margin, lookahead, customs entry
+- **General:** notes (warning and info box), "Files local only", a button for this guide; feature switches and log settings
+- **Traction and braking:** adhesion, power, Davis coefficients, gradient factor, brake rates, brake margin
+- **Curve and route look-ahead:** station limit, lateral acceleration, look-ahead range, customs entry
 - **Fuel and electricity:** idle load, load factor, electric demand, grid multiplier
 
 The schema's ranges are editor limits; the plugin itself validates only `power_scale` (0.1 to 5.0) and `grid_boost` (at most 10). Republic Mod Manager writes the effective file `plugins\rail_physics_fix.ini`; the INI in the package stays unchanged.
@@ -201,7 +205,7 @@ Resistance: `R = mass_t × (A + B × v_kmh) + C × v_kmh²`. `grade_scale = 0.06
 | `station_limit_kmh` | 60 | 30 | limit of detected station zones |
 | `curve_lateral_ms2` | 1.4 | 0.9 | lateral acceleration: curve speed = √(a × radius) |
 | `curve_brake_margin` | 1.25 | 1.25 | divisor of the service brake in the lookahead budget (1.25 = 80 %) |
-| `curve_lookahead_m` | 1200 | 1200 | base lookahead, grows with the stopping distance + 150 m, at most 8000 m |
+| `curve_lookahead_m` | 1200 | 1200 | range of the curve and route look-ahead, grows with the stopping distance + 150 m, at most 8000 m |
 | `customs_entry_kmh` | 50 | 50 | target speed at the customs entry |
 
 Station zones cover detected cargo, passenger and waiting-station track; the limit follows the train head. Smooth stops match the route end against detected station nodes and hand the last 25 m to native logic. Customs approaches combine zones, route end and precomputed track corridors. Station and customs tables are rebuilt every 30 seconds, so new facilities take effect with a delay.
@@ -246,6 +250,7 @@ No separate save format. Positions, speeds and consumption already affected stay
 - Other changes at the same hook sites are detected by the signature check and raise `RP401` to `RP406`.
 
 ### Version compatibility
+- **1.3.5:** texts and schema layout for Republic Mod Manager, in-game test confirmed; physics and hooks unchanged
 - **1.3.4:** the original's degrading behaviour on torn data, inactive wagons and memory failures; physics and hooks unchanged
 - **1.3.3:** INI fallback beside the DLL, schema in the package, test scenario `beside_dll`
 - **1.3.2:** unified version label, renamed to rail_physics_fix on 2026-09-05
@@ -340,5 +345,5 @@ A: Yes, following the rules in [Configuration](#-configuration). Republic Mod Ma
 
 ---
 
-**Last update:** Rail Physics Fix 1.3.4-beta  
+**Last update:** Rail Physics Fix 1.3.5  
 **For:** WRSR 1.1.1.9 | TesmioLoader API 4

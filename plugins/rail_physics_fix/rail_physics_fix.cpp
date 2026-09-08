@@ -1,4 +1,4 @@
-// rail_physics_fix 1.3.4-beta - RailPhysics 1.3.0 Windows/TesmioLoader port.
+// rail_physics_fix 1.3.5 - RailPhysics 1.3.0 Windows/TesmioLoader port.
 // GPL-3.0; upstream source and settings provided with railphysics.dll.
 // Supported executable: SOVIET64.exe 1.1.1.9 / b23935965 only.
 // The historical notes below describe 1.1.1.7; verified 1.1.1.9 sites follow.
@@ -58,7 +58,7 @@
 #define Logf RpInfo
 
 static_assert(sizeof(void*) == 8, "rail_physics_fix requires Windows x64");
-static const char kRailVersion[] = "1.3.4-beta";
+static const char kRailVersion[] = "1.3.5";
 static bool g_initialized;
 static bool g_started;
 static bool g_startAttempted;

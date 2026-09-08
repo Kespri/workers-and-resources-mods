@@ -1,4 +1,4 @@
-# 🚆 Rail Physics Fix 1.3.4-beta
+# 🚆 Rail Physics Fix 1.3.5
 
 **TesmioLoader-Plugin für physikalische Zugdynamik**
 
@@ -51,6 +51,10 @@ Erweitert in *Workers & Resources: Soviet Republic* 1.1.1.9 die Zugphysik: Antri
 - ✅ Optionaler netzweiter Multiplikator der Übertragungsgrenze
 - ✅ Strenge Vorprüfung der EXE, Signaturprüfung jeder Hookstelle, geprüfte Brücken und Speicherreservierungen
 - ✅ Drei unabhängige Diagnoseschalter; Warnungen bleiben immer sichtbar
+
+### 🆕 Neu in 1.3.5
+- ✅ Alle Texte für Republic Mod Manager im Spieler-Stil überarbeitet: Hinweis und Info-Box auf Allgemein, „Log-Einstellungen“ statt „Diagnoseprotokoll“, Bremsmarge bei den Bremsen, überall „Kurven- und Streckenvorschau“.
+- ✅ Spieltest im Log bestätigt: 9 Teilsysteme gepatcht, Kurvenlimits, Bahnhofshalt, Bahnhofszone und Verbrauchsmodell arbeiten. Physik, Hooks und Werte unverändert gegenüber 1.3.4.
 
 ### 🆕 Neu in 1.3.4
 Ein Quelltextvergleich mit dem Original RailPhysics 1.3.0 hat gezeigt, dass die Absicherungen aus 1.3.2 an einigen Stellen strenger waren als das Original und einen Zug stilllegen oder alle Zonen verwerfen konnten, wo das Original weiterfuhr. 1.3.4 kehrt dort zum degradierenden Verhalten des Originals zurück; die Physik bleibt unverändert:
@@ -129,9 +133,9 @@ Wähle **eine** der vier Methoden. Dieselbe DLL darf nie zweimal geladen werden,
 
 Das Paket enthält im Ordner `config` ein Darstellungsschema. Republic Mod Manager zeigt Rail Physics Fix damit in vier Reitern, deutsch und englisch:
 
-- **Allgemein:** Hinweise, „Dateien nur lokal“, Knopf für diese Anleitung; Funktionsschalter und Diagnoseprotokoll
-- **Antrieb und Bremsen:** Haftung, Leistung, Davis-Koeffizienten, Steigungsfaktor, Bremsraten
-- **Kurven und Bahnhöfe:** Bahnhofslimit, seitliche Beschleunigung, Bremsmarge, Vorschauweite, Zoll-Einfahrt
+- **Allgemein:** Hinweise (Warnung und Info-Box), „Dateien nur lokal“, Knopf für diese Anleitung; Funktionsschalter und Log-Einstellungen
+- **Antrieb und Bremsen:** Haftung, Leistung, Davis-Koeffizienten, Steigungsfaktor, Bremsraten, Bremsmarge
+- **Kurven- und Streckenvorschau:** Bahnhofslimit, seitliche Beschleunigung, Weite der Vorschau, Zoll-Einfahrt
 - **Treibstoff und Strom:** Leerlaufanteil, Lastfaktor, elektrischer Bedarf, Netzmultiplikator
 
 Die Wertebereiche des Schemas sind Editorgrenzen; das Plugin selbst prüft nur `power_scale` (0.1 bis 5.0) und `grid_boost` (höchstens 10). Republic Mod Manager schreibt die wirksame Datei `plugins\rail_physics_fix.ini`; die INI im Paket bleibt unverändert.
@@ -201,7 +205,7 @@ Widerstand: `R = Masse_t × (A + B × v_kmh) + C × v_kmh²`. `grade_scale = 0.0
 | `station_limit_kmh` | 60 | 30 | Limit erkannter Bahnhofszonen |
 | `curve_lateral_ms2` | 1.4 | 0.9 | seitliche Beschleunigung: Kurvengeschwindigkeit = √(a × Radius) |
 | `curve_brake_margin` | 1.25 | 1.25 | Teiler der Betriebsbremse im Vorschau-Budget (1.25 = 80 %) |
-| `curve_lookahead_m` | 1200 | 1200 | Basis-Vorschau, wächst mit der Anhaltestrecke + 150 m, höchstens 8000 m |
+| `curve_lookahead_m` | 1200 | 1200 | Weite der Kurven- und Streckenvorschau, wächst mit der Anhaltestrecke + 150 m, höchstens 8000 m |
 | `customs_entry_kmh` | 50 | 50 | Zielgeschwindigkeit an der Zoll-Einfahrt |
 
 Bahnhofszonen umfassen erkannte Fracht-, Personen- und Wartebahnhofsgleise; das Limit folgt dem Zugkopf. Sanfte Halte gleichen das Routenende mit erkannten Bahnhofsknoten ab und übergeben die letzten etwa 25 m an die native Logik. Zollanfahrten verbinden Zonen, Routenende und vorberechnete Gleiskorridore. Bahnhofs- und Zolltabellen werden alle 30 Sekunden neu aufgebaut; neue Anlagen wirken deshalb verzögert.
@@ -246,6 +250,7 @@ Kein eigenes Spielstandformat. Bereits beeinflusste Positionen, Geschwindigkeite
 - Andere Eingriffe an denselben Hookstellen werden durch die Signaturprüfung erkannt und lösen `RP401` bis `RP406` aus.
 
 ### Versionskompatibilität
+- **1.3.5:** Texte und Schema-Aufbau für Republic Mod Manager, Spieltest bestätigt; Physik und Hooks unverändert
 - **1.3.4:** degradierendes Verhalten des Originals bei zerrissenen Daten, inaktiven Wagen und Speicherfehlern; Physik und Hooks unverändert
 - **1.3.3:** INI-Fallback neben der DLL, Schema im Paket, Testszenario `beside_dll`
 - **1.3.2:** Versionsbezeichnung vereinheitlicht, Umbenennung zu rail_physics_fix am 05.09.2026
@@ -340,5 +345,5 @@ A: Ja, mit den Regeln aus [Konfiguration](#-konfiguration). Republic Mod Manager
 
 ---
 
-**Letzte Aktualisierung:** Rail Physics Fix 1.3.4-beta  
+**Letzte Aktualisierung:** Rail Physics Fix 1.3.5  
 **Für:** WRSR 1.1.1.9 | TesmioLoader API 4

@@ -4,6 +4,22 @@ Windows/TesmioLoader port of RailPhysics 1.3.0 by Meow Meow (TheRealMeowMeow00,
 https://github.com/TheRealMeowMeow00/WRSR_RailPhysics, Workshop item 3776784867), GPL v3.
 Target: SOVIET64.exe 1.1.1.9 (build 23935965), TesmioLoader API 4. History newest first.
 
+## 1.3.5 (2026-09-08)
+
+Declared finished by the user after the text review; version string is now plain `1.3.5`
+(user's numbering, no more -beta). No runtime change: physics, hooks, signatures, keys and
+defaults are those of 1.3.4. Package only: every RMM text (84 keys de/en plus the English schema
+fallbacks) rewritten in player style; `[launcher] notice` (restart, INI deletion) and
+`[launcher] info` (what the port fixed against RailPhysics 1.3.0) in the Notes card; group
+"Diagnostic log" renamed "Log settings"; group descriptions of the feature switches, the
+look-ahead and the grid dropped; `curve_brake_margin` shown in the Braking group; the look-ahead is
+named "curve and route look-ahead" everywhere (tab, group, field, descriptions); "shipped/code
+default" remarks removed from 13 field descriptions (RMM shows the shipped value itself).
+In-game test on 2026-09-08 (log 21:07-21:10): 9 subsystems patched, curve limits, station stop,
+station zone and consumption model observed on a 1313 t train; customs approach and emergency
+brake not exercised. Open cosmetic item: `gapcust`/`gapstat` print FLT_MAX when no customs node
+is in range. Backup: `_backups\rail_physics_fix_1.3.4-beta_before_1.3.5_*`.
+
 ## 1.3.4-beta (2026-09-07)
 
 Trigger: a full source review against the original RailPhysics 1.3.0. Result of the review:

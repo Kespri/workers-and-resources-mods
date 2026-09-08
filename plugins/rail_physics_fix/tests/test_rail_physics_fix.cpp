@@ -256,7 +256,7 @@ int main(int argc,char** argv)
     assert(TsmPluginApiVersion()==4 && TsmPluginInit(&host,&info)==0);
     assert(configCalls>0);
     assert(!hookCalls&&!allocations && !strcmp(info.name,"rail_physics_fix"));
-    assert(info.version && !strcmp(info.version,"1.3.4-beta"));
+    assert(info.version && !strcmp(info.version,"1.3.5"));
     assert(Near(g.powerScale,1.5f) && Near(g.serviceBrake,1.6f) && Near(g.stationLimit,60));
     if(testMode=="bad_numeric") { assert(Near(g.curveLat,0.9f)); puts("PASS: non-finite INI value rejected"); return 0; }
     if(testMode=="model") { ModelTests(); RouteTests(); CorridorTests(); AbiTests(); return 0; }
@@ -272,10 +272,10 @@ int main(int argc,char** argv)
         auto start=(TsmPluginStartFn)GetProcAddress(module,TSM_EXPORT_START);
         assert(version && init && start && version()==4);
         assert(init(&host,&info)==0 && hookCalls==0 && allocations==0);
-        assert(info.version && !strcmp(info.version,"1.3.4-beta"));
+        assert(info.version && !strcmp(info.version,"1.3.5"));
         assert(start()==0 && hookCalls==5 && allocations==3);
         assert(start()==0 && hookCalls==5 && allocations==3);
-        puts("PASS: built DLL exports, version 1.3.4-beta and actual cross-module API-4 Init/Start in offline host");
+        puts("PASS: built DLL exports, version 1.3.5 and actual cross-module API-4 Init/Start in offline host");
         return 0; // do not unload a module after it has published hooks
     }
     if(testMode=="duplicate")
