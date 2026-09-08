@@ -1,4 +1,4 @@
-// vehicle_materials.cpp - Vehicle Materials 1.2.0-beta for WRSR.
+// vehicle_materials.cpp - Vehicle Materials 0.4.0 for WRSR.
 //
 // The plugin adds explicitly configured mod resources to the material list of
 // newly produced vehicles. resources.ini remains the authoritative registry;
@@ -44,7 +44,7 @@
 
 #define PLUGIN_INI      "vehicle_materials.ini"
 #define PLUGIN_OVERLAY  "user_config\\vehicle_materials.ini"
-#define PLUGIN_VERSION  "1.2.0-beta"
+#define PLUGIN_VERSION  "0.4.0"
 #define PLUGIN_LOG_NAME "tesmioloader.vehicle_materials.log"
 
 static const size_t MAX_INI_BYTES = 1u * 1024u * 1024u;

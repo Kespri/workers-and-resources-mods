@@ -1,4 +1,4 @@
-# 🚚 Vehicle Materials 1.2.0-beta
+# 🚚 Vehicle Materials 0.4.0
 
 **TesmioLoader-Plugin für zusätzliche Fahrzeugmaterialien**
 
@@ -302,6 +302,7 @@ Das Plugin verändert keine Spieldateien und speichert nichts im Spielstand. Mat
 
 ### Versionskompatibilität
 
+- **0.4.0 (vorher 1.2.0-beta):** gleiche DLL-Logik, neue Texte in Republic Mod Manager und im README; die Versionszählung beginnt mit der Überarbeitung neu in der Beta, 0.4.0 folgt auf 1.2.0
 - **1.2.0-beta:** liest die Konfiguration als Basis plus persönliches Overlay; die Berechnung der Materialien ist gegenüber 1.1.0 unverändert
 - **Zurück auf eine ältere Fassung:** alte DLL und die dazugehörige INI wiederherstellen
 - **Paketrevision 2 (2026-09-06):** Manifest mit `local_copy = 1`, DLL und INI unverändert
@@ -329,7 +330,7 @@ Erwartet bei erfolgreichem Start:
 ```
 vehicle_materials  Hook active at SOVIET64.exe+0x...
 vehicle_materials  Automatic mapping: type1=road, type6=ship, type7=airplane, other=rail
-vehicle_materials  v1.2.0-beta ready
+vehicle_materials  v0.4.0 ready
 ```
 
 Suche nach:
@@ -400,5 +401,5 @@ A: Nein. Republic Mod Manager bietet die Materialien aus resources.ini mit + an,
 
 ---
 
-**Letzte Aktualisierung:** Vehicle Materials 1.2.0-beta, Paketrevision 2  
+**Letzte Aktualisierung:** Vehicle Materials 0.4.0  
 **Für:** WRSR 1.1.1.9 | TesmioLoader API 4
