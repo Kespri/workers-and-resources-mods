@@ -133,9 +133,9 @@ Choose **one** of the four methods. The same DLL must never be loaded twice.
 
 The package contains an editor schema in the `config` folder. Republic Mod Manager (0.34.0 or newer) shows Technical Service Storage in four tabs, German and English:
 
-- **General:** notes, "Files local only", a button for this guide, the plugin settings (diagnostic log, UI debug limit) and the card "Depot storages and persistence" (storage migration, saving priorities and tanks, depot lifecycle)
-- **Grit materials:** the material list on the left, the selected material with its protection strength on the right; the plus button adds a material (internal resource name as text, with suggestions from the base game and the Resources plugin). Original lines can be hidden and shown again
-- **Depot window:** storage rows and Office Priority labels, priority controls, divider and warnings
+- **General:** notes, "Files local only", a button for this guide, the card "Persistence settings" (storage migration, saving priorities and tanks, depot lifecycle) and below it "Log settings" (diagnostic log, UI debug limit)
+- **Grit materials:** the material list on the left (up to 32), the selected material with its protection strength on the right; the plus button adds a material (internal resource name as text, suggestions grouped into custom resources from the Resources plugin and vanilla resources). Original lines can be hidden with the trash button and shown again
+- **Depot window:** storage rows and Office Priority labels, priority controls, divider line and warnings
 - **Grit operation:** consumption and detection, return to the home depot, tank capacity, vehicle display and timing
 
 Personal materials live in `user_config\technical_service_storage.editor.ini`, the effective file is `plugins\technical_service_storage.ini`; the INI in the package stays unchanged. Decimals are normalised when saving (`0.80` becomes `0.8`), which the plugin reads the same way.
@@ -160,7 +160,7 @@ The DLL reads in this order:
 |---|---|
 | `[general]` | `enabled`, `debug`, `debug_limit` (UI debug messages only) |
 | `[storage_migration]` | add missing storages on load |
-| `[ui]` | row spacing, Office Priority wrapping, priority controls, divider, material warnings |
+| `[ui]` | row spacing, Office Priority wrapping, priority controls, grit divider line, material warnings |
 | `[priority_persistence]` | save depot priorities per savegame |
 | `[tank_persistence]` | save grit tanks per savegame |
 | `[grit_materials]` | ordered material list, `name = strength` |
@@ -308,7 +308,7 @@ The resolved IDs have to lie between 2,000,000 and 2,999,999. Missing keys are r
 | Materials | at most 32; names up to 63 bytes, line up to 511 bytes |
 | Protection strength | 0.00 to 1.00 |
 | `debug_limit` | 0 to 10000 |
-| `[ui]` distances and sizes | `resource_gap` 0–50, label width 120–400, line height 12–28, offset X 100–800, offset Y -50–100, width 60–300, height 12–60, divider height 48–100 |
+| `[ui]` distances and sizes | `resource_gap` 0–50, label width 120–400, line height 12–28, offset X 100–800, offset Y -50–100, width 60–300, height 12–60, gap to the divider line 48–100 |
 | Consumption factor | 1 to 1000 percent |
 | Reserve threshold | 0 to 100 % |
 | Tank | weight share 0–50 %, 0–20 kg/kW, factor 10–500 %, step 1–1000 kg, minimum 1–10000 kg, maximum 1–20000 kg |

@@ -133,9 +133,9 @@ Wähle **eine** der vier Methoden. Dieselbe DLL darf nie zweimal geladen werden.
 
 Das Paket enthält im Ordner `config` ein Editor-Schema. Republic Mod Manager (ab 0.34.0) zeigt Technical Service Storage damit in vier Reitern, deutsch und englisch:
 
-- **Allgemein:** Hinweise, „Dateien nur lokal“, Knopf für diese Anleitung, Plugin-Einstellungen (Diagnoseprotokoll, UI-Debuggrenze) und die Karte „Depotlager und Speichern“ (Lagerergänzung, Prioritäten und Tanks speichern, Depot-Lebenszyklus)
-- **Streumaterialien:** links die Materialliste, rechts das gewählte Material mit seiner Schutzstärke; der Plus-Knopf legt ein Material an (interner Ressourcenname als Text, Vorschläge aus dem Grundspiel und dem Resources-Plugin). Originalzeilen lassen sich ausblenden und wieder anzeigen
-- **Depotfenster:** Lagerzeilen und Office-Priority-Beschriftungen, Prioritätsfelder, Trenner und Warnungen
+- **Allgemein:** Hinweise, „Dateien nur lokal“, Knopf für diese Anleitung, die Karte „Persistenz-Einstellungen“ (Lagerergänzung, Prioritäten und Tanks speichern, Depot-Lebenszyklus) und darunter „Log-Einstellungen“ (Diagnoseprotokoll, UI-Debuggrenze)
+- **Streumaterialien:** links die Materialliste (höchstens 32), rechts das gewählte Material mit seiner Schutzstärke; der Plus-Knopf legt ein Material an (interner Ressourcenname als Text, Vorschläge gruppiert nach eigenen Ressourcen aus dem Resources-Plugin und Vanilla-Ressourcen). Originalzeilen lassen sich mit dem Papierkorb ausblenden und wieder anzeigen
+- **Depotfenster:** Lagerzeilen und Office-Priority-Beschriftungen, Prioritätsfelder, Trennlinie und Warnungen
 - **Streubetrieb:** Verbrauch und Erkennung, Rückkehr zum Heimatdepot, Tankkapazität, Fahrzeuganzeige und Zeiten
 
 Persönliche Materialien liegen in `user_config\technical_service_storage.editor.ini`, die wirksame Datei ist `plugins\technical_service_storage.ini`; die INI im Paket bleibt unverändert. Dezimalwerte werden beim Speichern normalisiert (`0.80` wird zu `0.8`), was das Plugin gleich liest.
@@ -160,7 +160,7 @@ Empfohlen ist **UTF-8 ohne BOM**; UTF-8 mit BOM und UTF-16 LE werden ebenfalls g
 |---|---|
 | `[general]` | `enabled`, `debug`, `debug_limit` (nur UI-Debugmeldungen) |
 | `[storage_migration]` | fehlende Lager beim Laden ergänzen |
-| `[ui]` | Zeilenabstände, Office-Priority-Umbruch, Prioritätsfelder, Trenner, Materialwarnungen |
+| `[ui]` | Zeilenabstände, Office-Priority-Umbruch, Prioritätsfelder, Streugut-Trennlinie, Materialwarnungen |
 | `[priority_persistence]` | Depotprioritäten je Spielstand speichern |
 | `[tank_persistence]` | Streuguttanks je Spielstand speichern |
 | `[grit_materials]` | geordnete Materialliste, `name = stärke` |
@@ -308,7 +308,7 @@ Die aufgelösten IDs müssen zwischen 2.000.000 und 2.999.999 liegen. Fehlende S
 | Materialien | höchstens 32; Namen bis 63 Bytes, Zeile bis 511 Bytes |
 | Schutzstärke | 0.00 bis 1.00 |
 | `debug_limit` | 0 bis 10000 |
-| `[ui]` Abstände und Größen | `resource_gap` 0–50, Beschriftungsbreite 120–400, Zeilenhöhe 12–28, Versatz X 100–800, Versatz Y -50–100, Breite 60–300, Höhe 12–60, Trennerhöhe 48–100 |
+| `[ui]` Abstände und Größen | `resource_gap` 0–50, Beschriftungsbreite 120–400, Zeilenhöhe 12–28, Versatz X 100–800, Versatz Y -50–100, Breite 60–300, Höhe 12–60, Abstand zur Trennlinie 48–100 |
 | Verbrauchsfaktor | 1 bis 1000 Prozent |
 | Reserveschwelle | 0 bis 100 % |
 | Tank | Gewichtsanteil 0–50 %, 0–20 kg/kW, Faktor 10–500 %, Schritt 1–1000 kg, Minimum 1–10000 kg, Maximum 1–20000 kg |
