@@ -1,4 +1,4 @@
-# ❄️ Weather Roads 0.2.11-beta
+# ❄️ Weather Roads 0.3.0
 
 **TesmioLoader plugin for road snow, melting and protection after plowing**
 
@@ -53,7 +53,11 @@ Controls in *Workers & Resources: Soviet Republic* 1.1.1.9 how fast snow builds 
 - ✅ Optional diagnostic overlay (F10) and detailed event logs
 - ✅ No VFS overrides, no change to game or save files; unknown game builds are refused before any hook is installed
 
-### 🆕 New in 0.2.11
+### 🆕 New in 0.3.0
+- ✅ Every text in Republic Mod Manager and in this guide rewritten: shorter, in players' language, switches with ON and OFF instead of 1 and 0, line breaks in longer explanations. The note on the interplay with Technical Service Storage now sits in the "Notes" card.
+- Operation, values, file format and hooks are unchanged from 0.2.11.
+
+### New in 0.2.11
 - ✅ **INI beside the DLL:** when `plugins\weather_roads.ini` is missing, the DLL reads the INI from its own folder, i.e. from the Workshop package under Soviet Mod Loader or the Workshop Bridge. The chosen path is logged as `configuration file:`. Values are read exactly as before.
 - ✅ Schema for Republic Mod Manager in the package: five tabs with every setting, German and English.
 - Snow tuning, protection strengths and durations, dry plowing, material communication, file format and hook order are unchanged from 0.2.10.
@@ -253,6 +257,7 @@ Without the plugin the savegame loads normally; the extra file is then not appli
 - `weather_roads_probe.dll` must not be loaded at the same time.
 
 ### Version compatibility
+- **0.3.0:** new texts in Republic Mod Manager and README; operation and file format unchanged
 - **0.2.11:** INI fallback beside the DLL, schema in the package; operation and file format unchanged
 - **0.2.10:** defensive loader checks, cleanup on exceptions, clearer start messages
 - **0.2.8:** corrected save timing of the extra file
@@ -346,5 +351,5 @@ A: Yes, following the rules in [Configuration](#-configuration). Republic Mod Ma
 
 ---
 
-**Last update:** Weather Roads 0.2.11-beta  
+**Last update:** Weather Roads 0.3.0  
 **For:** WRSR 1.1.1.9 | TesmioLoader API 4

@@ -17,7 +17,7 @@
 #pragma comment(lib, "gdi32.lib")
 
 #define PLUGIN_NAME       "weather_roads"
-#define PLUGIN_VERSION    "0.2.11-beta"
+#define PLUGIN_VERSION    "0.3.0"
 #define PLUGIN_INI        "plugins\\weather_roads.ini"
 #define PLUGIN_LOG        "weather_roads.log"
 
@@ -1097,7 +1097,7 @@ static bool ParseDoubleStrict(const char* text, double* out)
 }
 
 // ---------------------------------------------------------------------------
-// Configuration file (0.2.11): <baseDir>\plugins\weather_roads.ini when it
+// Configuration file (since 0.2.11): <baseDir>\plugins\weather_roads.ini when it
 // exists (classic installation, or the effective INI Republic Mod Manager
 // writes), otherwise weather_roads.ini beside this DLL (Workshop package under
 // Soviet Mod Loader or the Workshop Bridge). Values are read exactly the way

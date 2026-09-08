@@ -1,4 +1,4 @@
-# ❄️ Weather Roads 0.2.11-beta
+# ❄️ Weather Roads 0.3.0
 
 **TesmioLoader-Plugin für Straßenschnee, Schmelze und Schutz nach dem Räumen**
 
@@ -53,7 +53,11 @@ Steuert in *Workers & Resources: Soviet Republic* 1.1.1.9, wie schnell sich Schn
 - ✅ Optionales Diagnose-Overlay (F10) und ausführliche Ereignisprotokolle
 - ✅ Keine VFS-Overrides, keine Änderung an Spiel- oder Speicherdateien; unbekannte Spielstände werden vor der Hook-Installation abgewiesen
 
-### 🆕 Neu in 0.2.11
+### 🆕 Neu in 0.3.0
+- ✅ Alle Texte in Republic Mod Manager und in dieser Anleitung neu geschrieben: kürzer, in der Sprache der Spieler, Schalter mit EIN und AUS statt 1 und 0, Zeilenumbrüche in längeren Erklärungen. Der Hinweis auf das Zusammenspiel mit Technical Service Storage steht jetzt in der Karte „Hinweise“.
+- Betrieb, Werte, Speicherformat und Hooks sind gegenüber 0.2.11 unverändert.
+
+### Neu in 0.2.11
 - ✅ **INI neben der DLL:** Fehlt `plugins\weather_roads.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket unter Soviet Mod Loader oder der Workshop Bridge. Der gewählte Pfad steht als `configuration file:` im Protokoll. Werte werden genau wie bisher gelesen.
 - ✅ Schema für Republic Mod Manager im Paket: fünf Reiter mit allen Einstellungen, deutsch und englisch.
 - Schneeabstimmung, Schutzstärken und -dauern, Trockenpflügen, Materialkommunikation, Speicherformat und Hook-Reihenfolge sind gegenüber 0.2.10 unverändert.
@@ -253,6 +257,7 @@ Ohne das Plugin lädt der Spielstand normal; die Zusatzdatei wird dann nicht ang
 - `weather_roads_probe.dll` darf nicht gleichzeitig geladen sein.
 
 ### Versionskompatibilität
+- **0.3.0:** neue Texte in Republic Mod Manager und README; Betrieb und Speicherformat unverändert
 - **0.2.11:** INI-Fallback neben der DLL, Schema im Paket; Betrieb und Speicherformat unverändert
 - **0.2.10:** defensive Loader-Prüfungen, Aufräumen bei Ausnahmen, klarere Startmeldungen
 - **0.2.8:** korrigierter Speicherzeitpunkt der Zusatzdatei
@@ -346,5 +351,5 @@ A: Ja, mit den Regeln aus [Konfiguration](#-konfiguration). Republic Mod Manager
 
 ---
 
-**Letzte Aktualisierung:** Weather Roads 0.2.11-beta  
+**Letzte Aktualisierung:** Weather Roads 0.3.0  
 **Für:** WRSR 1.1.1.9 | TesmioLoader API 4
