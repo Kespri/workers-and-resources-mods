@@ -44,7 +44,7 @@ Frei konfigurierbare Zusatzmaterialien für die Fahrzeugproduktion in *Workers &
 - ✅ Zusätzliche Materialien für den Bau von Fahrzeugen, ohne die Spieldateien zu verändern
 - ✅ Die ursprünglichen Materialanforderungen des Spiels bleiben erhalten
 - ✅ Bis zu 32 Materialien, jedes muss durch Resources registriert sein
-- ✅ Konfiguration wird vor dem Einbau des Hooks vollständig geprüft; ein Fehler lehnt das ganze Plugin ab, das Spiel bleibt unverändert
+- ✅ Die Konfiguration wird beim Start komplett geprüft; bei einem Fehler bleibt das Plugin aus und das Spiel läuft wie gewohnt
 
 ### 🆕 Einstellmöglichkeiten
 
@@ -316,7 +316,7 @@ Das Plugin verändert keine Spieldateien und speichert nichts im Spielstand. Mat
 |---|---|---|
 | Plugin startet nicht | Resources fehlt oder ist abgeschaltet | resources.dll installieren und im Launcher einschalten |
 | Konfiguration abgelehnt | Material nicht in resources.ini, Kommentar hinter einem Wert, Wert außerhalb des Bereichs | Log lesen, Namen und Werte korrigieren |
-| Fahrzeug braucht das Material nicht | `enabled = 0` oder Koeffizient 0 in dieser Klasse | „Plugin aktiv“ einschalten, Koeffizient setzen |
+| Fahrzeug verlangt das Material nicht | `enabled = 0` oder Koeffizient 0 in dieser Klasse | „Plugin aktiv“ einschalten, Koeffizient setzen |
 | Fabrik nimmt das Material nicht an | kein `$STORAGE_IMPORT_SPECIAL` im Gebäude | Gebäude anpassen (siehe oben) |
 | Falsche Fahrzeugklasse | interner Typ anders als erwartet | `debug = 1`, Zuordnung in `[mapping]` setzen |
 

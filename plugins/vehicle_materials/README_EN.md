@@ -44,7 +44,7 @@ Freely configurable extra materials for vehicle production in *Workers & Resourc
 - ✅ Additional materials for building vehicles, without changing any game file
 - ✅ The game's original material requirements stay in place
 - ✅ Up to 32 materials, each one registered by Resources
-- ✅ The configuration is validated completely before the hook is installed; any error rejects the whole plugin and the game stays untouched
+- ✅ The configuration is checked completely at start-up; on any error the plugin stays off and the game runs as usual
 
 ### 🆕 Settings
 
@@ -316,7 +316,7 @@ The plugin changes no game file and stores nothing in the saved game. Materials 
 |---|---|---|
 | Plugin does not start | Resources missing or disabled | install resources.dll and enable it in the launcher |
 | Configuration rejected | material not in resources.ini, comment behind a value, value out of range | read the log, correct names and values |
-| Vehicle does not need the material | `enabled = 0` or coefficient 0 in this class | switch "Plugin active" on, set the coefficient |
+| Vehicle does not demand the material | `enabled = 0` or coefficient 0 in this class | switch "Plugin active" on, set the coefficient |
 | Factory does not accept the material | no `$STORAGE_IMPORT_SPECIAL` in the building | adjust the building (see above) |
 | Wrong vehicle class | internal type differs from the expectation | `debug = 1`, set the mapping in `[mapping]` |
 
