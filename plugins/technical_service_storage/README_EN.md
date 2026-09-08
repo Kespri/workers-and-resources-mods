@@ -1,4 +1,4 @@
-# 🚛 Technical Service Storage 0.3.2-beta
+# 🚛 Technical Service Storage 0.3.3
 
 **TesmioLoader plugin for grit storages, material priorities and snowplow tanks**
 
@@ -57,7 +57,8 @@ Extends the Technical Services window of *Workers & Resources: Soviet Republic* 
 - ✅ Grit spreader service `tss.grit_spreader` for Weather Roads (material strength, dry plowing)
 - ✅ The real vehicle fuel is read, never changed; original building definitions stay untouched
 
-### 🆕 New in 0.3.2
+### 🆕 New in 0.3.3
+- ✅ **Reserve threshold in percent:** `return_threshold_percent = 20` instead of basis points; the old key is still read while the new one is absent.
 - ✅ **Tracked vehicles:** the table now holds 1024 vehicles (256 before); the default of `max_vehicles` is 512 and can be set between 1 and 1024.
 - ✅ The shipped material list is only `sand` and `gravel`; custom resources such as road salt are yours to add.
 - ✅ All Republic Mod Manager texts reworked in player style.
@@ -238,7 +239,7 @@ grit use in kg =
 Only confirmed clearing counts; `110` equals factor 1.10. The remainder never drops below zero. A confirmed refill debits only the amount actually loaded from the selected depot storage; partial fills are possible. A restored tank does not debit the depot a second time.
 
 ### Return to the home depot
-- `return_threshold_basis_points = 2000` means 20 % of the individual capacity. The threshold requests the return; it neither fills nor empties the tank.
+- `return_threshold_percent = 20` means 20 % of the individual capacity (0 to 100; the old key `return_threshold_basis_points` only counts without the new one). The threshold requests the return; it neither fills nor empties the tank.
 - Routing and movement stay with the game (native home/refuelling destination). While grit remains, clearing on the way consumes the real remainder; at zero the plow works dry.
 - Without a permitted material dry plowing stays possible; availability is checked again at later clearing events and by the regular depot observation.
 - Refill confirmation uses the physical arrival or a qualifying fuel increase while the refuelling destination is active. No depot window needs to be open.
@@ -309,7 +310,7 @@ The resolved IDs have to lie between 2,000,000 and 2,999,999. Missing keys are r
 | `debug_limit` | 0 to 10000 |
 | `[ui]` distances and sizes | `resource_gap` 0–50, label width 120–400, line height 12–28, offset X 100–800, offset Y -50–100, width 60–300, height 12–60, divider height 48–100 |
 | Consumption factor | 1 to 1000 percent |
-| Reserve threshold | 0 to 10000 basis points |
+| Reserve threshold | 0 to 100 % |
 | Tank | weight share 0–50 %, 0–20 kg/kW, factor 10–500 %, step 1–1000 kg, minimum 1–10000 kg, maximum 1–20000 kg |
 | Timing | duplicate window 0–60000 ms, summaries 100–60000 ms, clearing log 0–60000 ms, depot scan 250–10000 ms |
 | Tracked vehicles | 1 to 1024 (default 512) |
@@ -330,7 +331,7 @@ Added storages can become part of the native savegame. Priorities and tanks live
 - Resource plugins (Resources, Deposits Plus) register additional materials such as `road_salt`.
 
 ### Version compatibility
-- **0.3.2:** vehicle table 1024 (default 512), default list without `road_salt`, texts; file formats unchanged
+- **0.3.3:** reserve threshold in percent (old key still read), vehicle table 1024 (default 512), default list without `road_salt`, texts; file formats unchanged
 - **0.3.1:** INI fallback beside the DLL, editor schema in the package; operation and file formats unchanged
 - **0.3.0:** one version number for plugin and grit component
 - **0.1.78:** material section `[grit_materials]` with the alias `[Streumaterialien]`
@@ -428,5 +429,5 @@ A: Yes, following the rules in [Configuration](#-configuration). Republic Mod Ma
 
 ---
 
-**Last update:** Technical Service Storage 0.3.2-beta  
+**Last update:** Technical Service Storage 0.3.3  
 **For:** WRSR 1.1.1.9 | TesmioLoader API 4

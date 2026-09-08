@@ -670,10 +670,27 @@ static void LoadSandDiagnosticConfig()
         "return_arrival_settle_ms",
         ConfigInt("sand_diagnostic", "return_arrival_settle_ms"),
         10, 2000);
-    g_sandReturnThresholdBasisPoints = ClampSandSetting(
-        "return_threshold_basis_points",
-        ConfigInt("sand_diagnostic", "return_threshold_basis_points"),
-        0, 10000);
+    // 0.3.3: the reserve threshold is configured in whole percent of the tank
+    // capacity; the 0.3.2 key in basis points is still honoured when the percent
+    // key is absent. Internally the value stays in basis points.
+    if (ConfigKeyPresent("sand_diagnostic", "return_threshold_percent") ||
+        !ConfigKeyPresent("sand_diagnostic", "return_threshold_basis_points"))
+    {
+        g_sandReturnThresholdBasisPoints = 100 * ClampSandSetting(
+            "return_threshold_percent",
+            ConfigInt("sand_diagnostic", "return_threshold_percent"),
+            0, 100);
+    }
+    else
+    {
+        g_sandReturnThresholdBasisPoints = ClampSandSetting(
+            "return_threshold_basis_points",
+            ConfigInt("sand_diagnostic", "return_threshold_basis_points"),
+            0, 10000);
+        Report("WARN", INI_NAME, "sand-diagnostic-config",
+            "return_threshold_basis_points=%d is the 0.3.2 key; use return_threshold_percent=%d",
+            g_sandReturnThresholdBasisPoints, g_sandReturnThresholdBasisPoints / 100);
+    }
     g_sandTankWeightPercent = ClampSandSetting(
         "tank_weight_percent",
         ConfigInt("sand_diagnostic", "tank_weight_percent"),

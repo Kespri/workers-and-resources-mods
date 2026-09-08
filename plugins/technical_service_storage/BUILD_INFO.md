@@ -5,6 +5,16 @@ kernel32.lib only. Companion plugins: weather_roads (consumer of the `tss.grit_s
 service), vanilla_buildings (depot storage definitions), localization (text pack
 `technical_service_storage`). History newest first.
 
+## 0.3.3 (2026-09-08)
+
+Reserve threshold in whole percent: new key `[sand_diagnostic] return_threshold_percent`
+(default 20, 0..100), read via `ConfigKeyPresent` (config_validation.h); the internal value stays
+in basis points (x100), so the runtime path is unchanged. The 0.3.2 key
+`return_threshold_basis_points` is still accepted when the percent key is absent and logs a
+WARN pointing to the new key. INI, RMM schema (`[detail:return_threshold_percent]`, 0..100),
+texts and READMEs follow. Version string is now plain `0.3.3` (user's numbering). Backup:
+`_backups\technical_service_storage_0.3.2-beta_before_0.3.3_*`.
+
 ## 0.3.2-beta (2026-09-08)
 
 `SAND_DIAG_MAX_TRACKED_VEHICLES` raised from 256 to 1024 (sand_spreader_diagnostic.h); the

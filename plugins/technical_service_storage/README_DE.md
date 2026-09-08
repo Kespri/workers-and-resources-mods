@@ -1,4 +1,4 @@
-# 🚛 Technical Service Storage 0.3.2-beta
+# 🚛 Technical Service Storage 0.3.3
 
 **TesmioLoader-Plugin für Streugutlager, Materialprioritäten und Schneepflugtanks**
 
@@ -57,7 +57,8 @@ Erweitert in *Workers & Resources: Soviet Republic* 1.1.1.9 das Fenster des Tech
 - ✅ Streugut-Dienst `tss.grit_spreader` für Weather Roads (Materialstärke, Trockenpflügen)
 - ✅ Der echte Fahrzeugtreibstoff wird nur gelesen, nie verändert; originale Gebäudedefinitionen bleiben unangetastet
 
-### 🆕 Neu in 0.3.2
+### 🆕 Neu in 0.3.3
+- ✅ **Reserveschwelle in Prozent:** `return_threshold_percent = 20` statt Basispunkte; der alte Schlüssel wird weiter gelesen, solange der neue fehlt.
 - ✅ **Verfolgte Fahrzeuge:** Die Tabelle fasst jetzt 1024 Fahrzeuge (vorher 256); der Standard von `max_vehicles` ist 512 und lässt sich zwischen 1 und 1024 einstellen.
 - ✅ Mitgelieferte Materialliste nur noch `sand` und `gravel`; eigene Ressourcen wie Streusalz trägst du selbst ein.
 - ✅ Alle Texte für Republic Mod Manager im Spieler-Stil überarbeitet.
@@ -238,7 +239,7 @@ Streugutverbrauch in kg =
 Nur bestätigte Räumvorgänge zählen; `110` entspricht dem Faktor 1,10. Der Rest fällt höchstens auf null. Bestätigtes Nachfüllen entnimmt nur die tatsächlich geladene Menge aus dem gewählten Depotlager; Teilfüllungen sind möglich. Ein wiederhergestellter Tank belastet das Depot nicht ein zweites Mal.
 
 ### Rückkehr zum Heimatdepot
-- `return_threshold_basis_points = 2000` bedeutet 20 % der individuellen Kapazität. Die Schwelle fordert die Rückkehr an; sie füllt oder leert den Tank nicht.
+- `return_threshold_percent = 20` bedeutet 20 % der individuellen Kapazität (0 bis 100; der alte Schlüssel `return_threshold_basis_points` gilt nur noch ohne den neuen). Die Schwelle fordert die Rückkehr an; sie füllt oder leert den Tank nicht.
 - Route und Fahrt bleiben beim Spiel (natives Heimat-/Betankungsziel). Solange Streugut da ist, verbraucht Räumen auf dem Weg den echten Rest; bei null wird trocken gepflügt.
 - Ist kein erlaubtes Material verfügbar, bleibt Trockenpflügen möglich; die Verfügbarkeit wird bei späteren Räumvorgängen und der regelmäßigen Depotbeobachtung erneut geprüft.
 - Die Nachfüllbestätigung nutzt die physische Ankunft oder eine passende Treibstoffzunahme bei aktivem Betankungsziel. Ein offenes Depotfenster ist nicht nötig.
@@ -309,7 +310,7 @@ Die aufgelösten IDs müssen zwischen 2.000.000 und 2.999.999 liegen. Fehlende S
 | `debug_limit` | 0 bis 10000 |
 | `[ui]` Abstände und Größen | `resource_gap` 0–50, Beschriftungsbreite 120–400, Zeilenhöhe 12–28, Versatz X 100–800, Versatz Y -50–100, Breite 60–300, Höhe 12–60, Trennerhöhe 48–100 |
 | Verbrauchsfaktor | 1 bis 1000 Prozent |
-| Reserveschwelle | 0 bis 10000 Basispunkte |
+| Reserveschwelle | 0 bis 100 % |
 | Tank | Gewichtsanteil 0–50 %, 0–20 kg/kW, Faktor 10–500 %, Schritt 1–1000 kg, Minimum 1–10000 kg, Maximum 1–20000 kg |
 | Zeiten | Doppelmeldungsfenster 0–60000 ms, Zusammenfassungen 100–60000 ms, Räumprotokoll 0–60000 ms, Depotsuche 250–10000 ms |
 | Verfolgte Fahrzeuge | 1 bis 1024 (Standard 512) |
@@ -330,7 +331,7 @@ Ergänzte Lager können Teil des nativen Spielstands werden. Prioritäten und Ta
 - Ressourcen-Plugins (Resources, Deposits Plus) registrieren zusätzliche Materialien wie `road_salt`.
 
 ### Versionskompatibilität
-- **0.3.2:** Fahrzeugtabelle 1024 (Standard 512), Standardliste ohne `road_salt`, Texte; Speicherformate unverändert
+- **0.3.3:** Reserveschwelle in Prozent (alter Schlüssel bleibt lesbar), Fahrzeugtabelle 1024 (Standard 512), Standardliste ohne `road_salt`, Texte; Speicherformate unverändert
 - **0.3.1:** INI-Fallback neben der DLL, Editor-Schema im Paket; Betrieb und Speicherformate unverändert
 - **0.3.0:** einheitliche Versionsnummer für Plugin und Streugutkomponente
 - **0.1.78:** Materialabschnitt `[grit_materials]` mit Alias `[Streumaterialien]`
@@ -428,5 +429,5 @@ A: Ja, mit den Regeln aus [Konfiguration](#-konfiguration). Republic Mod Manager
 
 ---
 
-**Letzte Aktualisierung:** Technical Service Storage 0.3.2-beta  
+**Letzte Aktualisierung:** Technical Service Storage 0.3.3  
 **Für:** WRSR 1.1.1.9 | TesmioLoader API 4

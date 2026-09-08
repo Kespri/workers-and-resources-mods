@@ -37,7 +37,8 @@ static const ConfigRule CONFIG_RULES[] = {
     {"sand_diagnostic","return_lock_enabled",1,0,1,true},
     {"sand_diagnostic","return_retry_interval_ms",250,250,10000,false},
     {"sand_diagnostic","return_arrival_settle_ms",10,10,2000,false},
-    {"sand_diagnostic","return_threshold_basis_points",2000,0,10000,false},
+    {"sand_diagnostic","return_threshold_percent",20,0,100,false},
+    {"sand_diagnostic","return_threshold_basis_points",2000,0,10000,false},   // 0.3.2 key, read only when the percent key is absent
     {"sand_diagnostic","tank_weight_percent",10,0,50,false},
     {"sand_diagnostic","tank_power_kg_per_kw",2,0,20,false},
     {"sand_diagnostic","tank_capacity_multiplier_percent",100,10,500,false},
@@ -260,6 +261,13 @@ static int ConfigInt(const char* section, const char* key)
         return result;
     }
     return rule->fallback;
+}
+// True when the INI carries this key at all (used to prefer a new key over its legacy form).
+static bool ConfigKeyPresent(const char* section, const char* key)
+{
+    std::string s = ConfigLower(section), k = ConfigLower(key);
+    for (const auto& entry : g_configEntries) if (entry.section == s && ConfigLower(entry.key) == k) return true;
+    return false;
 }
 static bool ParseMaterialStrength(const char* text, double* out)
 {
