@@ -38,7 +38,7 @@ Erweitert in *Workers & Resources: Soviet Republic* 1.1.1.9 das Fenster des Tech
 
 ### In drei Schritten
 1. **Eine Installationsmethode wählen** (siehe unten) und das Plugin aktivieren.
-2. **Materialien prüfen:** Die mitgelieferte Liste (`sand`, `gravel`, `road_salt`) in Republic Mod Manager oder in `technical_service_storage.ini` an die vorhandenen Ressourcen und Depotlager anpassen. **Spielstand sichern.**
+2. **Materialien prüfen:** Die mitgelieferte Liste (`sand`, `gravel`) in Republic Mod Manager oder in `technical_service_storage.ini` an die vorhandenen Ressourcen und Depotlager anpassen. **Spielstand sichern.**
 3. **Spiel vollständig neu starten.** Im Depotfenster erscheinen die Streugutlager mit Prioritäten; im Protokoll `tesmioloader.technical_service_storage.log` stehen Konfigurationspfad, Materialliste und Dienststatus.
 
 ---
@@ -188,10 +188,9 @@ Die mitgelieferte Liste:
 [grit_materials]
 sand = 0.30
 gravel = 0.45
-road_salt = 0.80
 ```
 
-Das sind **interne Ressourcennamen**, keine übersetzten Anzeigenamen. Eine zusätzliche Ressource wie `road_salt` muss vom Spiel oder einem Ressourcen-Plugin registriert sein. Unbekannte Namen werden beim Laden einer Welt gemeldet und für diese Welt abgeschaltet. `fuel` ist Fahrzeugtreibstoff und nie Streugut.
+Das sind **interne Ressourcennamen**, keine übersetzten Anzeigenamen. Eine zusätzliche Ressource wie `road_salt` muss vom Spiel oder einem Ressourcen-Plugin registriert sein; `sand` kommt aus dem Resources-Plugin, `gravel` aus dem Grundspiel. Eigene Ressourcen wie Streusalz lieferst du selbst (Ressource, Bilder, Lager) und trägst sie dann hier ein. Unbekannte Namen werden beim Laden einer Welt gemeldet und für diese Welt abgeschaltet. `fuel` ist Fahrzeugtreibstoff und nie Streugut.
 
 Die Stärke von `0.00` bis `1.00` ist der Anteil neuen Schnees, den ein kompatibles Weather Roads verhindert. Sie ist weder Lagermenge noch Verbrauch noch Schutzdauer. `0.00` ist gültig, gewährt aber keinen Schutz; zum Ausschließen eines Materials die Depotpriorität auf AUS stellen.
 
