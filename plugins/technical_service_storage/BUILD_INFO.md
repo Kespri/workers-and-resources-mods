@@ -15,7 +15,7 @@ to `sand` and `gravel` (road_salt is a custom resource the player supplies). Pac
 (schema, de/en) rewritten in player style during the user's review; no other runtime change,
 save and sidecar formats unchanged. Backup: `_backups\technical_service_storage_0.3.1-beta_before_0.3.2-beta_*`.
 
-$1
+## 0.3.1-beta (2026-09-07)
 
 One path decision added to `LoadConfigFile` (config_validation.h): when
 `plugins\technical_service_storage.ini` does not exist, the INI beside the DLL is read instead

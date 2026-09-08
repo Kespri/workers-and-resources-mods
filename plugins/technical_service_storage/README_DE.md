@@ -62,7 +62,8 @@ Erweitert in *Workers & Resources: Soviet Republic* 1.1.1.9 das Fenster des Tech
 - ✅ Mitgelieferte Materialliste nur noch `sand` und `gravel`; eigene Ressourcen wie Streusalz trägst du selbst ein.
 - ✅ Alle Texte für Republic Mod Manager im Spieler-Stil überarbeitet.
 
-$1- ✅ **INI neben der DLL:** Fehlt `plugins\technical_service_storage.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket unter Soviet Mod Loader oder der Workshop Bridge. Der gewählte Pfad steht als `Configuration file:` im Protokoll.
+### 🆕 Neu in 0.3.1
+- ✅ **INI neben der DLL:** Fehlt `plugins\technical_service_storage.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket unter Soviet Mod Loader oder der Workshop Bridge. Der gewählte Pfad steht als `Configuration file:` im Protokoll.
 - ✅ Editor-Schema für Republic Mod Manager im Paket: Materialliste als Liste mit Plus-Knopf, alle Schalter in Karten auf vier Reitern, deutsch und englisch.
 - Parser, Prüfung, Verbrauch, Rückkehr, Tankgrößen, Prioritäten und Speicherformate sind gegenüber 0.3.0 unverändert.
 
@@ -330,7 +331,7 @@ Ergänzte Lager können Teil des nativen Spielstands werden. Prioritäten und Ta
 
 ### Versionskompatibilität
 - **0.3.2:** Fahrzeugtabelle 1024 (Standard 512), Standardliste ohne `road_salt`, Texte; Speicherformate unverändert
-$1, Editor-Schema im Paket; Betrieb und Speicherformate unverändert
+- **0.3.1:** INI-Fallback neben der DLL, Editor-Schema im Paket; Betrieb und Speicherformate unverändert
 - **0.3.0:** einheitliche Versionsnummer für Plugin und Streugutkomponente
 - **0.1.78:** Materialabschnitt `[grit_materials]` mit Alias `[Streumaterialien]`
 - **Zurück auf eine ältere Fassung:** alte DLL und die dazugehörige INI wiederherstellen; die Zusatzdateien bleiben lesbar
