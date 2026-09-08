@@ -1,4 +1,4 @@
-# 🧰 Resources Button Fix 1.1
+# 🧰 Resources Button Fix 0.4.0
 
 **TesmioLoader plugin for compact tool grids in the terrain editor**
 
@@ -45,6 +45,10 @@ Rearranges the tool buttons in two windows of the terrain editor of *Workers & R
 - ✅ Automatic or fixed button size, freely adjustable spacing and offsets
 - ✅ The window grows when needed; the red delete-all button and the Brush controls move down with it
 - ✅ Tree tools and every other editor window stay untouched; no game file and no VFS file is written
+
+### 🆕 New in 0.4.0
+- ✅ New version scheme (0.4.0 follows 1.1); layout logic, hooks and INI keys unchanged.
+- ✅ Every Republic Mod Manager text reworked in player style: notice box on General, "Log settings" card with the detail log, ON/OFF instead of 1/0.
 
 ### 🆕 New in 1.1
 - ✅ **INI beside the DLL:** when `plugins\resources_button_fix.ini` does not exist, the DLL reads the INI from its own folder, i.e. from the Workshop package under Soviet Mod Loader or the Workshop Bridge. The plugin runs straight from the Steam subscription without copying anything.
@@ -112,7 +116,7 @@ Choose **one** of the four methods. The same DLL must never be loaded twice.
 
 The package ships a launcher schema in the `config` folder. Republic Mod Manager shows Resources Button Fix in three tabs, German and English:
 
-- **General:** notes, "Files local only", a button for this guide and the diagnostic log
+- **General:** notes, "Files local only", a button for this guide and the log settings (detail log)
 - **Resources window:** arrangement (columns, blocks, size, spacing) plus position, window and delete-all button
 - **Rocks/Gravel window:** arrangement (P E P E or two rows, size, spacing) plus position and window
 
@@ -265,6 +269,7 @@ The file is checked as a complete new configuration set. If only one line is inv
 The plugin changes neither game files nor savegames; it only arranges buttons in the memory of the running game.
 
 ### Version compatibility
+- **0.4.0:** texts and schema layout for Republic Mod Manager; layout logic and INI unchanged
 - **1.1:** INI fallback beside the DLL for Workshop packages; layout logic unchanged from 1.0
 - **Going back to an older version:** restore the old DLL and its INI
 
@@ -354,5 +359,5 @@ A: No. Republic Mod Manager shows every setting with a description and checks th
 
 ---
 
-**Last update:** Resources Button Fix 1.1  
+**Last update:** Resources Button Fix 0.4.0  
 **For:** WRSR 1.1.1.9 | TesmioLoader API 4

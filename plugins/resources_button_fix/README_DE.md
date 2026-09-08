@@ -1,4 +1,4 @@
-# 🧰 Resources Button Fix 1.1
+# 🧰 Resources Button Fix 0.4.0
 
 **TesmioLoader-Plugin für kompakte Werkzeugraster im Geländeeditor**
 
@@ -45,6 +45,10 @@ Ordnet die Werkzeugschaltflächen in zwei Fenstern des Geländeeditors von *Work
 - ✅ Automatische oder feste Schaltflächengröße, frei einstellbare Abstände und Versätze
 - ✅ Fenster wächst bei Bedarf mit; der rote Alles-löschen-Knopf und die Pinselsteuerung rücken nach
 - ✅ Baumwerkzeuge und alle anderen Editorfenster bleiben unverändert; keine Spieldatei und keine VFS-Datei wird angefasst
+
+### 🆕 Neu in 0.4.0
+- ✅ Neues Versionsschema (0.4.0 folgt auf 1.1); Layoutlogik, Hooks und INI-Schlüssel unverändert.
+- ✅ Alle Texte für Republic Mod Manager im Spieler-Stil überarbeitet: Hinweis-Box auf Allgemein, Karte „Log-Einstellungen“ mit dem Detail-Log, EIN/AUS statt 1/0, „Button“ statt „Schaltfläche“.
 
 ### 🆕 Neu in 1.1
 - ✅ **INI neben der DLL:** Fehlt `plugins\resources_button_fix.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket unter Soviet Mod Loader oder der Workshop Bridge. Das Plugin läuft damit direkt aus dem Steam-Abo, ohne dass etwas kopiert werden muss.
@@ -112,7 +116,7 @@ Wähle **eine** der vier Methoden. Dieselbe DLL darf nie zweimal geladen werden.
 
 Das Paket enthält im Ordner `config` ein Launcher-Schema. Republic Mod Manager zeigt Resources Button Fix damit in drei Reitern, deutsch und englisch:
 
-- **Allgemein:** Hinweise, „Dateien nur lokal“, Knopf für diese Anleitung und das Diagnoseprotokoll
+- **Allgemein:** Hinweise, „Dateien nur lokal“, Knopf für diese Anleitung und die Log-Einstellungen (Detail-Log)
 - **Ressourcenfenster:** Anordnung (Spalten, Blöcke, Größe, Abstände) sowie Position, Fenster und Alles-löschen-Knopf
 - **Felsen-/Kiesfenster:** Anordnung (P E P E oder zwei Reihen, Größe, Abstände) sowie Position und Fenster
 
@@ -265,6 +269,7 @@ Die Datei wird als vollständiger neuer Konfigurationssatz geprüft. Ist nur ein
 Das Plugin verändert weder Spieldateien noch Spielstände; es ordnet nur Schaltflächen im Speicher des laufenden Spiels.
 
 ### Versionskompatibilität
+- **0.4.0:** Texte und Schema-Aufbau für Republic Mod Manager; Layoutlogik und INI unverändert
 - **1.1:** INI-Fallback neben der DLL für Workshop-Pakete; Layoutlogik gegenüber 1.0 unverändert
 - **Zurück auf eine ältere Fassung:** alte DLL und die dazugehörige INI wiederherstellen
 
@@ -354,5 +359,5 @@ A: Nein. Republic Mod Manager zeigt alle Einstellungen mit Beschreibung und prü
 
 ---
 
-**Letzte Aktualisierung:** Resources Button Fix 1.1  
+**Letzte Aktualisierung:** Resources Button Fix 0.4.0  
 **Für:** WRSR 1.1.1.9 | TesmioLoader API 4
