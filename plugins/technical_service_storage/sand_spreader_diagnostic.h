@@ -14,7 +14,7 @@
 #ifndef TECHNICAL_SERVICE_SAND_SPREADER_DIAGNOSTIC_H
 #define TECHNICAL_SERVICE_SAND_SPREADER_DIAGNOSTIC_H
 
-static const size_t SAND_DIAG_MAX_TRACKED_VEHICLES = 256;
+static const size_t SAND_DIAG_MAX_TRACKED_VEHICLES = 1024;   // table size; [sand_diagnostic] max_vehicles (default 512) may only lower it
 static const size_t SAND_DIAG_MAX_SKILLS = 3;
 static const size_t SAND_DIAG_RECENT_CLEAR_KEYS = 16;
 static const size_t SAND_DIAG_MAX_PANEL_SAMPLE_STATES = 64;

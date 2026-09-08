@@ -1,4 +1,4 @@
-# 🚛 Technical Service Storage 0.3.1-beta
+# 🚛 Technical Service Storage 0.3.2-beta
 
 **TesmioLoader plugin for grit storages, material priorities and snowplow tanks**
 
@@ -57,8 +57,12 @@ Extends the Technical Services window of *Workers & Resources: Soviet Republic* 
 - ✅ Grit spreader service `tss.grit_spreader` for Weather Roads (material strength, dry plowing)
 - ✅ The real vehicle fuel is read, never changed; original building definitions stay untouched
 
-### 🆕 New in 0.3.1
-- ✅ **INI beside the DLL:** when `plugins\technical_service_storage.ini` is missing, the DLL reads the INI from its own folder, i.e. from the Workshop package under Soviet Mod Loader or the Workshop Bridge. The chosen path is logged as `Configuration file:`.
+### 🆕 New in 0.3.2
+- ✅ **Tracked vehicles:** the table now holds 1024 vehicles (256 before); the default of `max_vehicles` is 512 and can be set between 1 and 1024.
+- ✅ The shipped material list is only `sand` and `gravel`; custom resources such as road salt are yours to add.
+- ✅ All Republic Mod Manager texts reworked in player style.
+
+$1- ✅ **INI beside the DLL:** when `plugins\technical_service_storage.ini` is missing, the DLL reads the INI from its own folder, i.e. from the Workshop package under Soviet Mod Loader or the Workshop Bridge. The chosen path is logged as `Configuration file:`.
 - ✅ Editor schema for Republic Mod Manager in the package: the material list as a list with a plus button, every switch in cards on four tabs, German and English.
 - Parser, validation, consumption, return, tank sizes, priorities and file formats are unchanged from 0.3.0.
 
@@ -307,7 +311,7 @@ The resolved IDs have to lie between 2,000,000 and 2,999,999. Missing keys are r
 | Reserve threshold | 0 to 10000 basis points |
 | Tank | weight share 0–50 %, 0–20 kg/kW, factor 10–500 %, step 1–1000 kg, minimum 1–10000 kg, maximum 1–20000 kg |
 | Timing | duplicate window 0–60000 ms, summaries 100–60000 ms, clearing log 0–60000 ms, depot scan 250–10000 ms |
-| Tracked vehicles | 1 to 256 |
+| Tracked vehicles | 1 to 1024 (default 512) |
 | Display offset | -1000 to 1000 |
 | INI | at most 1 MiB |
 
@@ -325,7 +329,8 @@ Added storages can become part of the native savegame. Priorities and tanks live
 - Resource plugins (Resources, Deposits Plus) register additional materials such as `road_salt`.
 
 ### Version compatibility
-- **0.3.1:** INI fallback beside the DLL, editor schema in the package; operation and file formats unchanged
+- **0.3.2:** vehicle table 1024 (default 512), default list without `road_salt`, texts; file formats unchanged
+$1, editor schema in the package; operation and file formats unchanged
 - **0.3.0:** one version number for plugin and grit component
 - **0.1.78:** material section `[grit_materials]` with the alias `[Streumaterialien]`
 - **Back to an older version:** restore the old DLL and its matching INI; the extra files stay readable
@@ -422,5 +427,5 @@ A: Yes, following the rules in [Configuration](#-configuration). Republic Mod Ma
 
 ---
 
-**Last update:** Technical Service Storage 0.3.1-beta  
+**Last update:** Technical Service Storage 0.3.2-beta  
 **For:** WRSR 1.1.1.9 | TesmioLoader API 4

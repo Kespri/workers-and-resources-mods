@@ -5,7 +5,17 @@ kernel32.lib only. Companion plugins: weather_roads (consumer of the `tss.grit_s
 service), vanilla_buildings (depot storage definitions), localization (text pack
 `technical_service_storage`). History newest first.
 
-## 0.3.1-beta (2026-09-07)
+## 0.3.2-beta (2026-09-08)
+
+`SAND_DIAG_MAX_TRACKED_VEHICLES` raised from 256 to 1024 (sand_spreader_diagnostic.h); the
+tracked-vehicle table costs about 250 bytes per slot. `[sand_diagnostic] max_vehicles` now defaults
+to 512 and validates 1..1024 (config_validation.h, INI, RMM schema). When the table is full the
+least recently seen vehicle is still recycled, unchanged. Shipped `[grit_materials]` list reduced
+to `sand` and `gravel` (road_salt is a custom resource the player supplies). Package texts
+(schema, de/en) rewritten in player style during the user's review; no other runtime change,
+save and sidecar formats unchanged. Backup: `_backups\technical_service_storage_0.3.1-beta_before_0.3.2-beta_*`.
+
+$1
 
 One path decision added to `LoadConfigFile` (config_validation.h): when
 `plugins\technical_service_storage.ini` does not exist, the INI beside the DLL is read instead

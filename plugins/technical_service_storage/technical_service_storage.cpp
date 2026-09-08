@@ -67,7 +67,7 @@ typedef struct TsmLocalizationApi
 } TsmLocalizationApi;
 #endif
 
-#define PLUGIN_VERSION  "0.3.1-beta"
+#define PLUGIN_VERSION  "0.3.2-beta"
 #define SPREADER_DIAGNOSTIC_VERSION PLUGIN_VERSION
 #define PLUGIN_LOG_NAME "tesmioloader.technical_service_storage.log"
 
@@ -788,7 +788,7 @@ static int g_sandDiagnosticEnabled = 1;
 static int g_sandFuelConsumptionFactorPercent = 110;
 static int g_sandDuplicateWindowMs = 5000;
 static int g_sandSampleIntervalMs = 1000;
-static int g_sandMaxVehicles = 256;
+static int g_sandMaxVehicles = 512;
 static int g_sandClearLogIntervalMs = 500;
 static int g_sandShadowTankEnabled = 1;
 static int g_sandAutomaticReturnEnabled = 1;

@@ -48,7 +48,7 @@ static const ConfigRule CONFIG_RULES[] = {
     {"sand_diagnostic","vehicle_tank_display_offset_x",0,-1000,1000,false},
     {"sand_diagnostic","vehicle_tank_display_offset_y",22,-1000,1000,false},
     {"sand_diagnostic","global_initialization_interval_ms",1000,250,10000,false},
-    {"sand_diagnostic","max_vehicles",256,1,256,false},
+    {"sand_diagnostic","max_vehicles",512,1,1024,false},
     {"tank_probe","building_lifecycle",1,0,1,true}
 };
 struct ConfigEntry { std::string section, key, value; size_t line; };

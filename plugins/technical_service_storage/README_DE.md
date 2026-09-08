@@ -1,4 +1,4 @@
-# 🚛 Technical Service Storage 0.3.1-beta
+# 🚛 Technical Service Storage 0.3.2-beta
 
 **TesmioLoader-Plugin für Streugutlager, Materialprioritäten und Schneepflugtanks**
 
@@ -57,8 +57,12 @@ Erweitert in *Workers & Resources: Soviet Republic* 1.1.1.9 das Fenster des Tech
 - ✅ Streugut-Dienst `tss.grit_spreader` für Weather Roads (Materialstärke, Trockenpflügen)
 - ✅ Der echte Fahrzeugtreibstoff wird nur gelesen, nie verändert; originale Gebäudedefinitionen bleiben unangetastet
 
-### 🆕 Neu in 0.3.1
-- ✅ **INI neben der DLL:** Fehlt `plugins\technical_service_storage.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket unter Soviet Mod Loader oder der Workshop Bridge. Der gewählte Pfad steht als `Configuration file:` im Protokoll.
+### 🆕 Neu in 0.3.2
+- ✅ **Verfolgte Fahrzeuge:** Die Tabelle fasst jetzt 1024 Fahrzeuge (vorher 256); der Standard von `max_vehicles` ist 512 und lässt sich zwischen 1 und 1024 einstellen.
+- ✅ Mitgelieferte Materialliste nur noch `sand` und `gravel`; eigene Ressourcen wie Streusalz trägst du selbst ein.
+- ✅ Alle Texte für Republic Mod Manager im Spieler-Stil überarbeitet.
+
+$1- ✅ **INI neben der DLL:** Fehlt `plugins\technical_service_storage.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket unter Soviet Mod Loader oder der Workshop Bridge. Der gewählte Pfad steht als `Configuration file:` im Protokoll.
 - ✅ Editor-Schema für Republic Mod Manager im Paket: Materialliste als Liste mit Plus-Knopf, alle Schalter in Karten auf vier Reitern, deutsch und englisch.
 - Parser, Prüfung, Verbrauch, Rückkehr, Tankgrößen, Prioritäten und Speicherformate sind gegenüber 0.3.0 unverändert.
 
@@ -307,7 +311,7 @@ Die aufgelösten IDs müssen zwischen 2.000.000 und 2.999.999 liegen. Fehlende S
 | Reserveschwelle | 0 bis 10000 Basispunkte |
 | Tank | Gewichtsanteil 0–50 %, 0–20 kg/kW, Faktor 10–500 %, Schritt 1–1000 kg, Minimum 1–10000 kg, Maximum 1–20000 kg |
 | Zeiten | Doppelmeldungsfenster 0–60000 ms, Zusammenfassungen 100–60000 ms, Räumprotokoll 0–60000 ms, Depotsuche 250–10000 ms |
-| Verfolgte Fahrzeuge | 1 bis 256 |
+| Verfolgte Fahrzeuge | 1 bis 1024 (Standard 512) |
 | Anzeigeversatz | -1000 bis 1000 |
 | INI | höchstens 1 MiB |
 
@@ -325,7 +329,8 @@ Ergänzte Lager können Teil des nativen Spielstands werden. Prioritäten und Ta
 - Ressourcen-Plugins (Resources, Deposits Plus) registrieren zusätzliche Materialien wie `road_salt`.
 
 ### Versionskompatibilität
-- **0.3.1:** INI-Fallback neben der DLL, Editor-Schema im Paket; Betrieb und Speicherformate unverändert
+- **0.3.2:** Fahrzeugtabelle 1024 (Standard 512), Standardliste ohne `road_salt`, Texte; Speicherformate unverändert
+$1, Editor-Schema im Paket; Betrieb und Speicherformate unverändert
 - **0.3.0:** einheitliche Versionsnummer für Plugin und Streugutkomponente
 - **0.1.78:** Materialabschnitt `[grit_materials]` mit Alias `[Streumaterialien]`
 - **Zurück auf eine ältere Fassung:** alte DLL und die dazugehörige INI wiederherstellen; die Zusatzdateien bleiben lesbar
@@ -422,5 +427,5 @@ A: Ja, mit den Regeln aus [Konfiguration](#-konfiguration). Republic Mod Manager
 
 ---
 
-**Letzte Aktualisierung:** Technical Service Storage 0.3.1-beta  
+**Letzte Aktualisierung:** Technical Service Storage 0.3.2-beta  
 **Für:** WRSR 1.1.1.9 | TesmioLoader API 4
