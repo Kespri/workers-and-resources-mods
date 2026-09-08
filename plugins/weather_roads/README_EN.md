@@ -2,7 +2,7 @@
 
 **TesmioLoader plugin for road snow, melting and protection after plowing**
 
-Controls in *Workers & Resources: Soviet Republic* 1.1.1.9 how fast snow builds up on roads, how fast it melts naturally, and gives plowed roads a temporary protection: a strong phase in game minutes, then a weaker "salt phase" in game hours. With Technical Service Storage the loaded grit decides how strong that protection is. Snow and melting work without Technical Services and without a snowplow.
+Controls in *Workers & Resources: Soviet Republic* 1.1.1.9 how fast snow builds up on roads, how fast it melts naturally, and gives plowed roads a temporary protection: a protection phase in game minutes, then a weaker "salt phase" in game hours. With Technical Service Storage the loaded grit decides how strong that protection is. Snow and melting work without Technical Services and without a snowplow.
 
 ---
 
@@ -35,7 +35,7 @@ Controls in *Workers & Resources: Soviet Republic* 1.1.1.9 how fast snow builds 
 
 ### In three steps
 1. **Choose one installation method** (see below) and enable the plugin.
-2. **Check the values:** the supplied settings are tuned (snow 30 %, melting 45 %, strong phase 240 game minutes, salt phase 24 game hours). Overlay and detailed log stay off for normal play.
+2. **Check the values:** the supplied settings are tuned (snow 30 %, melting 45 %, protection phase 240 game minutes, salt phase 24 game hours). Overlay and detailed log stay off for normal play.
 3. **Restart the game completely.** `weather_roads.log` names version, configuration path, signature check, active components and the status of the grit spreader service.
 
 ---
@@ -47,9 +47,9 @@ Controls in *Workers & Resources: Soviet Republic* 1.1.1.9 how fast snow builds 
 - ✅ Independently adjustable natural snow reduction
 - ✅ Strong protection phase after plowing, then a weaker salt phase with a configurable factor
 - ✅ Material-dependent effect through the grit spreader service of Technical Service Storage; treatment kept on dry plowing when wanted
-- ✅ Stronger active treatments take precedence over weaker material
+- ✅ Stronger grit overrides weaker grit, never the other way round
 - ✅ Visual snow correction on tracked road areas
-- ✅ Per-savegame persistence of treatment and visual shadow values, without restarting the protection period on load
+- ✅ Protection and road look are saved with the savegame and restored on load, without restarting the protection period
 - ✅ Optional diagnostic overlay (F10) and detailed event logs
 - ✅ No VFS overrides, no change to game or save files; unknown game builds are refused before any hook is installed
 
@@ -122,7 +122,7 @@ The package contains a presentation schema in the `config` folder. Republic Mod 
 
 - **General:** notes, "Files local only", a button for this guide; plugin, save road protection, detailed events
 - **Snow and melting:** snow build-up, natural melting, appearance of plowed areas
-- **Snowplowing:** strong phase, salt phase, factor, dry plowing
+- **Snowplowing:** protection phase, salt phase, factor, dry plowing
 - **Overlay:** window, language, key, position and appearance
 - **Advanced:** timing and batching of the gradual build-up
 
@@ -166,8 +166,8 @@ Further keys the DLL knows but the INI does not contain are listed under [Value 
 
 - `accumulation_multiplier` scales positive internal snow increments; `maximum_accumulation_per_burst` caps the sum of one grouped burst (`0` removes only this cap). `50` does not mean every snowfall brings 50 units.
 - `gradual_accumulation = 1` spreads verified weather increments over small steps. The intervals in `[advanced]` are real milliseconds; the release also needs the game time to advance and pauses in-game.
-- `[melting]` scales the verified native reduction value `-30`. `0.00` suppresses this melting path, not clearing by vehicles or full `-255` resets.
-- `[visual_snow]` changes the visual mapping of the after-effect on tracked road pixels, not the snow of the whole map and not the internal snow amount. The plow after-effect and its texture hooks have to be active for it.
+- `[melting]` scales how fast snow melts away on its own. `0.00` stops only the melting, not clearing by vehicles and not full resets of the snow cover.
+- `[visual_snow]` only decides how plowed roads look, not the snow of the whole map and not the snow amount itself. "Protection after plowing" has to be switched on for it.
 
 ---
 
@@ -177,7 +177,7 @@ The material strength `S` comes from the grit spreader service of Technical Serv
 
 | Phase | Remaining share of new snow | Example `S = 0.50` |
 |---|---|---|
-| strong phase (`protection_minutes`, game minutes) | `1 - S` | 50 % |
+| protection phase (`protection_minutes`, game minutes) | `1 - S` | 50 % |
 | salt phase (`salt_effect_hours`, game hours) with factor `M` | `1 - S × (1 - M)` | with `M = 0.50`: 75 % |
 
 The factors apply on top of the snow scaling; rounding and the burst cap influence the individual steps.
@@ -206,7 +206,7 @@ The overlay shows samples and diagnostic counters, not statistics of every road.
 
 With persistence enabled, `tesmioloader.weather_roads.protection.bin` appears in the savegame folder with material strength, original treatment time, rounding remainders and known visual road-snow data. The file is written through a temporary file after the final native file close succeeds; native save files are never touched.
 
-On load, format, sizes, records, checksums and fingerprints of `header.bin`, `road.bin` and `mask.dds` are verified. Roads are matched by geometry and segment, not by old addresses; ambiguous matches are skipped.
+On load the plugin checks whether the sidecar file belongs to exactly this savegame; if it does not, it is discarded. Roads are matched by their position; unclear cases are skipped.
 
 - Loading does not restart the protection period; higher INI durations do not extend saved treatments afterwards.
 - Without an extra file the savegame loads normally (`status=no-sidecar`); earlier treatments cannot be restored then.

@@ -2,7 +2,7 @@
 
 **TesmioLoader-Plugin für Straßenschnee, Schmelze und Schutz nach dem Räumen**
 
-Steuert in *Workers & Resources: Soviet Republic* 1.1.1.9, wie schnell sich Schnee auf Straßen aufbaut, wie schnell er natürlich schmilzt, und gibt geräumten Straßen einen zeitlich begrenzten Schutz: eine starke Phase in Spielminuten, danach eine schwächere „Salzphase“ in Spielstunden. Mit Technical Service Storage entscheidet das geladene Streugut, wie stark dieser Schutz ist. Schnee und Schmelze funktionieren auch ohne Technischen Service und ohne Schneepflug.
+Steuert in *Workers & Resources: Soviet Republic* 1.1.1.9, wie schnell sich Schnee auf Straßen aufbaut, wie schnell er natürlich schmilzt, und gibt geräumten Straßen einen zeitlich begrenzten Schutz: eine Schutzphase in Spielminuten, danach eine schwächere „Salzphase“ in Spielstunden. Mit Technical Service Storage entscheidet das geladene Streugut, wie stark dieser Schutz ist. Schnee und Schmelze funktionieren auch ohne Technischen Service und ohne Schneepflug.
 
 ---
 
@@ -35,7 +35,7 @@ Steuert in *Workers & Resources: Soviet Republic* 1.1.1.9, wie schnell sich Schn
 
 ### In drei Schritten
 1. **Eine Installationsmethode wählen** (siehe unten) und das Plugin aktivieren.
-2. **Werte prüfen:** Die mitgelieferten Einstellungen sind abgestimmt (Schnee 30 %, Schmelze 45 %, starke Phase 240 Spielminuten, Salzphase 24 Spielstunden). Overlay und Detailprotokoll bleiben für den normalen Betrieb aus.
+2. **Werte prüfen:** Die mitgelieferten Einstellungen sind abgestimmt (Schnee 30 %, Schmelze 45 %, Schutzphase 240 Spielminuten, Salzphase 24 Spielstunden). Overlay und Detailprotokoll bleiben für den normalen Betrieb aus.
 3. **Spiel vollständig neu starten.** `weather_roads.log` nennt Version, Konfigurationspfad, Signaturprüfung, aktive Teilfunktionen und den Status des Streugut-Dienstes.
 
 ---
@@ -47,9 +47,9 @@ Steuert in *Workers & Resources: Soviet Republic* 1.1.1.9, wie schnell sich Schn
 - ✅ Unabhängig einstellbare natürliche Schneereduktion
 - ✅ Starke Schutzphase nach dem Räumen, anschließend eine schwächere Salzphase mit einstellbarem Faktor
 - ✅ Materialabhängige Wirkung über den Streugut-Dienst von Technical Service Storage; Erhalt der Behandlung beim Trockenpflügen, wenn gewünscht
-- ✅ Vorrang stärkerer aktiver Behandlungen vor schwächerem Material
+- ✅ Stärkeres Streugut überschreibt schwächeres, nie umgekehrt
 - ✅ Visuelle Schneekorrektur auf erfassten Straßenbereichen
-- ✅ Spielstandbezogene Speicherung von Behandlung und visuellen Schattenwerten, ohne Neustart der Schutzdauer beim Laden
+- ✅ Schutz und Straßenbild werden mit dem Spielstand gespeichert und beim Laden wiederhergestellt, ohne dass die Schutzdauer neu beginnt
 - ✅ Optionales Diagnose-Overlay (F10) und ausführliche Ereignisprotokolle
 - ✅ Keine VFS-Overrides, keine Änderung an Spiel- oder Speicherdateien; unbekannte Spielstände werden vor der Hook-Installation abgewiesen
 
@@ -122,7 +122,7 @@ Das Paket enthält im Ordner `config` ein Darstellungsschema. Republic Mod Manag
 
 - **Allgemein:** Hinweise, „Dateien nur lokal“, Knopf für diese Anleitung; Plugin, Straßenschutz speichern, Detailereignisse
 - **Schnee und Schmelze:** Schneeaufbau, natürliches Abschmelzen, Darstellung geräumter Bereiche
-- **Schneeräumen:** starke Phase, Salzphase, Faktor, Trockenpflügen
+- **Schneeräumen:** Schutzphase, Salzphase, Faktor, Trockenpflügen
 - **Overlay:** Fenster, Sprache, Taste, Position und Aussehen
 - **Erweitert:** Zeitabstände und Bündelung des schrittweisen Aufbaus
 
@@ -166,8 +166,8 @@ Weitere Schlüssel, die die DLL kennt, aber die INI nicht enthält, stehen unter
 
 - `accumulation_multiplier` skaliert positive interne Schneezuwächse; `maximum_accumulation_per_burst` begrenzt die Summe eines zusammengehörigen Schubs (`0` hebt nur diese Grenze auf). `50` heißt nicht, dass jeder Schneefall 50 Einheiten bringt.
 - `gradual_accumulation = 1` verteilt geprüfte Wetterzuwächse auf kleine Schritte. Die Abstände in `[advanced]` sind echte Millisekunden; die Freigabe braucht zusätzlich fortschreitende Spielzeit und pausiert im Spiel.
-- `[melting]` skaliert den geprüften nativen Reduktionswert `-30`. `0.00` unterdrückt diesen Schmelzpfad, nicht das Räumen durch Fahrzeuge oder vollständige `-255`-Rücksetzungen.
-- `[visual_snow]` verändert die visuelle Zuordnung der Nachwirkung auf erfassten Straßenpixeln, nicht den Schnee der ganzen Karte und nicht die interne Schneemenge. Dafür müssen der Schneepflug-Nacheffekt und seine Textur-Hooks aktiv sein.
+- `[melting]` skaliert, wie schnell Schnee von selbst wegschmilzt. `0.00` stoppt nur das Schmelzen, nicht das Räumen durch Fahrzeuge und nicht das komplette Zurücksetzen der Schneedecke.
+- `[visual_snow]` bestimmt nur, wie geräumte Straßen aussehen, nicht den Schnee der ganzen Karte und nicht die Schneemenge selbst. Dafür muss „Schutz nach dem Räumen“ eingeschaltet sein.
 
 ---
 
@@ -177,7 +177,7 @@ Die Materialstärke `S` liefert der Streugut-Dienst von Technical Service Storag
 
 | Phase | Verbleibender Anteil neuen Schnees | Beispiel `S = 0.50` |
 |---|---|---|
-| starke Phase (`protection_minutes`, Spielminuten) | `1 - S` | 50 % |
+| Schutzphase (`protection_minutes`, Spielminuten) | `1 - S` | 50 % |
 | Salzphase (`salt_effect_hours`, Spielstunden) mit Faktor `M` | `1 - S × (1 - M)` | bei `M = 0.50`: 75 % |
 
 Die Faktoren wirken zusätzlich zur Schneeskalierung; Rundung und Schubgrenze beeinflussen die einzelnen Schritte.
@@ -206,7 +206,7 @@ Das Overlay zeigt Stichproben und Diagnosezähler, keine Statistik aller Straße
 
 Bei aktiver Persistenz entsteht im Spielstandordner `tesmioloader.weather_roads.protection.bin` mit Materialstärke, ursprünglichem Behandlungszeitpunkt, Rundungsresten und bekannten visuellen Straßenschneedaten. Die Datei wird nach dem erfolgreichen letzten nativen Dateiabschluss über eine temporäre Datei geschrieben; native Speicherdateien werden nicht angefasst.
 
-Beim Laden werden Format, Größen, Datensätze, Prüfsummen und Fingerabdrücke von `header.bin`, `road.bin` und `mask.dds` geprüft. Straßen werden über Geometrie und Abschnitt zugeordnet, nicht über alte Adressen; mehrdeutige Zuordnungen werden übersprungen.
+Beim Laden prüft das Plugin, ob die Zusatzdatei zu genau diesem Spielstand gehört; passt sie nicht, wird sie verworfen. Straßen werden über ihre Lage zugeordnet; unklare Fälle werden übersprungen.
 
 - Laden startet die Schutzdauer nicht neu; höhere INI-Zeitwerte verlängern gespeicherte Behandlungen nicht nachträglich.
 - Ohne Zusatzdatei lädt der Spielstand normal (`status=no-sidecar`); frühere Behandlungen sind dann nicht wiederherstellbar.
