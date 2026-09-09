@@ -30,7 +30,7 @@ typedef struct TsmLocalizationApi
 #include <string>
 #include <vector>
 
-#define PLUGIN_VERSION "1.2"
+#define PLUGIN_VERSION "1.3"
 static const char* const PLUGIN_INI = "plugins\\localization.ini";
 static const char* const PLUGIN_LOG_NAME = "tesmioloader.localization.log";
 static const char* const VFS_MEDIA_REL = "media_soviet";
@@ -1009,6 +1009,15 @@ static bool LoadOnePack(const std::string& root, const std::string& folder, Pack
         }
     }
 
+    // 1.3: fallback and text checks run in FinishPack, after a local folder
+    // may have been merged over this one (LoadPacks).
+    return true;
+}
+
+// The checks that need the complete text of a pack: the fallback language must
+// exist, at least one key, keys missing from the fallback are reported.
+static bool FinishPack(Pack& out)
+{
     if (out.languages.find(out.fallback) == out.languages.end())
     {
         Report("ERROR", Join(out.dir, "localization.ini").c_str(), 0, "fallback",
@@ -1086,17 +1095,11 @@ static bool EnumeratePackFolders(const std::string& root, std::vector<std::strin
     return true;
 }
 
-static void LoadPacksFrom(const std::string& root, const std::vector<std::string>& folders,
-                          const std::set<std::string>& taken)
+static void LoadPacksInto(const std::string& root, const std::vector<std::string>& folders,
+                          std::vector<Pack>& out)
 {
     for (size_t i = 0; i < folders.size(); ++i)
     {
-        if (taken.find(LowerAscii(folders[i])) != taken.end())
-        {
-            Info("Pack folder '%s' beside the DLL is skipped; plugins\\localization has a folder of that name",
-                folders[i].c_str());
-            continue;
-        }
         std::string cfg = Join(Join(root, folders[i]), "localization.ini");
         if (!FileExists(cfg))
         {
@@ -1104,15 +1107,45 @@ static void LoadPacksFrom(const std::string& root, const std::vector<std::string
             continue;
         }
         Pack p;
-        if (LoadOnePack(root, folders[i], p)) g_packs.push_back(p);
+        if (LoadOnePack(root, folders[i], p)) out.push_back(p);
     }
 }
 
-// 1.2: text packs come from plugins\localization (classic installation, or the
-// folder Republic Mod Manager copies there) and, when the DLL runs from a
-// Workshop package, additionally from the folder localization beside the DLL.
-// A pack folder name present below plugins\ wins over the one beside the DLL,
-// so a locally maintained pack is never shadowed by the package copy.
+// 1.3: a local pack folder is merged over the shipped folder of the same name,
+// key by key: the local localization.ini decides namespace, fallback and
+// missingText, every local language file adds or replaces keys, languages that
+// only ship with the package stay. Before 1.3 the local folder replaced the
+// shipped one completely, so texts added by a package update never reached a
+// player who had once copied the pack.
+static void MergePack(Pack& shipped, const Pack& local)
+{
+    size_t added = 0, replaced = 0;
+    for (std::map<std::string, std::map<std::string, std::wstring> >::const_iterator l = local.languages.begin();
+        l != local.languages.end(); ++l)
+    {
+        std::map<std::string, std::wstring>& target = shipped.languages[l->first];
+        for (std::map<std::string, std::wstring>::const_iterator k = l->second.begin(); k != l->second.end(); ++k)
+        {
+            if (target.find(k->first) == target.end()) ++added; else ++replaced;
+            target[k->first] = k->second;
+        }
+    }
+    if (shipped.nameSpace != local.nameSpace)
+        Report("WARN", Join(local.dir, "localization.ini").c_str(), 0, "namespace",
+            "Local pack '%s' uses namespace '%s' while the shipped pack uses '%s'; the local one applies",
+            local.folder.c_str(), local.nameSpace.c_str(), shipped.nameSpace.c_str());
+    shipped.nameSpace = local.nameSpace;
+    shipped.fallback = local.fallback;
+    shipped.missingText = local.missingText;
+    shipped.dir = local.dir;
+    Info("Pack '%s': local folder merged over the shipped one (%Iu keys added, %Iu replaced, %Iu local language file(s))",
+        local.folder.c_str(), added, replaced, local.languages.size());
+}
+
+// 1.2/1.3: text packs come from plugins\localization (classic installation, or
+// the folder Republic Mod Manager writes) and, when the DLL runs from a Workshop
+// package, additionally from the folder localization beside the DLL. Shipped
+// packs are loaded first; a local folder of the same name is merged over it.
 static bool LoadPacks(void)
 {
     const bool primary = DirExists(g_packRoot);
@@ -1133,11 +1166,20 @@ static bool LoadPacks(void)
         return false;
     }
 
-    g_packs.reserve(primaryFolders.size() + besideFolders.size());
-    std::set<std::string> taken;
-    LoadPacksFrom(g_packRoot, primaryFolders, taken);
-    for (size_t i = 0; i < primaryFolders.size(); ++i) taken.insert(LowerAscii(primaryFolders[i]));
-    if (!g_packRootBeside.empty()) LoadPacksFrom(g_packRootBeside, besideFolders, taken);
+    std::vector<Pack> shipped, local;
+    if (!g_packRootBeside.empty()) LoadPacksInto(g_packRootBeside, besideFolders, shipped);
+    if (primary) LoadPacksInto(g_packRoot, primaryFolders, local);
+    for (size_t i = 0; i < local.size(); ++i)
+    {
+        size_t match = shipped.size();
+        for (size_t j = 0; j < shipped.size(); ++j)
+            if (LowerAscii(shipped[j].folder) == LowerAscii(local[i].folder)) { match = j; break; }
+        if (match < shipped.size()) MergePack(shipped[match], local[i]);
+        else shipped.push_back(local[i]);
+    }
+    g_packs.reserve(shipped.size());
+    for (size_t i = 0; i < shipped.size(); ++i)
+        if (FinishPack(shipped[i])) g_packs.push_back(shipped[i]);
 
     std::map<std::string, std::vector<size_t> > owners;
     for (size_t i = 0; i < g_packs.size(); ++i) owners[g_packs[i].nameSpace].push_back(i);

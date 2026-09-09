@@ -1,4 +1,4 @@
-# 🌐 Localization 1.2
+# 🌐 Localization 1.3
 
 **TesmioLoader plugin for custom texts and translations**
 
@@ -47,6 +47,9 @@ Adds custom names, descriptions and labels to *Workers & Resources: Soviet Repub
 - ✅ Service `localization` for other plugins: key to text ID
 - ✅ Strict validation of encoding, sections, keys, escape sequences and BTF format; a faulty pack is rejected alone
 - ✅ Generated files are removed before every start and when the plugin is switched off; the originals under `media_soviet` are never changed
+
+### 🆕 New in 1.3
+- ✅ **Local text packs are merged instead of replacing:** a pack folder under `plugins\localization` is laid over the folder of the same name beside the DLL key by key. Your own texts and languages stay, new keys and languages from a Workshop update still arrive; for the same key your local text wins. The local `localization.ini` decides namespace, fallback and missingText.
 
 ### 🆕 New in 1.2
 - ✅ **INI and text packs beside the DLL:** when `plugins\localization.ini` is missing, the DLL reads the INI from its own folder, i.e. from the Workshop package under Soviet Mod Loader or the Workshop Bridge. Text packs are loaded from `plugins\localization` **and** from the folder `localization` beside the DLL; a pack folder under `plugins\localization` wins over the package copy of the same name. Both paths are logged.
@@ -149,7 +152,7 @@ Text packs are loaded from two folders:
 - `tesmioloader\build\plugins\localization\<packname>` (classic installation, "Files local only", own packs)
 - the folder `localization` beside the DLL, in the package `hooks\localization` (Soviet Mod Loader, Workshop Bridge)
 
-A pack folder under `plugins\localization` wins over the folder of the same name beside the DLL. That way you can adapt an included text pack locally without a Workshop update overwriting it. At most 256 pack folders in total.
+Since 1.3 a pack folder under `plugins\localization` is laid over the folder of the same name beside the DLL key by key: local texts win, everything else still comes from the package, including languages and keys a Workshop update adds. That way you can adapt an included text pack locally without falling behind. At most 256 pack folders in total.
 
 ---
 
@@ -255,6 +258,7 @@ Language files are not part of the savegame. Texts of a research or resource a s
 - Other plugins that replace `soviet*.btf` in the VFS are not merged.
 
 ### Version compatibility
+- **1.3:** local pack folders are laid over the package key by key; otherwise unchanged
 - **1.2:** INI and pack folder fallback beside the DLL, two pack folders merged, schema in the package; validation, generation and service unchanged
 - **1.1:** cleanup of old overlays before every initialisation, stable IDs
 - **Back to an older version:** restore the old DLL and INI; text packs stay usable unchanged
@@ -345,7 +349,7 @@ A: No. The extended files are created in the loader's VFS; the originals under `
 A: Create a folder under `plugins\localization\<name>` with `localization.ini` (namespace, fallback) and at least the fallback language file, keys under `[strings]`, restart the game.
 
 **Q: Can I adapt an included text pack?**
-A: Yes: copy the folder to `plugins\localization` and change it there. It wins over the package copy and survives Workshop updates.
+A: Yes: copy the folder to `plugins\localization` and change it there. Your keys win over the package copy, the rest still comes from the package, and Workshop updates leave your files alone.
 
 **Q: How do I get rid of the extended language files again?**
 A: Switch the plugin off, start the game once, then disable the DLL.
@@ -355,5 +359,5 @@ A: No. Republic Mod Manager offers the two switches; text packs are folders with
 
 ---
 
-**Last update:** Localization 1.2  
+**Last update:** Localization 1.3  
 **For:** WRSR 1.1.1.9 | TesmioLoader API 4
