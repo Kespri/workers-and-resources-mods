@@ -32,7 +32,7 @@ typedef struct TsmLocalizationApi
 #include <limits.h>
 #include <ctype.h>
 
-#define PLUGIN_VERSION "1.6"
+#define PLUGIN_VERSION "1.7"
 
 static const size_t MAX_INI_BYTES = 8u * 1024u * 1024u;   // 8 MB
 static const size_t MAX_PNG_BYTES = 4u * 1024u * 1024u;   // 4 MB
@@ -166,6 +166,32 @@ struct NewBlock
     size_t sourceLine = 0;
     bool available = false;
     size_t validationLine = 0;
+};
+
+// 1.7: [research:<id>] sections are the INI form of a new research block, written
+// by Republic Mod Manager. They are expanded into NewBlock lines after the free
+// blocks have been parsed and then validated by the very same rules.
+struct ResearchRequire
+{
+    std::string dependency;
+    std::string mode;        // "", "before" or "after"
+    std::string anchor;
+    size_t sourceLine = 0;
+};
+
+struct ResearchSection
+{
+    std::string id;
+    std::string type;        // $TYPE_... line
+    std::string cost;
+    std::string nameKey;
+    std::string descKey;
+    bool enabled = true;
+    bool enabledSeen = false;
+    size_t sourceLine = 0, typeLine = 0, costLine = 0, nameLine = 0, descLine = 0;
+    std::vector<ResearchRequire> requires;
+    std::vector<std::pair<std::string, size_t> > unlocks;
+    std::vector<std::pair<std::string, size_t> > raws;
 };
 
 struct OriginalBlock
@@ -877,10 +903,146 @@ static bool IsKnownGeneralKey(const std::string& key)
 // The Windows profile API returns values but cannot report unknown or repeated
 // keys. Scan the raw file once so those configuration mistakes fail closed
 // before configInt/configString selects one of the ambiguous values.
+static std::vector<ResearchSection> g_researchSections;
+
+static std::string UpperA(std::string s)
+{
+    for (size_t i = 0; i < s.size(); ++i) s[i] = (char)toupper((unsigned char)s[i]);
+    return s;
+}
+
+// One key of a [research:<id>] section. Format only; meaning is checked later by
+// ValidateNewBlock on the expanded lines.
+static bool ParseResearchKey(ResearchSection& rs, const std::string& key,
+    const std::string& value, size_t lineNo)
+{
+    if (key == "enabled")
+    {
+        if (rs.enabledSeen || (value != "0" && value != "1"))
+            return EditError(rs.id, lineNo, "enabled", "research-enabled",
+                "enabled must occur once at most and must be exactly 0 or 1");
+        rs.enabledSeen = true;
+        rs.enabled = value == "1";
+        return true;
+    }
+    if (key == "type")
+    {
+        if (rs.typeLine) return EditError(rs.id, lineNo, "type", "research-duplicate-key", "type may occur once");
+        std::string t = UpperA(TrimA(value));
+        if (t.rfind("$TYPE_", 0) != 0) t = "$TYPE_" + t;
+        if (t != "$TYPE_TECHNICAL" && t != "$TYPE_SOVIET" && t != "$TYPE_MEDICAL")
+            return EditError(rs.id, lineNo, "type", "research-type", "Expected technical, soviet or medical");
+        rs.type = t; rs.typeLine = lineNo;
+        return true;
+    }
+    if (key == "cost")
+    {
+        if (rs.costLine) return EditError(rs.id, lineNo, "cost", "research-duplicate-key", "cost may occur once");
+        if (value.empty() || value.find_first_not_of("0123456789") != std::string::npos)
+            return EditError(rs.id, lineNo, "cost", "research-cost", "Expected a positive whole number");
+        rs.cost = value; rs.costLine = lineNo;
+        return true;
+    }
+    if (key == "name" || key == "desc")
+    {
+        size_t& seen = key == "name" ? rs.nameLine : rs.descLine;
+        if (seen) return EditError(rs.id, lineNo, key.c_str(), "research-duplicate-key", key + " may occur once");
+        if (value.empty() || value.find_first_of(" \t|") != std::string::npos)
+            return EditError(rs.id, lineNo, key.c_str(), "research-text-key", "Expected one Localization key namespace.key");
+        (key == "name" ? rs.nameKey : rs.descKey) = value; seen = lineNo;
+        return true;
+    }
+    if (key == "requires")
+    {
+        // dependency | before/after/normal | anchor  (the last two are optional)
+        std::vector<std::string> parts;
+        size_t start = 0;
+        for (;;)
+        {
+            size_t bar = value.find('|', start);
+            parts.push_back(TrimA(value.substr(start, bar == std::string::npos ? std::string::npos : bar - start)));
+            if (bar == std::string::npos) break;
+            start = bar + 1;
+        }
+        if (parts.size() > 3 || !IsValidResearchId(parts[0]))
+            return EditError(rs.id, lineNo, "requires", "research-requires", "Expected dependency | before/after | anchor");
+        ResearchRequire r;
+        r.dependency = parts[0];
+        r.sourceLine = lineNo;
+        std::string mode = parts.size() > 1 ? CanonicalId(parts[1]) : "";
+        if (mode == "normal") mode.clear();
+        if (mode != "" && mode != "before" && mode != "after")
+            return EditError(rs.id, lineNo, "requires", "research-requires", "Position must be normal, before or after");
+        std::string anchor = parts.size() > 2 ? parts[2] : "";
+        if (mode.empty() != anchor.empty() || (!anchor.empty() && !IsValidResearchId(anchor)))
+            return EditError(rs.id, lineNo, "requires", "research-requires", "before/after need an anchor research; normal takes none");
+        r.mode = mode; r.anchor = anchor;
+        rs.requires.push_back(r);
+        return true;
+    }
+    if (key == "unlock")
+    {
+        if (value.empty() || value[0] != '$' || value.find('|') != std::string::npos)
+            return EditError(rs.id, lineNo, "unlock", "research-unlock", "Expected one $UNLOCK_... line");
+        rs.unlocks.push_back(std::make_pair(value, lineNo));
+        return true;
+    }
+    if (key == "line")
+    {
+        if (value.empty() || (value[0] != '$' && value[0] != '+' && value[0] != '@' && !IsOnlyDashes(value)))
+            return EditError(rs.id, lineNo, "line", "research-line", "Expected a research directive line");
+        rs.raws.push_back(std::make_pair(value, lineNo));
+        return true;
+    }
+    return EditError(rs.id, lineNo, key.c_str(), "research-key",
+        "Unknown key; expected enabled, type, cost, name, desc, requires, unlock or line");
+}
+
+// Expands the enabled [research:] sections into NewBlock lines (after the free
+// blocks, in INI order) so ValidateNewBlock treats both forms alike. Every
+// generated line remembers the INI line of its key for the error messages.
+static bool ExpandResearchSections(std::vector<NewBlock>& blocks)
+{
+    for (const ResearchSection& rs : g_researchSections)
+    {
+        if (!rs.enabled) continue;
+        for (const NewBlock& existing : blocks)
+            if (CanonicalId(existing.id) == CanonicalId(rs.id))
+                return EditError(rs.id, rs.sourceLine, "section", "research-duplicate",
+                    "A free $RESEARCH block with this id already exists");
+        if (blocks.size() >= (size_t)MAX_NEW_RESEARCH)
+        {
+            Report("ERROR", PLUGIN_INI, "research-limit",
+                "More than %d new research entries were provided; reduce the configuration size", MAX_NEW_RESEARCH);
+            return false;
+        }
+        NewBlock nb;
+        nb.id = rs.id;
+        nb.sourceLine = rs.sourceLine;
+        nb.lines.push_back("$RESEARCH " + rs.id); nb.sourceLines.push_back(rs.sourceLine);
+        for (const ResearchRequire& r : rs.requires)
+        {
+            nb.lines.push_back("+" + r.dependency); nb.sourceLines.push_back(r.sourceLine);
+            if (!r.mode.empty()) { nb.lines.push_back("@" + r.mode + "_" + r.anchor); nb.sourceLines.push_back(r.sourceLine); }
+        }
+        if (rs.typeLine) { nb.lines.push_back(rs.type); nb.sourceLines.push_back(rs.typeLine); }
+        if (rs.costLine) { nb.lines.push_back("$COST " + rs.cost); nb.sourceLines.push_back(rs.costLine); }
+        for (size_t i = 0; i < rs.unlocks.size(); ++i) { nb.lines.push_back(rs.unlocks[i].first); nb.sourceLines.push_back(rs.unlocks[i].second); }
+        for (size_t i = 0; i < rs.raws.size(); ++i) { nb.lines.push_back(rs.raws[i].first); nb.sourceLines.push_back(rs.raws[i].second); }
+        if (rs.nameLine) { nb.lines.push_back("$NAME " + rs.nameKey); nb.sourceLines.push_back(rs.nameLine); }
+        if (rs.descLine) { nb.lines.push_back("$DESC " + rs.descKey); nb.sourceLines.push_back(rs.descLine); }
+        nb.lines.push_back("$RESEARCH_ADD"); nb.sourceLines.push_back(rs.sourceLine);
+        blocks.push_back(nb);
+    }
+    return true;
+}
+
 static bool ValidateGeneralConfigLayout(const std::string& pluginIni,
     std::vector<Modification>* modifications = nullptr)
 {
     if (modifications) modifications->clear();
+    g_researchSections.clear();
+    std::set<std::string> researchIds;
     if (pluginIni.find('\0') != std::string::npos)
         return EditError("configuration", 0, "parse", "embedded-null", "NUL bytes are not allowed");
     std::vector<Modification> parsedModifications;
@@ -943,10 +1105,27 @@ static bool ValidateGeneralConfigLayout(const std::string& pluginIni,
                 currentSection = section;
                 continue;
             }
+            if (section.rfind("research:", 0) == 0)
+            {
+                // 1.7: the INI form of a new research block; the id keeps its spelling.
+                std::string id = TrimA(text.substr(1, text.size() - 2));
+                id = TrimA(id.substr(id.find(':') + 1));
+                if (!IsValidResearchId(id) || !researchIds.insert(CanonicalId(id)).second)
+                    return EditError(id, lineNo, "section", "research-section",
+                        "Expected a valid research ID and only one [research:ID] section per ID");
+                if (g_researchSections.size() >= (size_t)MAX_NEW_RESEARCH)
+                    return EditError(id, lineNo, "section", "research-limit", "Too many [research:] sections");
+                ResearchSection rs;
+                rs.id = id;
+                rs.sourceLine = lineNo;
+                g_researchSections.push_back(rs);
+                currentSection = section;
+                continue;
+            }
             if (section != "general")
             {
                 Report("ERROR", PLUGIN_INI, "unknown-section",
-                    "Unknown section '%s' at line %Iu; expected [general] or [modify:research_id]",
+                    "Unknown section '%s' at line %Iu; expected [general], [research:id] or [modify:research_id]",
                     section.c_str(), lineNo);
                 return false;
             }
@@ -963,6 +1142,15 @@ static bool ValidateGeneralConfigLayout(const std::string& pluginIni,
         }
 
         size_t equals = text.find('=');
+        if (currentSection.rfind("research:", 0) == 0)
+        {
+            ResearchSection& rs = g_researchSections.back();
+            if (equals == std::string::npos)
+                return EditError(rs.id, lineNo, "parse", "research-format", "Expected key = value");
+            std::string key = CanonicalId(TrimA(text.substr(0, equals)));
+            if (!ParseResearchKey(rs, key, TrimA(text.substr(equals + 1)), lineNo)) return false;
+            continue;
+        }
         if (currentSection.rfind("modify:", 0) == 0)
         {
             Modification& mod = parsedModifications.back();
@@ -2313,7 +2501,7 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
             g_gameDir.c_str(), g_pluginDir.c_str(), g_vfsDir.c_str());
 
         std::vector<NewBlock> blocks;
-        if (!ParseNewBlocks(pluginIni, blocks))
+        if (!ParseNewBlocks(pluginIni, blocks) || !ExpandResearchSections(blocks))
         {
             Report("FATAL", PLUGIN_INI, "parse",
                 "Research configuration is invalid. Action: correct the preceding configuration errors; Vanilla research remains active");
@@ -2329,8 +2517,8 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
             return 1;
         }
 
-        Info("%Iu new research block(s), %Iu modification section(s) loaded; deactivated Vanilla research remains protected",
-            g_newBlocks.size(), g_modifications.size());
+        Info("%Iu new research entr(y/ies) (%Iu of them [research:] sections), %Iu modification section(s) loaded; deactivated Vanilla research remains protected",
+            g_newBlocks.size(), g_researchSections.size(), g_modifications.size());
         LogSummary("Initialization", true);
         return 0;
     }

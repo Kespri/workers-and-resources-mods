@@ -7,6 +7,21 @@ plugin. Output: a generated `research.ini` plus one `<id>.png` per new research 
 (`<loader>\vfs\media_soviet\research`). User documentation: README_DE.md / README_EN.md.
 History newest first.
 
+## 1.7 (2026-09-10)
+
+- `[research:<id>]` sections: the INI form of a new research block for Republic Mod Manager.
+  `ValidateGeneralConfigLayout` collects them (`ResearchSection`, keys parsed by
+  `ParseResearchKey`: enabled, type, cost, name, desc, requires, unlock, line);
+  `ExpandResearchSections` turns the enabled ones into `NewBlock` line lists after `ParseNewBlocks`
+  (free blocks first, then sections in INI order), each line carrying the INI line of its key, so
+  `ValidateNewBlock`/`ValidateAllNewBlocks` check both forms with the same rules and messages.
+- `requires = <dependency> | before/after/normal | <anchor>` becomes `+<dependency>` plus
+  `@before_<anchor>` / `@after_<anchor>`; the position belongs to that dependency, as in blocks.
+- Duplicate ids between a free block and a section are rejected (`research-duplicate`); unknown
+  keys (`research-key`), bad values and repeated single keys fail closed like everything else.
+- Unknown-section message now names `[research:id]`. INI and READMEs document the section form.
+- In-game test: pending (user, through Republic Mod Manager 0.4.29).
+
 ## 1.6 (2026-09-09)
 
 - The VFS research folder is the only icon store. `PlanIcons`: an existing `<id>.png` there is
