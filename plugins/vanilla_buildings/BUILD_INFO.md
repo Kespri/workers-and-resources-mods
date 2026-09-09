@@ -18,7 +18,7 @@ newest first.
 - Self-test extended with exactly that chain. Reason: the user's rule set anchored a storage
   line on another storage line his own `add` produced; every target was rejected with
   "anchor has 0 matches" and the plugin stayed inactive.
-- In-game test: pending (user).
+- In-game test 2026-09-09: confirmed by the user (storages present, insert before and after the anchor work).
 
 ## 0.4.0 (2026-09-09)
 
