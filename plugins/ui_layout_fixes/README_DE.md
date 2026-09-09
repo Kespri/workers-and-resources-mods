@@ -1,8 +1,8 @@
-# 🪟 UI Layout Fixes 1.1
+# 🪟 UI Layout Fixes 1.2
 
 **TesmioLoader-Plugin für gezielte Korrekturen an einzelnen Infofenstern**
 
-Bündelt fensterbezogene Korrekturen für *Workers & Resources: Soviet Republic* 1.1.1.9. Jede Fensterart ist ein eigenes Modul mit eigener Konfiguration, Zielprüfung und eigenem Schalter. Derzeit enthalten: das Modul **CUSTOMHOUSE**, das den Zeilenabstand der Ressourcenliste im Zollhaus vergrößert. Es gibt bewusst keinen globalen Zeilenabstand.
+Bündelt fensterbezogene Korrekturen für *Workers & Resources: Soviet Republic* 1.1.1.9. Jede Fensterart ist ein eigenes Modul mit eigener Konfiguration, Zielprüfung und eigenem Schalter. Derzeit enthalten: das Modul **CUSTOMHOUSE** (größerer Zeilenabstand der Ressourcenliste im Zollhaus) und das Modul **VEHICLE_ROUTE_HINT** (der Routenhinweis im Fahrzeugfenster wird umgebrochen, statt rechts aus dem Fenster zu laufen). Es gibt bewusst keinen globalen Zeilenabstand.
 
 ---
 
@@ -32,7 +32,7 @@ Bündelt fensterbezogene Korrekturen für *Workers & Resources: Soviet Republic*
 ### In drei Schritten
 1. **Eine Installationsmethode wählen** (siehe unten) und das Plugin aktivieren.
 2. **Zeilenabstand einstellen**, wenn gewünscht: `resource_row_pitch` von 25.0 bis 60.0 in `ui_layout_fixes.ini`, am bequemsten über Republic Mod Manager (Standard 30.0).
-3. **Spiel vollständig neu starten** und ein Zollhaus öffnen. Im Detail-Log steht `[CUSTOMHOUSE] active`.
+3. **Spiel vollständig neu starten** und ein Zollhaus oder ein Fahrzeug mit Routenproblem öffnen. Im Detail-Log stehen `[CUSTOMHOUSE] active` und `[VEHICLE_ROUTE_HINT] active`.
 
 ---
 
@@ -43,6 +43,9 @@ Bündelt fensterbezogene Korrekturen für *Workers & Resources: Soviet Republic*
 - ✅ Nur die zwei geprüften Aufrufe der Ressourcenliste werden geändert: der Messdurchlauf (Listenhöhe) und der Zeichendurchlauf (Symbole und Texte); beide verwenden denselben Abstand
 - ✅ Position der darunterliegenden Fensterabschnitte und Scrollbereich rechnet weiterhin das native Layout des Spiels; alle anderen Fenster behalten den nativen Abstand von 25,0 logischen Pixeln
 - ✅ Nur geprüfter Code und Daten im Speicher des laufenden Spiels werden geändert; Spieldateien, Gebäudedateien und Spielstände bleiben unverändert
+
+### 🆕 Seit 1.2
+- ✅ **Modul VEHICLE_ROUTE_HINT:** Der Hinweis „Zeigt den Bereich an, in dem ein mögliches Problem auf der Route besteht!“ im Fahrzeugfenster besteht im Spiel aus zwei überlangen Zeilen und läuft rechts aus dem Fenster. Das Modul fängt die Textabfrage des Spiels für genau diese Text-ID (1970) ab und liefert eine umgebrochene Kopie: höchstens `max_chars` Zeichen je Zeile (Standard 58), Wörter werden nie getrennt, die Zeilen eines Absatzes werden gleich lang verteilt, die Absätze des Spiels bleiben erhalten. Braucht der Text mehr als `max_lines` Zeilen (Standard 4), werden die Zeilen schrittweise breiter. Es wird kein Spielcode geändert; das Modul gilt für jede Spielsprache.
 
 ### 🆕 Seit 1.1
 - ✅ **Gemeinsame Konfigurationsregel** (`tesmio_config.h`): Basis ist `plugins\ui_layout_fixes.ini`, sonst die INI neben der DLL (im Workshop-Paket). Liegt `user_config\ui_layout_fixes.ini` im Loader-Ordner, gewinnen dessen Schlüssel einzeln; diese Datei schreibt nur Republic Mod Manager. Beide Pfade stehen beim Start im Detail-Log.
@@ -107,10 +110,11 @@ Wähle **eine** der vier Methoden. Dieselbe DLL darf nie zweimal geladen werden.
 
 ## 🧰 Republic Mod Manager
 
-Das Paket enthält im Ordner `config` ein Launcher-Schema. Republic Mod Manager zeigt UI Layout Fixes damit in zwei Reitern, deutsch und englisch:
+Das Paket enthält im Ordner `config` ein Launcher-Schema. Republic Mod Manager zeigt UI Layout Fixes damit in drei Reitern, deutsch und englisch:
 
 - **Allgemein:** Hinweise, „Dateien nur lokal“ und der Knopf für diese Anleitung
 - **Zollhaus:** Modulschalter und Zeilenabstand der Ressourcenliste
+- **Fahrzeugfenster:** Modulschalter, Text-ID, Zeichen je Zeile und Zeilenlimit des Routenhinweises
 
 Der Schalter „Plugin aktiv“ im Kopf setzt beim Einschalten auch `enabled = 1`. Persönliche Werte liegen in `user_config\ui_layout_fixes.ini`; die ausgelieferte INI bleibt unverändert. Wer die INI lieber von Hand bearbeitet, findet alles Weitere unten.
 
@@ -137,6 +141,16 @@ enabled = 1
 ; Zeilenabstand der Ressourcenliste in logischen Pixeln, 25.0 bis 60.0, Dezimalpunkt
 ; 25.0 = nativer Spielwert, 30.0 = Plugin-Standard
 resource_row_pitch = 30.0
+
+[vehicle_route_hint]
+; 1 aktiviert nur das Modul VEHICLE_ROUTE_HINT; ohne Wirkung, solange [general] enabled = 0 ist
+enabled = 1
+; Nummer des Spieltexts, der umgebrochen wird; 1970 = Routenhinweis in WRSR 1.1.1.9
+text_id = 1970
+; längste Zeile in Zeichen, 20 bis 200; Wörter werden nie getrennt
+max_chars = 58
+; Zeilenlimit, 0 bis 12; 0 = kein Limit; darüber werden die Zeilen schrittweise breiter
+max_lines = 4
 ```
 
 `enabled` wird als Ganzzahl gelesen: `0` schaltet ab, jeder andere Wert schaltet ein. Verwende trotzdem nur `0` oder `1`.
@@ -150,8 +164,14 @@ resource_row_pitch = 30.0
 | `[general] enabled` | 0 oder 1 | 1 |
 | `[customhouse] enabled` | 0 oder 1 | 1 |
 | `resource_row_pitch` | 25.0 bis 60.0 einschließlich, Dezimalpunkt | 30.0 |
+| `[vehicle_route_hint] enabled` | 0 oder 1 | 1 |
+| `text_id` | 1 bis 100000, ganze Zahl | 1970 |
+| `max_chars` | 20 bis 200, ganze Zahl | 58 |
+| `max_lines` | 0 bis 12, ganze Zahl (0 = kein Limit) | 4 |
 
 Für `resource_row_pitch` gilt: `25.0` entspricht dem nativen Spielwert und bewirkt keinen größeren Abstand; nichtnumerische, unendliche oder außerhalb liegende Werte werden verworfen, das Plugin protokolliert eine Warnung (`invalid-config`) und verwendet `30.0`, das Modul bleibt aktiv.
+
+Für `text_id`, `max_chars` und `max_lines` gilt dasselbe: ungültige oder außerhalb liegende Werte lösen eine Warnung (`invalid-config`) aus und fallen auf den Standard zurück.
 
 ---
 
@@ -160,6 +180,8 @@ Für `resource_row_pitch` gilt: `25.0` entspricht dem nativen Spielwert und bewi
 Das Spiel verwendet für die Ressourcenliste nativ einen Abstand von `25.0f`. Das Plugin leitet nur die zwei geprüften CUSTOMHOUSE-Aufrufe über eine nahe Speicherbrücke um; während eines solchen Aufrufs wird der native Abstand vorübergehend durch den konfigurierten Wert ersetzt und unmittelbar danach wiederhergestellt. Unverändert bleiben dadurch: Ressourcenlisten anderer Fenster, die native Berechnung der Listenhöhe, die Positionierung der nachfolgenden Fensterabschnitte, der Scrollbereich, Warenmengen, Preise, Gebäudeeigenschaften, Spielstände und Dateien.
 
 Vor dem Schreiben eines Patches prüft das Modul die Größe des geladenen Abbilds, den PE-Zeitstempel von `SOVIET64.exe`, die Signatur der CUSTOMHOUSE-Panel-Funktion, Mess- und Zeichenaufruf samt Ziel, die native Instruktion für den Zeilenabstand und die Erreichbarkeit der Speicherbrücke. Schlägt ein Schritt fehl, schreibt das Plugin keinen Patch und das Modul bleibt inaktiv.
+
+Das Modul VEHICLE_ROUTE_HINT arbeitet anders: Es ändert keinen Spielcode, sondern hängt sich über die Importtabelle von `SOVIET64.exe` in die Textabfrage `C3D_LANGUAGE::GetString` der Engine-DLL. Nur die eingestellte Text-ID bekommt eine umgebrochene Kopie aus einem eigenen Puffer; jede andere ID läuft unverändert durch. Die Kopie wird einmal gebaut und nur neu gebaut, wenn das Spiel einen anderen Text für die ID liefert (Sprachwechsel). Weitere Plugins, die dieselbe Abfrage hooken (zum Beispiel das Resources-Plugin), reihen sich in Ladereihenfolge ein; jedes beantwortet nur seine eigenen IDs.
 
 | Eigenschaft | Erwarteter Wert |
 |---|---|
@@ -172,7 +194,8 @@ Vor dem Schreiben eines Patches prüft das Modul die Größe des geladenen Abbil
 ## 💾 Kompatibilität
 
 ### Spiel und Loader
-- Exakt unterstützte Spielversion 1.1.1.9; andere Versionen werden abgelehnt, weil Speicheradressen und Signaturen versionsabhängig sind
+- Exakt unterstützte Spielversion 1.1.1.9 für CUSTOMHOUSE; andere Versionen werden abgelehnt, weil Speicheradressen und Signaturen versionsabhängig sind. VEHICLE_ROUTE_HINT ändert keinen Spielcode und hängt nur an der Text-ID
+- Verträgt sich mit dem Resources-Plugin, das dieselbe Textabfrage hookt; die Hooks reihen sich in Ladereihenfolge
 - Keine Abhängigkeit zum Localization-Plugin oder zu anderen TesmioLoader-Plugins
 - Ein vollständiger Neustart des Spiels entfernt alle aktiven Speicheränderungen
 
@@ -180,6 +203,7 @@ Vor dem Schreiben eines Patches prüft das Modul die Größe des geladenen Abbil
 Das Plugin verändert weder Spieldateien noch Spielstände.
 
 ### Versionskompatibilität
+- **1.2:** neues Modul VEHICLE_ROUTE_HINT mit dem Abschnitt `[vehicle_route_hint]`; CUSTOMHOUSE und alle bisherigen Schlüssel unverändert
 - **1.1:** Konfiguration über `tesmio_config.h` (Basis plus persönliches Overlay); das Modul CUSTOMHOUSE ist gegenüber 1.0 unverändert
 - **Zurück auf eine ältere Fassung:** alte DLL und die dazugehörige INI wiederherstellen
 
@@ -192,12 +216,15 @@ Das Plugin verändert weder Spieldateien noch Spielstände.
 | Problem | Ursache | Lösung |
 |---|---|---|
 | Kein größerer Abstand | `[general]` oder `[customhouse]` `enabled = 0`, oder `resource_row_pitch = 25.0` | Schalter einschalten, Wert über 25.0 setzen, Spiel neu starten |
-| `invalid-config` im Log | `resource_row_pitch` ungültig | Wert von 25.0 bis 60.0 mit Dezimalpunkt eintragen |
+| `invalid-config` im Log | `resource_row_pitch`, `text_id`, `max_chars` oder `max_lines` ungültig | Wert im dokumentierten Bereich eintragen (Zeilenabstand mit Dezimalpunkt) |
+| Routenhinweis weiter zu breit | `[vehicle_route_hint] enabled = 0`, oder `max_lines` zwingt breitere Zeilen | Modul einschalten, `max_chars` verkleinern oder `max_lines` erhöhen (0 = kein Limit) |
+| `iat-patch` | Textabfrage-Import konnte nicht umgeleitet werden | `tesmioloader.log` prüfen; nur dieses Modul bleibt inaktiv |
+| `text-length` | Spieltext länger als der Puffer (1023 Zeichen) | Text-ID prüfen; der native Text wird unverändert angezeigt |
 | `unsupported-build` | Spielversion nicht 1.1.1.9 | passende Plugin-Version verwenden |
 | `panel-signature`, `row-pitch-signature`, `measure-call`, `draw-call` | erwarteter Maschinencode verändert | Spielversion und Konflikte mit anderen UI-Plugins prüfen |
 | `near-allocation`, `bridge-range` | Speicherbrücke konnte nicht erzeugt werden | Spiel neu starten, Log aufbewahren |
 | `call-protection`, `pitch-protection` | Speicherbereich nicht beschreibbar | Sicherheitssoftware und konkurrierende Plugins prüfen |
-| `all window modules are disabled` | Plugin an, aber `[customhouse] enabled = 0` | Modul einschalten |
+| `all window modules are disabled` | Plugin an, aber beide Module `enabled = 0` | mindestens ein Modul einschalten |
 | `log-open` | Detail-Log nicht anlegbar | Schreibrechte prüfen; `tesmioloader.log` bleibt verfügbar |
 
 ### Logging
@@ -208,6 +235,7 @@ Meldungen stehen in `tesmioloader.log` (Warnungen, Fehler, Phasenzusammenfassung
 Erwartet bei erfolgreichem Start:
 ```
 [CUSTOMHOUSE] active
+[VEHICLE_ROUTE_HINT] active
 ```
 
 ---
@@ -264,13 +292,16 @@ A: Ja. Die Einstellungen werden nur beim Start gelesen.
 **F: Was passiert bei einem ungültigen Zeilenabstand?**
 A: Das Plugin warnt im Log und verwendet 30.0; das Modul bleibt aktiv.
 
+**F: Der Routenhinweis im Fahrzeugfenster ist immer noch zu breit?**
+A: `max_chars` verkleinern; das Modul verteilt die Wörter gleichmäßig auf die Zeilen. Braucht der Text mehr Zeilen als `max_lines`, macht das Modul die Zeilen wieder breiter; dann `max_lines` erhöhen oder auf 0 setzen.
+
 **F: Kommen weitere Fenster dazu?**
 A: Das Plugin ist dafür angelegt: jedes Fenster ist ein eigenes Modul mit eigenem Abschnitt in der INI.
 
 **F: Muss ich die INI von Hand bearbeiten?**
-A: Nein. Republic Mod Manager zeigt beide Schalter und den Zeilenabstand mit Beschreibung und prüft den Wertebereich.
+A: Nein. Republic Mod Manager zeigt alle Schalter und Werte mit Beschreibung und prüft die Wertebereiche.
 
 ---
 
-**Letzte Aktualisierung:** UI Layout Fixes 1.1  
+**Letzte Aktualisierung:** UI Layout Fixes 1.2  
 **Für:** WRSR 1.1.1.9 | TesmioLoader API 4

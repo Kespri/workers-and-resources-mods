@@ -1,9 +1,30 @@
 # UI Layout Fixes – build notes
 
-- Plugin version 1.1. Target: SOVIET64.exe 1.1.1.9, TesmioLoader API 4.
+- Plugin version 1.2. Target: SOVIET64.exe 1.1.1.9, TesmioLoader API 4.
 - Source folder: `my_plugins\ui_layout_fixes\`. Build: `build.bat` (Microsoft Visual C++ x64,
   `/O2 /MT /W3 /EHsc /LD`, kernel32.lib). Output: `build\plugins\ui_layout_fixes.dll` and
   `build\plugins\ui_layout_fixes.ini`.
+
+## 1.2 (2026-09-09) - VEHICLE_ROUTE_HINT module
+
+- New INI section `[vehicle_route_hint]`: `enabled` (1), `text_id` (1970, 1..100000), `max_chars`
+  (58, 20..200), `max_lines` (4, 0..12; 0 = no limit). Whole numbers are validated like the
+  decimal row pitch (`invalid-config` warning, fallback to the default).
+- Hook: the import `C3DDLL64.dll!?GetString@C3D_LANGUAGE@@QEAAPEA_WH@Z` in the IAT of
+  SOVIET64.exe through the host's `patchIat`. The loader hands back the previous slot value, so
+  the hook chains with other plugins on the same slot (the resources plugin hooks it too).
+  No executable code is changed and the module does not run the build check.
+- Detour: for `text_id` the original string is copied into a static 1024-wchar buffer and
+  word-wrapped: greedy wrap at `max_chars`, then per paragraph the narrowest width that keeps
+  the same line count (balanced lines), the game's own line breaks kept as paragraph breaks,
+  width widened in steps of 4 while the line count exceeds `max_lines`. Rebuilt only when the
+  game returns a different string (language switch); guarded by `g_lock`; one INFO line per
+  rebuild. Texts longer than the buffer pass through unchanged (`text-length` warning once).
+- Start: a failed IAT patch is an ERROR (`iat-patch`), the module stays inactive, Start still
+  returns 0; the summary line lists `active modules=CUSTOMHOUSE+VEHICLE_ROUTE_HINT`.
+- Offline check of the wrap with the real texts of id 1970 (`sovietGerman.btf` /
+  `sovietEnglish.btf`, big-endian tables, UTF-16BE payload): DE 74/76 chars -> 32/40/37/38,
+  EN 50/66 chars -> 49/32/35 at `max_chars = 58`. In-game test: pending (user).
 
 ## Configuration (1.1, `my_plugins\tesmio_config.h`)
 

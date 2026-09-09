@@ -23,12 +23,13 @@
 #include <float.h>
 #include <limits.h>
 #include <stdint.h>
+#include <wchar.h>
 
 #include <exception>
 
 namespace UiLayoutFixes
 {
-static const char* const PLUGIN_VERSION = "1.1";
+static const char* const PLUGIN_VERSION = "1.2";
 // Configuration comes through tesmio_config.h: <loader>\plugins\ui_layout_fixes.ini
 static const char* const LOG_NAME = "tesmioloader.ui_layout_fixes.log";
 
@@ -640,16 +641,381 @@ static void LoadConfig()
 }
 } // namespace Customhouse
 
+// -------------------------------------------------------------------------
+// VEHICLE_ROUTE_HINT module
+//
+// The route hint of the vehicle window ("View area where a possible issue
+// exists on route! ...", game text id 1970) is stored as two long lines in
+// every language and runs past the right edge of the window. The module
+// hooks the game's caption lookup C3D_LANGUAGE::GetString, which SOVIET64.exe
+// imports from C3DDLL64.dll, through the import table and answers that one
+// id with a word-wrapped copy. Every other id passes straight through.
+// No executable code is changed, so the module does not depend on the
+// verified game build; only the text id may move with a game update.
+//
+// Other plugins may hook the same import (the resources plugin does). The
+// loader hands back whatever the slot held before, so the hooks chain in
+// load order and each one only answers its own ids.
+
+namespace VehicleRouteHint
+{
+static const char* const MODULE = "VEHICLE_ROUTE_HINT";
+static const char* const SYM_GET_STRING =
+    "?GetString@C3D_LANGUAGE@@QEAAPEA_WH@Z";
+
+static const int DEFAULT_TEXT_ID = 1970;
+static const int DEFAULT_MAX_CHARS = 58;
+static const int DEFAULT_MAX_LINES = 4;
+static const int MIN_TEXT_ID = 1;
+static const int MAX_TEXT_ID = 100000;
+static const int MIN_MAX_CHARS = 20;
+static const int MAX_MAX_CHARS = 200;
+static const int MIN_MAX_LINES = 0;
+static const int MAX_MAX_LINES = 12;
+static const size_t BUFFER_CHARS = 1024;   // wrapped copy including terminator
+
+static int g_enabled = 1;
+static int g_textId = DEFAULT_TEXT_ID;
+static int g_maxChars = DEFAULT_MAX_CHARS;
+static int g_maxLines = DEFAULT_MAX_LINES;
+static bool g_installed = false;
+
+typedef wchar_t* (*GetStringFn)(void* self, int id);
+static GetStringFn o_GetString = nullptr;
+
+// The source the wrapped copy was built from and the copy itself. The copy is
+// rebuilt only when the game hands back a different string for the id (a
+// language switch); the buffer address stays the same, so pointers the UI
+// still holds remain valid. Guarded by g_lock from tesmio_plugin.h.
+static wchar_t g_source[BUFFER_CHARS];
+static wchar_t g_wrapped[BUFFER_CHARS];
+static bool g_haveWrapped = false;
+static bool g_tooLongReported = false;
+
+static bool ReadIniInt(const char* section, const char* key,
+                       int fallback, int minimum, int maximum, int* output)
+{
+    if (!output) return false;
+
+    char fallbackText[32];
+    char valueText[128];
+    _snprintf_s(fallbackText, sizeof(fallbackText), _TRUNCATE, "%d", fallback);
+    if (!TsmConfigString(section, key, valueText, (int)sizeof(valueText), fallbackText))
+    {
+        *output = fallback;
+        return true;
+    }
+
+    char* end = nullptr;
+    errno = 0;
+    const long parsed = strtol(valueText, &end, 10);
+    const int parseError = errno;
+    while (end && (*end == ' ' || *end == '\t' ||
+                   *end == '\r' || *end == '\n'))
+    {
+        ++end;
+    }
+
+    if (!end || end == valueText || *end != 0 || parseError == ERANGE ||
+        parsed < minimum || parsed > maximum)
+    {
+        LogWarning(section, "invalid-config",
+            "%s=%s is invalid; expected a whole number in %d..%d. "
+            "Action: using %d",
+            key, valueText, minimum, maximum, fallback);
+        *output = fallback;
+        return false;
+    }
+
+    *output = (int)parsed;
+    return true;
+}
+
+struct Writer
+{
+    wchar_t* out;
+    size_t capacity;
+    size_t length;
+    int lines;
+    size_t widest;
+};
+
+static bool Put(Writer& w, wchar_t c)
+{
+    if (w.length + 1 >= w.capacity) return false;
+    w.out[w.length++] = c;
+    return true;
+}
+
+// Greedy word wrap of one paragraph. Words are never split; a word longer
+// than the width stands on a line of its own.
+static bool WrapParagraph(Writer& w, const wchar_t* text, size_t length,
+                          size_t width)
+{
+    size_t lineLength = 0;
+    size_t i = 0;
+    while (i < length)
+    {
+        while (i < length && text[i] == L' ') ++i;
+        if (i >= length) break;
+
+        const size_t wordStart = i;
+        while (i < length && text[i] != L' ') ++i;
+        const size_t wordLength = i - wordStart;
+
+        if (lineLength > 0)
+        {
+            if (lineLength + 1 + wordLength > width)
+            {
+                if (!Put(w, L'\n')) return false;
+                ++w.lines;
+                if (lineLength > w.widest) w.widest = lineLength;
+                lineLength = 0;
+            }
+            else
+            {
+                if (!Put(w, L' ')) return false;
+                ++lineLength;
+            }
+        }
+
+        for (size_t k = 0; k < wordLength; ++k)
+            if (!Put(w, text[wordStart + k])) return false;
+        lineLength += wordLength;
+    }
+    if (lineLength > w.widest) w.widest = lineLength;
+    return true;
+}
+
+// Dry run of WrapParagraph: how many lines does the paragraph take at `width`?
+static int CountLines(const wchar_t* text, size_t length, size_t width)
+{
+    int lines = 1;
+    size_t lineLength = 0;
+    size_t i = 0;
+    while (i < length)
+    {
+        while (i < length && text[i] == L' ') ++i;
+        if (i >= length) break;
+        const size_t wordStart = i;
+        while (i < length && text[i] != L' ') ++i;
+        const size_t wordLength = i - wordStart;
+        if (lineLength > 0)
+        {
+            if (lineLength + 1 + wordLength > width)
+            {
+                ++lines;
+                lineLength = 0;
+            }
+            else
+            {
+                ++lineLength;
+            }
+        }
+        lineLength += wordLength;
+    }
+    return lines;
+}
+
+// The narrowest width that still wraps the paragraph into the same number of
+// lines as `width` does. Greedy wrapping alone leaves a long first line and a
+// short tail ("...Problem auf der" / "Route besteht!"); balancing spreads the
+// words evenly without adding a line.
+static size_t BalancedWidth(const wchar_t* text, size_t length, size_t width)
+{
+    const int lines = CountLines(text, length, width);
+    if (lines < 2) return width;
+    size_t best = width;
+    for (size_t candidate = width - 1; candidate > 0; --candidate)
+    {
+        if (CountLines(text, length, candidate) != lines) break;
+        best = candidate;
+    }
+    return best;
+}
+
+// Wraps the whole text at `width`. The game's own line breaks stay as
+// paragraph breaks. Returns the line count, or -1 when the copy did not fit.
+static int WrapText(const wchar_t* source, size_t width, wchar_t* out,
+                    size_t capacity, size_t* widest)
+{
+    Writer w = { out, capacity, 0, 1, 0 };
+    const wchar_t* p = source;
+    bool first = true;
+    for (;;)
+    {
+        const wchar_t* newline = wcschr(p, L'\n');
+        size_t length = newline ? (size_t)(newline - p) : wcslen(p);
+        if (length > 0 && p[length - 1] == L'\r') --length;
+
+        if (!first)
+        {
+            if (!Put(w, L'\n')) return -1;
+            ++w.lines;
+        }
+        first = false;
+        if (!WrapParagraph(w, p, length, BalancedWidth(p, length, width)))
+            return -1;
+        if (!newline) break;
+        p = newline + 1;
+    }
+    out[w.length] = 0;
+    if (widest) *widest = w.widest;
+    return w.lines;
+}
+
+static void MeasureSource(const wchar_t* source, int* lines, size_t* longest)
+{
+    *lines = 1;
+    *longest = 0;
+    size_t current = 0;
+    for (const wchar_t* p = source; *p; ++p)
+    {
+        if (*p == L'\n')
+        {
+            ++*lines;
+            current = 0;
+        }
+        else if (*p != L'\r')
+        {
+            ++current;
+            if (current > *longest) *longest = current;
+        }
+    }
+}
+
+// Returns the wrapped copy of `original`, rebuilding it when the game's
+// string changed. Falls back to the original when the text is too long for
+// the buffer, so the game never loses the caption.
+static const wchar_t* Wrapped(const wchar_t* original)
+{
+    EnterCriticalSection(&g_lock);
+    if (!g_haveWrapped || wcscmp(original, g_source) != 0)
+    {
+        g_haveWrapped = false;
+        const size_t sourceLength = wcslen(original);
+        if (sourceLength + 1 > BUFFER_CHARS)
+        {
+            if (!g_tooLongReported)
+            {
+                g_tooLongReported = true;
+                LogWarning(MODULE, "text-length",
+                    "text id %d is %u characters long, the wrap buffer holds %u. "
+                    "Action: the native text is shown unchanged",
+                    g_textId, (unsigned)sourceLength, (unsigned)(BUFFER_CHARS - 1));
+            }
+        }
+        else
+        {
+            wcscpy_s(g_source, BUFFER_CHARS, original);
+
+            int sourceLines = 0;
+            size_t longest = 0;
+            MeasureSource(g_source, &sourceLines, &longest);
+
+            // Start at the configured width; when the line limit is exceeded
+            // widen step by step, never beyond the native line length.
+            size_t width = (size_t)g_maxChars;
+            size_t widest = 0;
+            int lines = -1;
+            for (;;)
+            {
+                lines = WrapText(g_source, width, g_wrapped, BUFFER_CHARS, &widest);
+                if (lines < 0) break;
+                if (g_maxLines <= 0 || lines <= g_maxLines || width >= longest) break;
+                width += 4;
+                if (width > longest) width = longest;
+            }
+
+            if (lines > 0)
+            {
+                g_haveWrapped = true;
+                LogInfo("[%s] text id %d: native %d line(s), longest %u chars -> "
+                        "%d line(s), widest %u chars at width %u",
+                    MODULE, g_textId, sourceLines, (unsigned)longest,
+                    lines, (unsigned)widest, (unsigned)width);
+            }
+        }
+    }
+    const wchar_t* result = g_haveWrapped ? g_wrapped : original;
+    LeaveCriticalSection(&g_lock);
+    return result;
+}
+
+static wchar_t* h_GetString(void* self, int id)
+{
+    wchar_t* text = o_GetString(self, id);
+    if (id == g_textId && text && text[0])
+        return const_cast<wchar_t*>(Wrapped(text));
+    return text;
+}
+
+static bool Install()
+{
+    if (!g_enabled)
+    {
+        LogInfo("[%s] disabled by configuration", MODULE);
+        return true;
+    }
+
+    if (!PatchIat((HMODULE)g_exeBase, DLL_ENGINE, SYM_GET_STRING,
+                  (void*)h_GetString, (void**)&o_GetString,
+                  "C3D_LANGUAGE::GetString (ui_layout_fixes)") ||
+        !o_GetString)
+    {
+        LogError(MODULE, "iat-patch",
+            "The import %s!%s of SOVIET64.exe could not be redirected; the route hint keeps its native line length. "
+            "Action: check tesmioloader.log for the loader's reason and conflicting plugins",
+            DLL_ENGINE, SYM_GET_STRING);
+        return false;
+    }
+
+    g_installed = true;
+    LogInfo("[%s] active: text id %d wrapped at %d chars, line limit %d; "
+            "scope=one caption id through the caption lookup import; executable code unchanged",
+        MODULE, g_textId, g_maxChars, g_maxLines);
+    return true;
+}
+
+static void LoadConfig()
+{
+    g_enabled = TsmConfigInt("vehicle_route_hint", "enabled", 1) != 0;
+    ReadIniInt("vehicle_route_hint", "text_id", DEFAULT_TEXT_ID,
+               MIN_TEXT_ID, MAX_TEXT_ID, &g_textId);
+    ReadIniInt("vehicle_route_hint", "max_chars", DEFAULT_MAX_CHARS,
+               MIN_MAX_CHARS, MAX_MAX_CHARS, &g_maxChars);
+    ReadIniInt("vehicle_route_hint", "max_lines", DEFAULT_MAX_LINES,
+               MIN_MAX_LINES, MAX_MAX_LINES, &g_maxLines);
+}
+} // namespace VehicleRouteHint
+
 static void LoadConfig()
 {
     g_enabled = TsmConfigInt("general", "enabled", 1) != 0;
     if (g_enabled)
+    {
         Customhouse::LoadConfig();
+        VehicleRouteHint::LoadConfig();
+    }
 }
 
 static bool HasEnabledModule()
 {
-    return Customhouse::g_enabled != 0;
+    return Customhouse::g_enabled != 0 || VehicleRouteHint::g_enabled != 0;
+}
+
+static const char* ActiveModules(char* out, size_t capacity)
+{
+    out[0] = 0;
+    if (Customhouse::g_enabled)
+        strcat_s(out, capacity, "CUSTOMHOUSE");
+    if (VehicleRouteHint::g_installed)
+    {
+        if (out[0]) strcat_s(out, capacity, "+");
+        strcat_s(out, capacity, "VEHICLE_ROUTE_HINT");
+    }
+    if (!out[0]) strcpy_s(out, capacity, "none");
+    return out;
 }
 } // namespace UiLayoutFixes
 
@@ -755,9 +1121,14 @@ int TsmPluginStart(void)
             return 1;
         }
 
+        // A failed import redirection leaves this module inactive but hooks
+        // nothing, so the other modules and the startup result are unaffected.
+        UiLayoutFixes::VehicleRouteHint::Install();
+
+        char active[64];
         UiLayoutFixes::LogInfo(
             "startup complete; active modules=%s; unrelated windows=unchanged; total_elapsed_ms=%llu",
-            UiLayoutFixes::Customhouse::g_enabled ? "CUSTOMHOUSE" : "none",
+            UiLayoutFixes::ActiveModules(active, sizeof(active)),
             (unsigned long long)(GetTickCount64() - UiLayoutFixes::g_logStarted));
         UiLayoutFixes::LogSummary("Startup", true);
         return 0;
