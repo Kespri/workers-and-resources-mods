@@ -1,9 +1,16 @@
 # UI Layout Fixes – build notes
 
-- Plugin version 1.3. Target: SOVIET64.exe 1.1.1.9, TesmioLoader API 4.
+- Plugin version 0.3.0. Target: SOVIET64.exe 1.1.1.9, TesmioLoader API 4.
 - Source folder: `my_plugins\ui_layout_fixes\`. Build: `build.bat` (Microsoft Visual C++ x64,
   `/O2 /MT /W3 /EHsc /LD`, kernel32.lib). Output: `build\plugins\ui_layout_fixes.dll` and
   `build\plugins\ui_layout_fixes.ini`.
+
+## 0.3.0 (2026-09-09)
+
+Declared finished by the user after the text review; version string `0.3.0` follows 1.3 (user's
+numbering, back into beta). No runtime change: modules, hooks, INI keys and defaults are those of
+1.3. Package: keyed_list editor texts in player style, `add_id_help` for the add dialog, game-text
+picker (`id_picker = game_texts`, RMM 0.4.21+). Backup: `_backups\ui_layout_fixes_1.3_before_0.3.0_*`.
 
 ## 1.3 (2026-09-09) - TEXT_WRAP module (replaces VEHICLE_ROUTE_HINT)
 

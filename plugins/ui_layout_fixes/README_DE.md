@@ -1,4 +1,4 @@
-# 🪟 UI Layout Fixes 1.3
+# 🪟 UI Layout Fixes 0.3.0
 
 **TesmioLoader-Plugin für gezielte Korrekturen an einzelnen Infofenstern**
 
@@ -43,6 +43,10 @@ Bündelt fensterbezogene Korrekturen für *Workers & Resources: Soviet Republic*
 - ✅ Nur die zwei geprüften Aufrufe der Ressourcenliste werden geändert: der Messdurchlauf (Listenhöhe) und der Zeichendurchlauf (Symbole und Texte); beide verwenden denselben Abstand
 - ✅ Position der darunterliegenden Fensterabschnitte und Scrollbereich rechnet weiterhin das native Layout des Spiels; alle anderen Fenster behalten den nativen Abstand von 25,0 logischen Pixeln
 - ✅ Nur geprüfter Code und Daten im Speicher des laufenden Spiels werden geändert; Spieldateien, Gebäudedateien und Spielstände bleiben unverändert
+
+### 🆕 Neu in 0.3.0
+- ✅ Neues Versionsschema (0.3.0 folgt auf 1.3); Module, Hooks und INI-Schlüssel unverändert.
+- ✅ Alle Texte für Republic Mod Manager im Spieler-Stil überarbeitet: Hinweiskästen statt Gruppentexte, Karte Allgemein entfernt, eigener Hilfetext im Hinzufügen-Dialog, Auswahl der Spieltexte über „Text auswählen…“.
 
 ### 🆕 Seit 1.3
 - ✅ **Modul TEXT_WRAP:** Lange Spieltexte wie der Hinweis „Zeigt den Bereich an, in dem ein mögliches Problem auf der Route besteht!“ im Fahrzeugfenster werden vom Spiel einzeilig gezeichnet und laufen aus dem Fenster. Das Modul fängt die Textabfrage des Spiels für jede Text-ID aus der Liste `[text_wrap_ids]` ab, liefert eine umgebrochene Kopie und zeichnet sie über die gehookten Zeichenfunktionen der Engine Zeile für Zeile. Regeln: höchstens `max_chars` Zeichen je Zeile (Standard 58, je Text überschreibbar), Wörter werden nie getrennt, die Zeilen werden gleich lang verteilt, die Absätze des Spiels fließen zusammen (`keep_breaks = 1` behält sie), Zeilenabstand `line_spacing` als Vielfaches der Schriftgröße (Standard 1.15). Braucht ein Text mehr als `max_lines` Zeilen (Standard 4), werden die Zeilen schrittweise breiter. Es wird kein Spielcode geändert; das Modul hängt nicht am Spiel-Build und gilt für jede Spielsprache mit Leerzeichen zwischen den Wörtern.
@@ -220,6 +224,7 @@ Grenze: Kopiert das Spiel einen Text vor dem Zeichnen in einen eigenen Puffer, e
 Das Plugin verändert weder Spieldateien noch Spielstände.
 
 ### Versionskompatibilität
+- **0.3.0:** Versionsschema und Texte für Republic Mod Manager; Module und INI unverändert
 - **1.3:** Modul TEXT_WRAP mit den Abschnitten `[text_wrap]` und `[text_wrap_ids]` ersetzt das Modul VEHICLE_ROUTE_HINT der internen Zwischenstände 1.2/1.2.1 (deren Abschnitt `[vehicle_route_hint]` wird nicht mehr gelesen); CUSTOMHOUSE und alle bisherigen Schlüssel unverändert
 - **1.1:** Konfiguration über `tesmio_config.h` (Basis plus persönliches Overlay); das Modul CUSTOMHOUSE ist gegenüber 1.0 unverändert
 - **Zurück auf eine ältere Fassung:** alte DLL und die dazugehörige INI wiederherstellen
@@ -323,5 +328,5 @@ A: Nein. Republic Mod Manager zeigt alle Schalter und Werte mit Beschreibung und
 
 ---
 
-**Letzte Aktualisierung:** UI Layout Fixes 1.3  
+**Letzte Aktualisierung:** UI Layout Fixes 0.3.0  
 **Für:** WRSR 1.1.1.9 | TesmioLoader API 4

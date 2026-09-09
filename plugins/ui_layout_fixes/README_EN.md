@@ -1,4 +1,4 @@
-# 🪟 UI Layout Fixes 1.3
+# 🪟 UI Layout Fixes 0.3.0
 
 **TesmioLoader plugin for targeted corrections to single info windows**
 
@@ -43,6 +43,10 @@ Bundles window-specific corrections for *Workers & Resources: Soviet Republic* 1
 - ✅ Only the two verified calls of the resource list are changed: the measurement pass (list height) and the drawing pass (icons and texts); both use the same spacing
 - ✅ The position of the window sections below and the scroll range are still computed by the game's native layout; every other window keeps the native spacing of 25.0 logical pixels
 - ✅ Only verified code and data in the memory of the running game are changed; game files, building files and savegames stay untouched
+
+### 🆕 New in 0.3.0
+- ✅ New version scheme (0.3.0 follows 1.3); modules, hooks and INI keys unchanged.
+- ✅ Every Republic Mod Manager text reworked in player style: notice boxes instead of group texts, General card removed, own help text in the add dialog, game captions picked through "Choose text...".
 
 ### 🆕 Since 1.3
 - ✅ **TEXT_WRAP module:** long captions such as "View area where a possible issue exists on route!" in the vehicle window are drawn as one line and run off the window. The module intercepts the game's text lookup for every text id in the `[text_wrap_ids]` list, returns a re-wrapped copy and draws it line by line through the engine's hooked print functions. Rules: at most `max_chars` characters per line (default 58, overridable per text), words are never split, the lines get similar lengths, the game's paragraphs flow together (`keep_breaks = 1` keeps them), line spacing `line_spacing` as a multiple of the font size (default 1.15). If a text needs more than `max_lines` lines (default 4), the lines get wider step by step. No game code is changed; the module does not depend on the game build and works in every game language that separates words with spaces.
@@ -220,6 +224,7 @@ Limit: if the game copies a text into a buffer of its own before printing, the p
 The plugin changes neither game files nor savegames.
 
 ### Version compatibility
+- **0.3.0:** version scheme and Republic Mod Manager texts; modules and INI unchanged
 - **1.3:** TEXT_WRAP module with the `[text_wrap]` and `[text_wrap_ids]` sections replaces the VEHICLE_ROUTE_HINT module of the internal builds 1.2/1.2.1 (their `[vehicle_route_hint]` section is no longer read); CUSTOMHOUSE and all earlier keys unchanged
 - **1.1:** configuration through `tesmio_config.h` (base plus personal overlay); the CUSTOMHOUSE module is unchanged from 1.0
 - **Going back to an older version:** restore the old DLL and its INI
@@ -323,5 +328,5 @@ A: No. Republic Mod Manager shows every switch and value with descriptions and c
 
 ---
 
-**Last update:** UI Layout Fixes 1.3  
+**Last update:** UI Layout Fixes 0.3.0  
 **For:** WRSR 1.1.1.9 | TesmioLoader API 4

@@ -29,7 +29,7 @@
 
 namespace UiLayoutFixes
 {
-static const char* const PLUGIN_VERSION = "1.3";
+static const char* const PLUGIN_VERSION = "0.3.0";
 // Configuration comes through tesmio_config.h: <loader>\plugins\ui_layout_fixes.ini
 static const char* const LOG_NAME = "tesmioloader.ui_layout_fixes.log";
 
