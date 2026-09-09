@@ -1,4 +1,4 @@
-# ❄️ Weather Roads 0.3.1
+# ❄️ Weather Roads 0.3.2
 
 **TesmioLoader-Plugin für Straßenschnee, Schmelze und Schutz nach dem Räumen**
 
@@ -52,6 +52,10 @@ Steuert in *Workers & Resources: Soviet Republic* 1.1.1.9, wie schnell sich Schn
 - ✅ Schutz und Straßenbild werden mit dem Spielstand gespeichert und beim Laden wiederhergestellt, ohne dass die Schutzdauer neu beginnt
 - ✅ Optionales Diagnose-Overlay (F10) und ausführliche Ereignisprotokolle
 - ✅ Keine VFS-Overrides, keine Änderung an Spiel- oder Speicherdateien; unbekannte Spielstände werden vor der Hook-Installation abgewiesen
+
+### 🆕 Neu in 0.3.2
+- ✅ **Wetterfeld richtig gelesen:** Das Spiel würfelt im Winter am Ende jeder Wetterperiode einen Wert von 0 bis 7 (auf Klimatyp 3 nur 0 bis 2). Nur die 1 bedeutet Schneefall, alle anderen Werte heißen „kein Schnee“. Bisher nahm das Plugin nur 0 bis 2 an und verwarf den Wetterschnappschuss bei 5 von 8 Würfen (Log-Zeile „weather tick unavailable“ mitten im Spiel, Overlay „keine Weltdaten“, „Mit dem Wetter aufhören“ ohne Wirkung). Jetzt gilt: 1 = Schnee, alles andere = kein Schnee; das Overlay und die Log-Zeilen nennen den Wurf mit Namen.
+- ✅ **„Mit dem Wetter aufhören“** greift jetzt bei jedem Wurf ungleich 1, nicht nur bei 0.
 
 ### 🆕 Neu in 0.3.1
 - ✅ **Schnee hört mit dem Wetter auf:** `release_follows_weather = 1` (Standard) verwirft den noch wartenden Straßenschnee, sobald das Spiel keinen Niederschlag mehr meldet. Bisher lief die Warteschlange des schrittweisen Aufbaus nach dem Ende des Schneefalls bis zu etwa eine halbe Minute nach, und Straßen wurden bei klarem Himmel noch weiß. Das Wetter selbst bleibt unangetastet; ist der Wetterschnappschuss nicht lesbar, verhält sich das Plugin wie bisher.
@@ -172,7 +176,7 @@ Weitere Schlüssel, die die DLL kennt, aber die INI nicht enthält, stehen unter
 ## 🌨️ Schnee, Schmelze und Darstellung
 
 - `accumulation_multiplier` skaliert positive interne Schneezuwächse; `maximum_accumulation_per_burst` begrenzt die Summe eines zusammengehörigen Schubs (`0` hebt nur diese Grenze auf). `50` heißt nicht, dass jeder Schneefall 50 Einheiten bringt.
-- `release_follows_weather = 1` bricht diese Verteilung ab, sobald das Spiel keinen Niederschlag mehr meldet; der Rest der Warteschlange verfällt (Ereignis „gradual snow release stopped with the weather“ im Detail-Log).
+- `release_follows_weather = 1` bricht diese Verteilung ab, sobald der Wetterwurf des Spiels nicht mehr 1 (Schneefall) ist; der Rest der Warteschlange verfällt (Ereignis „gradual snow release stopped with the weather“ im Detail-Log).
 - `gradual_accumulation = 1` verteilt geprüfte Wetterzuwächse auf kleine Schritte. Die Abstände in `[advanced]` sind echte Millisekunden; die Freigabe braucht zusätzlich fortschreitende Spielzeit und pausiert im Spiel.
 - `[melting]` skaliert, wie schnell Schnee von selbst wegschmilzt. `0.00` stoppt nur das Schmelzen, nicht das Räumen durch Fahrzeuge und nicht das komplette Zurücksetzen der Schneedecke.
 - `[visual_snow]` bestimmt nur, wie geräumte Straßen aussehen, nicht den Schnee der ganzen Karte und nicht die Schneemenge selbst. Dafür muss „Schutz nach dem Räumen“ eingeschaltet sein.
@@ -261,6 +265,7 @@ Ohne das Plugin lädt der Spielstand normal; die Zusatzdatei wird dann nicht ang
 - `weather_roads_probe.dll` darf nicht gleichzeitig geladen sein.
 
 ### Versionskompatibilität
+- **0.3.2:** Wetterfeld als Wurf 0 bis 7 gelesen, nur 1 = Schneefall; Overlay- und Log-Namen; sonst unverändert
 - **0.3.1:** `release_follows_weather` (Standard 1), sonst unverändert
 - **0.3.0:** neue Texte in Republic Mod Manager und README; Betrieb und Speicherformat unverändert
 - **0.2.11:** INI-Fallback neben der DLL, Schema im Paket; Betrieb und Speicherformat unverändert
@@ -356,5 +361,5 @@ A: Ja, mit den Regeln aus [Konfiguration](#-konfiguration). Republic Mod Manager
 
 ---
 
-**Letzte Aktualisierung:** Weather Roads 0.3.1  
+**Letzte Aktualisierung:** Weather Roads 0.3.2  
 **Für:** WRSR 1.1.1.9 | TesmioLoader API 4

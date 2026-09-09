@@ -9,6 +9,29 @@ it includes `src/tesmio_plugin.h`, `my_plugins/grit_spreader_api.h` (consumer si
 verified SOVIET64.exe / C3DDLL64.dll build. User documentation: README_DE.md / README_EN.md.
 History newest first.
 
+## 0.3.2 (2026-09-09)
+
+- `+0xE28` of the world object is the winter weather roll, not a 0/1/2 precipitation state.
+  Disassembly of the winter routine (exe+0x5D06B8..0x5D08FA): when the period timer at `+0xE2C`
+  expires the game rolls `rand % 3` on climate 3 and `rand % 8` on every other climate, so the
+  field holds 0..7. Only 1 is snowfall: the +30 road-snow ticks (`0x42AF60`, return RVA
+  `0x5D08F5` in the limiter log) and the flags at `+0x5E4` run only for 1; 0 and 2..7 are all
+  "no snow". Confirmed in the user's log (accumulation calls only during state 1, none during 2)
+  and by a read-only memory probe of the paused game (roll 6 while the plugin reported
+  "unavailable").
+- `ReadWeatherSnapshot` accepts 0..7 (was 0..2). With the old range the snapshot was refused on
+  5 of 8 rolls: 23 "weather tick unavailable" events in a 12-minute session, overlay "no world
+  data", and `release_follows_weather` could not act.
+- `release_follows_weather` drops the queue on any roll other than 1 (was: only 0). Event line
+  carries `precipitation_state=<n> (<name>)`.
+- `WeatherRollName`: dry / snow / no snow / unknown for the weather EVENT lines and the overlay;
+  the overlay's old "rain" label for 2 was wrong.
+- Package: INI comment, schema and DE/EN descriptions say "snowfall" instead of "precipitation"
+  and "a few seconds" instead of "half a minute" (the burst maximum caps the queue at 80 units,
+  4.4 s at step 2 / 110 ms).
+- In-game test: pending (user). Expect no "weather tick unavailable" lines while playing and
+  overlay values like `Precipitation: 6 (no snow)`.
+
 ## 0.3.1 (2026-09-09)
 
 - `[snow] release_follows_weather` (default 1, 0..1): `ServiceGradualRoadSnow` reads the weather

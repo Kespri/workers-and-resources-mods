@@ -1,4 +1,4 @@
-# ❄️ Weather Roads 0.3.1
+# ❄️ Weather Roads 0.3.2
 
 **TesmioLoader plugin for road snow, melting and protection after plowing**
 
@@ -52,6 +52,10 @@ Controls in *Workers & Resources: Soviet Republic* 1.1.1.9 how fast snow builds 
 - ✅ Protection and road look are saved with the savegame and restored on load, without restarting the protection period
 - ✅ Optional diagnostic overlay (F10) and detailed event logs
 - ✅ No VFS overrides, no change to game or save files; unknown game builds are refused before any hook is installed
+
+### 🆕 New in 0.3.2
+- ✅ **Weather field read correctly:** In winter the game rolls a value from 0 to 7 at the end of every weather period (0 to 2 on climate type 3). Only 1 means snowfall, every other value means "no snow". Until now the plugin accepted 0 to 2 only and refused the weather snapshot on 5 out of 8 rolls (log line "weather tick unavailable" in the middle of play, overlay "no world data", "Stop with the weather" without effect). Now 1 = snow and everything else = no snow; overlay and log lines name the roll.
+- ✅ **"Stop with the weather"** now triggers on any roll other than 1, not only on 0.
 
 ### 🆕 New in 0.3.1
 - ✅ **Snow stops with the weather:** `release_follows_weather = 1` (default) drops the road snow still waiting in the queue as soon as the game reports no more precipitation. Before, the gradual build-up queue could run on for about half a minute after the snowfall ended and roads turned white under a clear sky. The weather itself is untouched; when the weather snapshot cannot be read, the plugin behaves as before.
@@ -172,7 +176,7 @@ Further keys the DLL knows but the INI does not contain are listed under [Value 
 ## 🌨️ Snow, melting and appearance
 
 - `accumulation_multiplier` scales positive internal snow increments; `maximum_accumulation_per_burst` caps the sum of one grouped burst (`0` removes only this cap). `50` does not mean every snowfall brings 50 units.
-- `release_follows_weather = 1` cuts that spread short as soon as the game reports no more precipitation; the rest of the queue is dropped (event "gradual snow release stopped with the weather" in the detail log).
+- `release_follows_weather = 1` cuts that spread short as soon as the game's weather roll is no longer 1 (snowfall); the rest of the queue is dropped (event "gradual snow release stopped with the weather" in the detail log).
 - `gradual_accumulation = 1` spreads verified weather increments over small steps. The intervals in `[advanced]` are real milliseconds; the release also needs the game time to advance and pauses in-game.
 - `[melting]` scales how fast snow melts away on its own. `0.00` stops only the melting, not clearing by vehicles and not full resets of the snow cover.
 - `[visual_snow]` only decides how plowed roads look, not the snow of the whole map and not the snow amount itself. "Protection after plowing" has to be switched on for it.
@@ -261,6 +265,7 @@ Without the plugin the savegame loads normally; the extra file is then not appli
 - `weather_roads_probe.dll` must not be loaded at the same time.
 
 ### Version compatibility
+- **0.3.2:** weather field read as a roll 0 to 7, only 1 = snowfall; overlay and log names; otherwise unchanged
 - **0.3.1:** `release_follows_weather` (default 1), otherwise unchanged
 - **0.3.0:** new texts in Republic Mod Manager and README; operation and file format unchanged
 - **0.2.11:** INI fallback beside the DLL, schema in the package; operation and file format unchanged
@@ -356,5 +361,5 @@ A: Yes, following the rules in [Configuration](#-configuration). Republic Mod Ma
 
 ---
 
-**Last update:** Weather Roads 0.3.1  
+**Last update:** Weather Roads 0.3.2  
 **For:** WRSR 1.1.1.9 | TesmioLoader API 4

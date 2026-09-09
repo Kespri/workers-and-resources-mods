@@ -17,7 +17,7 @@
 #pragma comment(lib, "gdi32.lib")
 
 #define PLUGIN_NAME       "weather_roads"
-#define PLUGIN_VERSION    "0.3.1"
+#define PLUGIN_VERSION    "0.3.2"
 #define PLUGIN_INI        "plugins\\weather_roads.ini"
 #define PLUGIN_LOG        "weather_roads.log"
 
@@ -162,6 +162,12 @@ static const BYTE kRoadSnowWriteRsi[] = {
 #define OFF_SNOW_MASK_REQUEST  0x5E5
 #define OFF_WEATHER_ON    0x5C4
 #define OFF_PRECIPITATION_STATE 0xE28
+// +0xE28 is the winter weather roll (exe+0x5D06B8..0x5D08FA, build 1.1.1.9):
+// when the period timer at +0xE2C expires the game rolls rand % 3 on climate 3
+// and rand % 8 on every other climate, so the field holds 0..7. Only the
+// value 1 means snowfall (the +30 road-snow ticks and the snow flags at
+// +0x5E4 run only then); 0 and 2..7 are all "no snow". Before 0.3.2 the
+// plugin accepted 0..2 only and refused the snapshot 5 out of 8 rolls.
 #define OFF_WEATHER       0xE70
 #define OFF_NIGHT         0xE74
 #define OFF_TERRAIN       0xED8
@@ -200,7 +206,7 @@ struct WeatherRoadsConfig
     int maximumSnowAccumulationPerBurst;
     int snowBurstResetAfterMs;
     int gradualSnowAccumulation;
-    int releaseFollowsWeather;    // 0.3.1: drop the queued snow once the weather stops precipitating
+    int releaseFollowsWeather;    // 0.3.1: drop the queued snow once the weather roll is no longer 1 (snowing)
     int gradualSnowStepUnits;
     int gradualSnowStepIntervalMs;
     int gradualVisualBatchUnits;
@@ -4337,7 +4343,7 @@ static bool ReadWeatherSnapshot(WeatherSnapshot* out)
         out->day >= -1 && out->day <= 366 &&
         out->year >= 0 && out->year <= 100000 &&
         out->weatherMode >= 0 && out->weatherMode <= 16 &&
-        out->precipitationState >= 0 && out->precipitationState <= 2 &&
+        out->precipitationState >= 0 && out->precipitationState <= 7 &&  // roll 0..7, see OFF_PRECIPITATION_STATE
         out->weather >= 0 && out->weather <= 3 &&
         _finite(out->time) && out->time >= -0.01f && out->time <= 60.01f &&
         _finite(out->night) && out->night >= -0.01f && out->night <= 1.01f;
@@ -4359,6 +4365,15 @@ static const char* WeatherName(int value)
     return (value >= 0 && value < 4) ? names[value] : "unknown";
 }
 
+// Name of a winter weather roll for the logs and the overlay (English).
+static const char* WeatherRollName(int state)
+{
+    if (state == 1) return "snow";
+    if (state == 0) return "dry";
+    if (state >= 2 && state <= 7) return "no snow";
+    return "unknown";
+}
+
 static bool WeatherChanged(const WeatherSnapshot& a,
                            const WeatherSnapshot& b)
 {
@@ -4371,9 +4386,10 @@ static bool WeatherChanged(const WeatherSnapshot& a,
 static void LogWeather(const char* reason, const WeatherSnapshot& s)
 {
     Event("weather %s: year=%d day=%d time=%.3f/60, weather_mode=%d "
-          "(%s), precipitation_state=%d, lighting=%d (%s), night=%.3f",
+          "(%s), precipitation_state=%d (%s), lighting=%d (%s), night=%.3f",
           reason, s.year, s.day, s.time, s.weatherMode,
           s.weatherMode ? "active" : "inactive", s.precipitationState,
+          WeatherRollName(s.precipitationState),
           s.weather, WeatherName(s.weather), s.night);
 }
 
@@ -4492,17 +4508,15 @@ static bool OverlayUsesGerman(void)
 
 static const char* OverlayPrecipitationName(int state, bool german)
 {
+    // 0.3.2: the field is the winter weather roll 0..7; only 1 is snowfall.
     if (german)
     {
-        if (state == 0) return "trocken";
         if (state == 1) return "Schnee";
-        if (state == 2) return "Regen";
+        if (state == 0) return "trocken";
+        if (state >= 2 && state <= 7) return "kein Schnee";
         return "unbekannt";
     }
-    if (state == 0) return "dry";
-    if (state == 1) return "snow";
-    if (state == 2) return "rain";
-    return "unknown";
+    return WeatherRollName(state);
 }
 
 static void CountOverlayPlowPhases(int* protectedPoints, int* saltedPoints)
@@ -7389,21 +7403,25 @@ static void ServiceGradualRoadSnow(void* world, ULONGLONG now)
         return;
     }
 
-    // Release follows the weather (0.3.1): once the captured weather object
-    // reports no precipitation, the rest of the queue is dropped, so the road
-    // snow stops with the snowfall instead of trickling on for up to half a
-    // minute. An unreadable or stale snapshot changes nothing (fail open).
+    // Release follows the weather (0.3.1, roll semantics 0.3.2): once the
+    // captured weather roll is no longer 1 (snowing), the rest of the queue is
+    // dropped, so the road snow stops with the snowfall instead of trickling
+    // on for the remaining burst. An unreadable or stale snapshot changes
+    // nothing (fail open).
     if (g_cfg.releaseFollowsWeather)
     {
         WeatherSnapshot weather;
-        if (ReadWeatherSnapshot(&weather) && weather.precipitationState == 0)
+        if (ReadWeatherSnapshot(&weather) && weather.precipitationState != 1)
         {
             LONG dropped = InterlockedExchange(&g_gradualSnowPendingUnits, 0);
             if (dropped > 0)
             {
                 InterlockedExchangeAdd64(&g_gradualSnowCancelledUnits, dropped);
                 Event("gradual snow release stopped with the weather: "
-                      "precipitation_state=0, dropped_units=%ld", (long)dropped);
+                      "precipitation_state=%d (%s), dropped_units=%ld",
+                      weather.precipitationState,
+                      WeatherRollName(weather.precipitationState),
+                      (long)dropped);
             }
             InterlockedExchange64(&g_gradualSnowNextStepTick, 0);
             FlushGradualVisualSnowBatch(world, true);
