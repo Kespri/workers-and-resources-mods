@@ -1,4 +1,4 @@
-# 🪟 UI Layout Fixes 1.2
+# 🪟 UI Layout Fixes 1.2.1
 
 **TesmioLoader plugin for targeted corrections to single info windows**
 
@@ -44,8 +44,8 @@ Bundles window-specific corrections for *Workers & Resources: Soviet Republic* 1
 - ✅ The position of the window sections below and the scroll range are still computed by the game's native layout; every other window keeps the native spacing of 25.0 logical pixels
 - ✅ Only verified code and data in the memory of the running game are changed; game files, building files and savegames stay untouched
 
-### 🆕 Since 1.2
-- ✅ **VEHICLE_ROUTE_HINT module:** the hint "View area where a possible issue exists on route!" in the vehicle window is stored as two overlong lines and runs past the right edge of the window. The module intercepts the game's text lookup for exactly this text id (1970) and returns a re-wrapped copy: at most `max_chars` characters per line (default 58), words are never split, the lines of a paragraph get similar lengths, the game's paragraphs are kept. If the text needs more than `max_lines` lines (default 4), the lines get wider step by step. No game code is changed; the module works in every game language.
+### 🆕 Since 1.2.1
+- ✅ **VEHICLE_ROUTE_HINT module:** the hint "View area where a possible issue exists on route!" in the vehicle window runs past the right edge because the window draws this row as a single line and ignores line breaks. The module intercepts the game's text lookup for exactly this text id (1970), returns a re-wrapped copy and redirects the two verified print calls of the vehicle window to its own routine that draws the text line by line. Rules: at most `max_chars` characters per line (default 58), words are never split, the lines get similar lengths, the game's paragraphs flow together (`keep_breaks = 1` keeps them), line spacing `line_height` in logical pixels (default 18, the window's label rows use 20). If the text needs more than `max_lines` lines (default 4), the lines get wider step by step. Works in every game language that separates words with spaces.
 
 ### 🆕 Since 1.1
 - ✅ **Shared configuration rule** (`tesmio_config.h`): the base is `plugins\ui_layout_fixes.ini`, otherwise the INI beside the DLL (in the Workshop package). If `user_config\ui_layout_fixes.ini` exists in the loader folder, its keys win one by one; only Republic Mod Manager writes that file. Both paths are logged at start.
@@ -114,7 +114,7 @@ The package ships a launcher schema in the `config` folder. Republic Mod Manager
 
 - **General:** notes, "Files local only" and the button for this guide
 - **Customs house:** module switch and row spacing of the resource list
-- **Vehicle window:** module switch, text id, characters per line and line limit of the route hint
+- **Vehicle window:** module switch, text id, characters per line, line limit, line spacing and paragraph handling of the route hint
 
 The "Plugin active" switch in the header also sets `enabled = 1` when switched on. Personal values live in `user_config\ui_layout_fixes.ini`; the shipped INI stays untouched. If you prefer editing the INI by hand, everything else is below.
 
@@ -151,6 +151,10 @@ text_id = 1970
 max_chars = 58
 ; line limit, 0 to 12; 0 = no limit; above it the lines get wider step by step
 max_lines = 4
+; spacing of the wrapped lines in logical pixels, 8.0 to 40.0, decimal point
+line_height = 18.0
+; 0 = the game's paragraphs flow together, 1 = paragraphs stay separate lines
+keep_breaks = 0
 ```
 
 `enabled` is read as an integer: `0` disables, any other value enables. Use only `0` or `1` anyway.
@@ -168,10 +172,12 @@ max_lines = 4
 | `text_id` | 1 to 100000, whole number | 1970 |
 | `max_chars` | 20 to 200, whole number | 58 |
 | `max_lines` | 0 to 12, whole number (0 = no limit) | 4 |
+| `line_height` | 8.0 to 40.0, decimal point | 18.0 |
+| `keep_breaks` | 0 or 1 | 0 |
 
 For `resource_row_pitch`: `25.0` equals the native game value and adds no spacing; non-numeric, infinite or out-of-range values are discarded, the plugin logs a warning (`invalid-config`) and uses `30.0`, the module stays active.
 
-The same applies to `text_id`, `max_chars` and `max_lines`: invalid or out-of-range values trigger a warning (`invalid-config`) and fall back to the default.
+The same applies to `text_id`, `max_chars`, `max_lines`, `line_height` and `keep_breaks`: invalid or out-of-range values trigger a warning (`invalid-config`) and fall back to the default.
 
 ---
 
@@ -181,7 +187,7 @@ The game natively uses a spacing of `25.0f` for the resource list. The plugin re
 
 Before writing a patch the module checks the size of the loaded image, the PE time stamp of `SOVIET64.exe`, the signature of the CUSTOMHOUSE panel function, the measurement and drawing calls with their targets, the native row-pitch instruction and the reachability of the memory bridge. If any step fails, the plugin writes no patch and the module stays inactive.
 
-The VEHICLE_ROUTE_HINT module works differently: it changes no game code but hooks the engine DLL's text lookup `C3D_LANGUAGE::GetString` through the import table of `SOVIET64.exe`. Only the configured text id receives a re-wrapped copy from the plugin's own buffer; every other id passes through unchanged. The copy is built once and rebuilt only when the game returns a different text for the id (language switch). Other plugins hooking the same lookup (for example the resources plugin) chain in load order; each one answers only its own ids.
+The VEHICLE_ROUTE_HINT module works at two points. First it hooks the engine DLL's text lookup `C3D_LANGUAGE::GetString` through the import table of `SOVIET64.exe`: only the configured text id receives a re-wrapped copy from the plugin's own buffer, every other id passes through unchanged, and the copy is rebuilt only when the game returns a different text for the id (language switch). Second it redirects the two verified calls of `C3D_FONTMANAGER::PrintLeftUnicode` in the vehicle window (route hint and route status) through a near memory bridge to its own routine, which draws a text with line breaks line by line and advances y by `line_height` times the UI scale per line; texts without a line break are forwarded to the original function unchanged. Before that the game version, the signature of the text lookup and both call sites are checked. Other plugins hooking the same text lookup (for example the resources plugin) chain in load order; each one answers only its own ids.
 
 | Property | Expected value |
 |---|---|
@@ -194,7 +200,7 @@ The VEHICLE_ROUTE_HINT module works differently: it changes no game code but hoo
 ## 💾 Compatibility
 
 ### Game and loader
-- Exactly supported game version 1.1.1.9 for CUSTOMHOUSE; other versions are refused because memory addresses and signatures depend on the version. VEHICLE_ROUTE_HINT changes no game code and depends only on the text id
+- Exactly supported game version 1.1.1.9; other versions are refused by both modules because memory addresses and signatures depend on the version
 - Compatible with the resources plugin, which hooks the same text lookup; the hooks chain in load order
 - No dependency on the Localization plugin or any other TesmioLoader plugin
 - A complete game restart removes every active memory change
@@ -203,7 +209,7 @@ The VEHICLE_ROUTE_HINT module works differently: it changes no game code but hoo
 The plugin changes neither game files nor savegames.
 
 ### Version compatibility
-- **1.2:** new VEHICLE_ROUTE_HINT module with the `[vehicle_route_hint]` section; CUSTOMHOUSE and all earlier keys unchanged
+- **1.2.1:** new VEHICLE_ROUTE_HINT module with the `[vehicle_route_hint]` section (1.2 was an internal intermediate build that only re-wrapped the text); CUSTOMHOUSE and all earlier keys unchanged
 - **1.1:** configuration through `tesmio_config.h` (base plus personal overlay); the CUSTOMHOUSE module is unchanged from 1.0
 - **Going back to an older version:** restore the old DLL and its INI
 
@@ -216,8 +222,11 @@ The plugin changes neither game files nor savegames.
 | Problem | Cause | Solution |
 |---|---|---|
 | No wider spacing | `[general]` or `[customhouse]` `enabled = 0`, or `resource_row_pitch = 25.0` | switch on, set a value above 25.0, restart the game |
-| `invalid-config` in the log | `resource_row_pitch`, `text_id`, `max_chars` or `max_lines` invalid | enter a value in the documented range (row spacing with a decimal point) |
+| `invalid-config` in the log | `resource_row_pitch`, `text_id`, `max_chars`, `max_lines`, `line_height` or `keep_breaks` invalid | enter a value in the documented range (row spacing with a decimal point) |
 | Route hint still too wide | `[vehicle_route_hint] enabled = 0`, or `max_lines` forces wider lines | enable the module, lower `max_chars` or raise `max_lines` (0 = no limit) |
+| Route hint lines touch the gauges | `line_height` too large or too many lines | lower `line_height` or raise `max_chars` |
+| `hint-signature`, `print-call` | expected machine code of the vehicle window changed | check the game version and conflicts with other UI plugins; only this module stays inactive |
+| `print-import`, `print-protection` | print call could not be redirected | check security software and competing plugins |
 | `iat-patch` | text lookup import could not be redirected | check `tesmioloader.log`; only this module stays inactive |
 | `text-length` | game text longer than the buffer (1023 characters) | check the text id; the native text is shown unchanged |
 | `unsupported-build` | game version not 1.1.1.9 | use the matching plugin version |
@@ -303,5 +312,5 @@ A: No. Republic Mod Manager shows every switch and value with descriptions and c
 
 ---
 
-**Last update:** UI Layout Fixes 1.2  
+**Last update:** UI Layout Fixes 1.2.1  
 **For:** WRSR 1.1.1.9 | TesmioLoader API 4

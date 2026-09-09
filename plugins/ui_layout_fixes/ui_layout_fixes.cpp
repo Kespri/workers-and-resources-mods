@@ -29,7 +29,7 @@
 
 namespace UiLayoutFixes
 {
-static const char* const PLUGIN_VERSION = "1.2";
+static const char* const PLUGIN_VERSION = "1.2.1";
 // Configuration comes through tesmio_config.h: <loader>\plugins\ui_layout_fixes.ini
 static const char* const LOG_NAME = "tesmioloader.ui_layout_fixes.log";
 
@@ -646,16 +646,21 @@ static void LoadConfig()
 //
 // The route hint of the vehicle window ("View area where a possible issue
 // exists on route! ...", game text id 1970) is stored as two long lines in
-// every language and runs past the right edge of the window. The module
-// hooks the game's caption lookup C3D_LANGUAGE::GetString, which SOVIET64.exe
-// imports from C3DDLL64.dll, through the import table and answers that one
-// id with a word-wrapped copy. Every other id passes straight through.
-// No executable code is changed, so the module does not depend on the
-// verified game build; only the text id may move with a game update.
+// every language. The vehicle window draws it with
+// C3D_FONTMANAGER::PrintLeftUnicode(font, x, y, colour, text), a single-line
+// print that ignores line breaks, so the whole text runs past the right edge.
 //
-// Other plugins may hook the same import (the resources plugin does). The
-// loader hands back whatever the slot held before, so the hooks chain in
-// load order and each one only answers its own ids.
+// Two patches, both verified against the 1.1.1.9 build:
+//  1. The caption lookup C3D_LANGUAGE::GetString (imported from C3DDLL64.dll
+//     through the IAT of SOVIET64.exe) answers the configured id with a
+//     word-wrapped copy. Other plugins may hook the same import (the
+//     resources plugin does); the loader hands back the previous slot value,
+//     so the hooks chain in load order and each answers only its own ids.
+//  2. The two PrintLeftUnicode call sites of the vehicle window's route hint
+//     and route status row are redirected through a near bridge to
+//     PrintLeftLines, which prints one line per '\n' with y advanced by
+//     line_height * ui scale. Texts without a line break pass straight
+//     through, so the status messages drawn by the second site are unchanged.
 
 namespace VehicleRouteHint
 {
@@ -666,22 +671,47 @@ static const char* const SYM_GET_STRING =
 static const int DEFAULT_TEXT_ID = 1970;
 static const int DEFAULT_MAX_CHARS = 58;
 static const int DEFAULT_MAX_LINES = 4;
+static const float DEFAULT_LINE_HEIGHT = 18.0f;   // logical px, label rows use 20
 static const int MIN_TEXT_ID = 1;
 static const int MAX_TEXT_ID = 100000;
 static const int MIN_MAX_CHARS = 20;
 static const int MAX_MAX_CHARS = 200;
 static const int MIN_MAX_LINES = 0;
 static const int MAX_MAX_LINES = 12;
+static const float MIN_LINE_HEIGHT = 8.0f;
+static const float MAX_LINE_HEIGHT = 40.0f;
 static const size_t BUFFER_CHARS = 1024;   // wrapped copy including terminator
+
+// Verified sites in SOVIET64.exe 1.1.1.9 (vehicle window panel).
+static const DWORD RVA_HINT_LOOKUP = 0x007DE5A0;   // mov edx,1970; lea rcx,language; call [GetString]
+static const BYTE EXPECT_HINT_LOOKUP[] = {
+    0xBA, 0xB2, 0x07, 0x00, 0x00,
+    0x48, 0x8D, 0x0D, 0xE4, 0x8F, 0x1B, 0x00,
+    0xFF, 0x15, 0xDE, 0xE2, 0x08, 0x00 };
+static const DWORD RVA_PRINT_CALL_HINT = 0x007DE5F8;     // call [PrintLeftUnicode], route hint
+static const BYTE EXPECT_PRINT_CALL_HINT[] = { 0xFF, 0x15, 0x82, 0xE2, 0x08, 0x00 };
+static const DWORD RVA_PRINT_CALL_STATUS = 0x007DE6D5;   // call [PrintLeftUnicode], route status row
+static const BYTE EXPECT_PRINT_CALL_STATUS[] = { 0xFF, 0x15, 0xA5, 0xE1, 0x08, 0x00 };
+static const DWORD RVA_PRINT_IMPORT_SLOT = 0x0086C880;   // C3DDLL64!C3D_FONTMANAGER::PrintLeftUnicode
+static const DWORD RVA_UI_SCALE = 0x00992088;            // float, layout scale of the game UI
+static const size_t PATCHED_CALL_LENGTH = 6;             // FF 15 disp32 -> E8 rel32 90
 
 static int g_enabled = 1;
 static int g_textId = DEFAULT_TEXT_ID;
 static int g_maxChars = DEFAULT_MAX_CHARS;
 static int g_maxLines = DEFAULT_MAX_LINES;
+static int g_keepBreaks = 0;
+static float g_lineHeight = DEFAULT_LINE_HEIGHT;
 static bool g_installed = false;
 
 typedef wchar_t* (*GetStringFn)(void* self, int id);
 static GetStringFn o_GetString = nullptr;
+
+// void C3D_FONTMANAGER::PrintLeftUnicode(C3D_FONT*, float x, float y,
+//                                        unsigned long colour, const wchar_t* format, ...)
+typedef void (*PrintLeftFn)(void* manager, void* font, float x, float y,
+                            unsigned long colour, const wchar_t* format, ...);
+static PrintLeftFn o_PrintLeft = nullptr;
 
 // The source the wrapped copy was built from and the copy itself. The copy is
 // rebuilt only when the game hands back a different string for the id (a
@@ -910,8 +940,19 @@ static const wchar_t* Wrapped(const wchar_t* original)
             wcscpy_s(g_source, BUFFER_CHARS, original);
 
             int sourceLines = 0;
+            size_t sourceLongest = 0;
+            MeasureSource(g_source, &sourceLines, &sourceLongest);
+
+            // The game's own line breaks either stay as paragraph breaks or
+            // become spaces so the whole hint reflows into fewer lines.
+            wchar_t flow[BUFFER_CHARS];
+            wcscpy_s(flow, BUFFER_CHARS, g_source);
+            if (!g_keepBreaks)
+                for (wchar_t* p = flow; *p; ++p)
+                    if (*p == L'\n' || *p == L'\r') *p = L' ';
+            int flowLines = 0;
             size_t longest = 0;
-            MeasureSource(g_source, &sourceLines, &longest);
+            MeasureSource(flow, &flowLines, &longest);
 
             // Start at the configured width; when the line limit is exceeded
             // widen step by step, never beyond the native line length.
@@ -920,7 +961,7 @@ static const wchar_t* Wrapped(const wchar_t* original)
             int lines = -1;
             for (;;)
             {
-                lines = WrapText(g_source, width, g_wrapped, BUFFER_CHARS, &widest);
+                lines = WrapText(flow, width, g_wrapped, BUFFER_CHARS, &widest);
                 if (lines < 0) break;
                 if (g_maxLines <= 0 || lines <= g_maxLines || width >= longest) break;
                 width += 4;
@@ -932,7 +973,7 @@ static const wchar_t* Wrapped(const wchar_t* original)
                 g_haveWrapped = true;
                 LogInfo("[%s] text id %d: native %d line(s), longest %u chars -> "
                         "%d line(s), widest %u chars at width %u",
-                    MODULE, g_textId, sourceLines, (unsigned)longest,
+                    MODULE, g_textId, sourceLines, (unsigned)sourceLongest,
                     lines, (unsigned)widest, (unsigned)width);
             }
         }
@@ -950,6 +991,154 @@ static wchar_t* h_GetString(void* self, int id)
     return text;
 }
 
+static float UiScale()
+{
+    float scale = 1.0f;
+    if (g_exeBase && ReadablePtr(g_exeBase + RVA_UI_SCALE, sizeof(scale)))
+        memcpy(&scale, g_exeBase + RVA_UI_SCALE, sizeof(scale));
+    if (!(scale > 0.01f && scale < 100.0f)) scale = 1.0f;
+    return scale;
+}
+
+// Replacement for the two verified PrintLeftUnicode calls. Both sites pass
+// the caption itself as the format and no further arguments. A caption with
+// line breaks is printed line by line; anything else is forwarded unchanged.
+static void PrintLeftLines(void* manager, void* font, float x, float y,
+                           unsigned long colour, const wchar_t* format, ...)
+{
+    if (!o_PrintLeft) return;
+    if (!format || !wcschr(format, L'\n'))
+    {
+        o_PrintLeft(manager, font, x, y, colour, format ? format : L"");
+        return;
+    }
+
+    const float step = g_lineHeight * UiScale();
+    wchar_t line[BUFFER_CHARS];
+    const wchar_t* p = format;
+    int index = 0;
+    for (;;)
+    {
+        const wchar_t* newline = wcschr(p, L'\n');
+        size_t length = newline ? (size_t)(newline - p) : wcslen(p);
+        if (length > 0 && p[length - 1] == L'\r') --length;
+        if (length >= BUFFER_CHARS) length = BUFFER_CHARS - 1;
+        memcpy(line, p, length * sizeof(wchar_t));
+        line[length] = 0;
+        o_PrintLeft(manager, font, x, y + step * (float)index, colour, L"%ls", line);
+        ++index;
+        if (!newline) break;
+        p = newline + 1;
+    }
+}
+
+static bool VerifyBuild()
+{
+    const DWORD timestamp = ExeTimestamp();
+    if (g_exeSize != Customhouse::EXPECTED_IMAGE_SIZE ||
+        timestamp != Customhouse::EXPECTED_EXE_TIMESTAMP)
+    {
+        LogError(MODULE, "unsupported-build",
+            "expected SOVIET64.exe 1.1.1.9 "
+            "(image=0x%X timestamp=0x%08X), found image=0x%llX timestamp=0x%08X; "
+            "the module remains inactive",
+            Customhouse::EXPECTED_IMAGE_SIZE, Customhouse::EXPECTED_EXE_TIMESTAMP,
+            (unsigned long long)g_exeSize, timestamp);
+        return false;
+    }
+    return VerifyBytes(RVA_HINT_LOOKUP, EXPECT_HINT_LOOKUP,
+                       sizeof(EXPECT_HINT_LOOKUP), MODULE, "hint-signature",
+                       "vehicle-window route hint lookup") &&
+           VerifyBytes(RVA_PRINT_CALL_HINT, EXPECT_PRINT_CALL_HINT,
+                       sizeof(EXPECT_PRINT_CALL_HINT), MODULE, "print-call",
+                       "route hint print call") &&
+           VerifyBytes(RVA_PRINT_CALL_STATUS, EXPECT_PRINT_CALL_STATUS,
+                       sizeof(EXPECT_PRINT_CALL_STATUS), MODULE, "print-call",
+                       "route status print call");
+}
+
+// Redirects both print calls (FF 15 disp32 -> E8 rel32 + nop) through a
+// near bridge to PrintLeftLines. Written only after every check passed.
+static bool RedirectPrintCalls()
+{
+    BYTE* hintCall = g_exeBase + RVA_PRINT_CALL_HINT;
+    BYTE* statusCall = g_exeBase + RVA_PRINT_CALL_STATUS;
+    BYTE* importSlot = g_exeBase + RVA_PRINT_IMPORT_SLOT;
+
+    if (!ReadablePtr(importSlot, sizeof(void*)))
+    {
+        LogError(MODULE, "print-import",
+            "the PrintLeftUnicode import slot at SOVIET64.exe+0x%X is not readable; no patch was written",
+            RVA_PRINT_IMPORT_SLOT);
+        return false;
+    }
+    PrintLeftFn original = nullptr;
+    memcpy(&original, importSlot, sizeof(original));
+    if (!original)
+    {
+        LogError(MODULE, "print-import",
+            "the PrintLeftUnicode import slot is empty; no patch was written");
+        return false;
+    }
+
+    BYTE* bridge = AllocNear(hintCall, 64);
+    if (!bridge)
+    {
+        LogError(MODULE, "near-allocation",
+            "could not allocate the print-call bridge; no patch was written");
+        return false;
+    }
+    Customhouse::BuildAbsoluteJump(bridge, (void*)&PrintLeftLines);
+
+    LONG hintDisplacement = 0;
+    LONG statusDisplacement = 0;
+    if (!Rel32(hintCall, bridge, &hintDisplacement) ||
+        !Rel32(statusCall, bridge, &statusDisplacement))
+    {
+        LogError(MODULE, "bridge-range",
+            "the allocated print-call bridge is outside rel32 range; no patch was written");
+        return false;
+    }
+    if (!FlushInstructionCache(GetCurrentProcess(), bridge, 64))
+    {
+        ReportWindows("ERROR", MODULE, "bridge-cache",
+            "Could not publish the generated print-call bridge to the instruction cache",
+            GetLastError(),
+            "Restart the game and verify that security software is not blocking the plugin; no patch was written");
+        return false;
+    }
+
+    const SIZE_T range = (SIZE_T)((statusCall + PATCHED_CALL_LENGTH) - hintCall);
+    DWORD protection = 0;
+    if (!VirtualProtect(hintCall, range, PAGE_EXECUTE_READWRITE, &protection))
+    {
+        ReportWindows("ERROR", MODULE, "print-protection",
+            "Could not make the two verified print call sites writable",
+            GetLastError(),
+            "Restart the game and check security software or conflicting UI plugins; no patch was written");
+        return false;
+    }
+
+    BYTE hintPatch[PATCHED_CALL_LENGTH] = { 0xE8, 0, 0, 0, 0, 0x90 };
+    BYTE statusPatch[PATCHED_CALL_LENGTH] = { 0xE8, 0, 0, 0, 0, 0x90 };
+    memcpy(hintPatch + 1, &hintDisplacement, sizeof(hintDisplacement));
+    memcpy(statusPatch + 1, &statusDisplacement, sizeof(statusDisplacement));
+    o_PrintLeft = original;
+    memcpy(hintCall, hintPatch, PATCHED_CALL_LENGTH);
+    memcpy(statusCall, statusPatch, PATCHED_CALL_LENGTH);
+
+    DWORD ignored = 0;
+    if (!VirtualProtect(hintCall, range, protection, &ignored))
+        ReportWindows("WARN", MODULE, "print-protection-restore",
+            "The patch is active, but the print call-site page protection could not be restored",
+            GetLastError(), "Restart the game before changing plugins");
+    if (!FlushInstructionCache(GetCurrentProcess(), hintCall, range))
+        ReportWindows("WARN", MODULE, "print-cache",
+            "The redirected print calls could not be flushed from the instruction cache",
+            GetLastError(), "Restart the game if the route hint is still one line");
+    return true;
+}
+
 static bool Install()
 {
     if (!g_enabled)
@@ -958,22 +1147,30 @@ static bool Install()
         return true;
     }
 
+    if (!VerifyBuild()) return false;
+
+    // The print redirection goes first: should the caption hook fail
+    // afterwards, the native two-line text is at least drawn as two lines.
+    if (!RedirectPrintCalls()) return false;
+
     if (!PatchIat((HMODULE)g_exeBase, DLL_ENGINE, SYM_GET_STRING,
                   (void*)h_GetString, (void**)&o_GetString,
                   "C3D_LANGUAGE::GetString (ui_layout_fixes)") ||
         !o_GetString)
     {
         LogError(MODULE, "iat-patch",
-            "The import %s!%s of SOVIET64.exe could not be redirected; the route hint keeps its native line length. "
+            "The import %s!%s of SOVIET64.exe could not be redirected; the route hint keeps its native line length "
+            "(the print redirection stays active and draws the native line break). "
             "Action: check tesmioloader.log for the loader's reason and conflicting plugins",
             DLL_ENGINE, SYM_GET_STRING);
+        g_installed = true;
         return false;
     }
 
     g_installed = true;
-    LogInfo("[%s] active: text id %d wrapped at %d chars, line limit %d; "
-            "scope=one caption id through the caption lookup import; executable code unchanged",
-        MODULE, g_textId, g_maxChars, g_maxLines);
+    LogInfo("[%s] active: text id %d wrapped at %d chars, line limit %d, line height %.1f (ui scale %.2f), keep_breaks=%d; "
+            "scope=caption lookup import + two verified print calls of the vehicle window",
+        MODULE, g_textId, g_maxChars, g_maxLines, g_lineHeight, UiScale(), g_keepBreaks);
     return true;
 }
 
@@ -986,6 +1183,9 @@ static void LoadConfig()
                MIN_MAX_CHARS, MAX_MAX_CHARS, &g_maxChars);
     ReadIniInt("vehicle_route_hint", "max_lines", DEFAULT_MAX_LINES,
                MIN_MAX_LINES, MAX_MAX_LINES, &g_maxLines);
+    ReadIniInt("vehicle_route_hint", "keep_breaks", 0, 0, 1, &g_keepBreaks);
+    ReadIniFloat("vehicle_route_hint", "line_height", DEFAULT_LINE_HEIGHT,
+                 MIN_LINE_HEIGHT, MAX_LINE_HEIGHT, &g_lineHeight);
 }
 } // namespace VehicleRouteHint
 

@@ -1,30 +1,47 @@
 # UI Layout Fixes – build notes
 
-- Plugin version 1.2. Target: SOVIET64.exe 1.1.1.9, TesmioLoader API 4.
+- Plugin version 1.2.1. Target: SOVIET64.exe 1.1.1.9, TesmioLoader API 4.
 - Source folder: `my_plugins\ui_layout_fixes\`. Build: `build.bat` (Microsoft Visual C++ x64,
   `/O2 /MT /W3 /EHsc /LD`, kernel32.lib). Output: `build\plugins\ui_layout_fixes.dll` and
   `build\plugins\ui_layout_fixes.ini`.
 
-## 1.2 (2026-09-09) - VEHICLE_ROUTE_HINT module
+## 1.2.1 (2026-09-09) - VEHICLE_ROUTE_HINT module
 
 - New INI section `[vehicle_route_hint]`: `enabled` (1), `text_id` (1970, 1..100000), `max_chars`
-  (58, 20..200), `max_lines` (4, 0..12; 0 = no limit). Whole numbers are validated like the
-  decimal row pitch (`invalid-config` warning, fallback to the default).
-- Hook: the import `C3DDLL64.dll!?GetString@C3D_LANGUAGE@@QEAAPEA_WH@Z` in the IAT of
-  SOVIET64.exe through the host's `patchIat`. The loader hands back the previous slot value, so
-  the hook chains with other plugins on the same slot (the resources plugin hooks it too).
-  No executable code is changed and the module does not run the build check.
-- Detour: for `text_id` the original string is copied into a static 1024-wchar buffer and
-  word-wrapped: greedy wrap at `max_chars`, then per paragraph the narrowest width that keeps
-  the same line count (balanced lines), the game's own line breaks kept as paragraph breaks,
-  width widened in steps of 4 while the line count exceeds `max_lines`. Rebuilt only when the
-  game returns a different string (language switch); guarded by `g_lock`; one INFO line per
-  rebuild. Texts longer than the buffer pass through unchanged (`text-length` warning once).
-- Start: a failed IAT patch is an ERROR (`iat-patch`), the module stays inactive, Start still
-  returns 0; the summary line lists `active modules=CUSTOMHOUSE+VEHICLE_ROUTE_HINT`.
+  (58, 20..200), `max_lines` (4, 0..12; 0 = no limit), `line_height` (18.0, 8.0..40.0 logical px),
+  `keep_breaks` (0). Whole numbers and the decimal are validated like the row pitch
+  (`invalid-config` warning, fallback to the default).
+- Why 1.2 was not enough: the vehicle window draws the hint with
+  `C3D_FONTMANAGER::PrintLeftUnicode(font, x, y, colour, format, ...)` (import slot
+  `exe+0x86C880`), a single-line print that drops '\n'. The 1.2 in-game test showed the wrapped
+  text as one line with the words at the break positions glued together ("einmögliches").
+  The engine exports no wrapping print (`C3DDLL64.dll` exports: PrintLeft/Center/RightUnicode
+  on C3D_FONT and C3D_FONTMANAGER, PrintLeftUnicodeNoArg, CalcRect* for bitmap fonts only).
+- Patch 1, caption: the import `C3DDLL64.dll!?GetString@C3D_LANGUAGE@@QEAAPEA_WH@Z` in the IAT
+  of SOVIET64.exe through the host's `patchIat` (chains with other plugins on the same slot,
+  the resources plugin hooks it too). For `text_id` the string is copied into a static
+  1024-wchar buffer and word-wrapped: the game's own line breaks become spaces unless
+  `keep_breaks = 1`, greedy wrap at `max_chars`, then per paragraph the narrowest width that
+  keeps the same line count (balanced lines), width widened in steps of 4 while the line count
+  exceeds `max_lines`. Rebuilt only when the game returns a different string; guarded by
+  `g_lock`; one INFO line per rebuild.
+- Patch 2, print: the two `FF 15 disp32` calls of PrintLeftUnicode in the vehicle window panel,
+  `exe+0x7DE5F8` (route hint, preceded by `mov edx,1970 / lea rcx,language / call [GetString]`
+  at `exe+0x7DE5A0`, verified as 18-byte signature) and `exe+0x7DE6D5` (route status row,
+  ids 0x7AD, 0x7B2, 0xB12..0xB1F), become `E8 rel32 90` to a near bridge (`allocNear`,
+  `mov rax,imm64 / jmp rax`) that lands in `PrintLeftLines`. The detour keeps the variadic
+  prototype (floats duplicated in r8/r9 and xmm2/xmm3, checked in the DLL disassembly), prints
+  each line through the original slot value with `L"%ls"` and `y + line_height * ui_scale *
+  index`; `ui_scale` is the float at `exe+0x992088` that every offset of the window is
+  multiplied with (label rows advance by 20 * scale, `.rdata` 0x90A928). Texts without '\n'
+  pass through unchanged, so the status messages are untouched.
+- Order in Install: build check (image size, timestamp, three signatures), print redirection,
+  then the caption hook. If the caption hook fails after the print patch, the native two-line
+  text is still drawn as two lines. Any failure is an ERROR, the module stays inactive, Start
+  still returns 0; the summary lists `active modules=CUSTOMHOUSE+VEHICLE_ROUTE_HINT`.
 - Offline check of the wrap with the real texts of id 1970 (`sovietGerman.btf` /
-  `sovietEnglish.btf`, big-endian tables, UTF-16BE payload): DE 74/76 chars -> 32/40/37/38,
-  EN 50/66 chars -> 49/32/35 at `max_chars = 58`. In-game test: pending (user).
+  `sovietEnglish.btf`, big-endian tables, UTF-16BE payload): DE 74/76 chars -> 3 lines with
+  merged paragraphs at `max_chars = 58`, EN 50/66 -> 2. In-game test: pending (user).
 
 ## Configuration (1.1, `my_plugins\tesmio_config.h`)
 
