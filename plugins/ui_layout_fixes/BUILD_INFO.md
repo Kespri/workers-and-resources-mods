@@ -1,9 +1,49 @@
 # UI Layout Fixes – build notes
 
-- Plugin version 1.2.1. Target: SOVIET64.exe 1.1.1.9, TesmioLoader API 4.
+- Plugin version 1.3. Target: SOVIET64.exe 1.1.1.9, TesmioLoader API 4.
 - Source folder: `my_plugins\ui_layout_fixes\`. Build: `build.bat` (Microsoft Visual C++ x64,
   `/O2 /MT /W3 /EHsc /LD`, kernel32.lib). Output: `build\plugins\ui_layout_fixes.dll` and
   `build\plugins\ui_layout_fixes.ini`.
+
+## 1.3 (2026-09-09) - TEXT_WRAP module (replaces VEHICLE_ROUTE_HINT)
+
+- Why: the user wants the wrap to cover any caption, not one hard-wired id. The 1.2.1 design
+  patched two call sites of the vehicle window and could not grow. 1.3 keeps the wrap logic and
+  moves the drawing side to the import table, so a new id only needs an INI line.
+- INI: `[text_wrap]` enabled (1), max_chars (58, 20..200), max_lines (4, 0..12), line_spacing
+  (1.15, 0.50..3.00, multiple of the font size), keep_breaks (0), log_long_texts (0, 0..400);
+  `[text_wrap_ids]` with `<id> = <chars>` lines (0 = default width, else 20..200), up to 64
+  entries, read from the user_config overlay as a whole when it has the section, otherwise from
+  the base INI (`GetPrivateProfileSectionA`, step measured before the `=` cut). A missing
+  section keeps 1970 as the one entry. `[vehicle_route_hint]` is no longer read.
+- Hook 1 (unchanged idea): `C3D_LANGUAGE::GetString` via the IAT; a table of entries with one
+  source and one wrapped buffer each (`g_wrapped[64][1024]`, contiguous). With
+  `log_long_texts > 0` every id seen once whose longest line exceeds the value is logged with
+  its first 80 characters (bitset of 65536 ids).
+- Hook 2 (new): the six print imports SOVIET64.exe has from C3DDLL64.dll -
+  `C3D_FONTMANAGER::PrintLeftUnicode/PrintCenterUnicode/PrintRightUnicode/PrintLeftUnicodeNoArg`
+  and `C3D_FONT::PrintLeftUnicode/PrintRightUnicode` - are redirected through generated stubs
+  in one RWX page (59 bytes each, `mov rax,[rsp+0x30|0x28]` = the text pointer, two `mov r10,
+  imm64 / cmp rax,r10` range checks against `g_wrapped`, `jmp` to the handler or to the
+  original read from the slot before the patch). Encoding checked against ml64 (`cmp` uses
+  the 4C 39 D0 form, ml64 the 49 3B C2 form; same operation). The stubs never touch the
+  stack, so the variadic originals get every argument as the caller built it. Handlers take
+  the fixed arguments (floats from xmm1..3 as the non-variadic prototype expects; the call
+  sites duplicate them in r8/r9 too), split at '\n' and print each line through the original
+  with `L"%ls"` (NoArg: the line itself), y advanced by `C3D_FONT::GetSize(font) *
+  line_spacing` (export resolved with GetProcAddress; fallback 16 when missing or absurd).
+  The first wrapped print logs font size and step for calibration.
+- The two call-site patches and the build check of 1.2.1 are gone; the module no longer
+  depends on the executable build, only on the text ids.
+- Failures: stub page or all print imports failing is an ERROR and the module stays inactive;
+  a single import missing is logged and skipped; caption hook failure after the print hooks is
+  an ERROR (nothing wrapped). Start still returns 0 in every case.
+- RMM package: keyed_list editor (`editor_type = keyed_list`, list section `text_wrap_ids`,
+  column `chars`, `id_suggestions = 0`), tabs General / Customs house / Text wrap / Text ids;
+  `user_overlay` dropped from the manifest because the list editor writes the effective INI.
+  Needs RMM 0.4.20 (id_suggestions, card notice_style).
+- In-game test: pending (user). Points to watch: font size / step line in the detail log,
+  the route hint as three lines, other windows unchanged.
 
 ## 1.2.1 (2026-09-09) - VEHICLE_ROUTE_HINT module
 

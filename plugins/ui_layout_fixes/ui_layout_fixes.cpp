@@ -29,7 +29,7 @@
 
 namespace UiLayoutFixes
 {
-static const char* const PLUGIN_VERSION = "1.2.1";
+static const char* const PLUGIN_VERSION = "1.3";
 // Configuration comes through tesmio_config.h: <loader>\plugins\ui_layout_fixes.ini
 static const char* const LOG_NAME = "tesmioloader.ui_layout_fixes.log";
 
@@ -642,85 +642,117 @@ static void LoadConfig()
 } // namespace Customhouse
 
 // -------------------------------------------------------------------------
-// VEHICLE_ROUTE_HINT module
+// TEXT_WRAP module
 //
-// The route hint of the vehicle window ("View area where a possible issue
-// exists on route! ...", game text id 1970) is stored as two long lines in
-// every language. The vehicle window draws it with
-// C3D_FONTMANAGER::PrintLeftUnicode(font, x, y, colour, text), a single-line
-// print that ignores line breaks, so the whole text runs past the right edge.
+// Long game captions such as the route hint of the vehicle window (text id
+// 1970, "View area where a possible issue exists on route! ...") are stored
+// as one or two overlong lines and drawn with the engine's single-line print
+// functions, which ignore line breaks, so they run past the window edge.
 //
-// Two patches, both verified against the 1.1.1.9 build:
-//  1. The caption lookup C3D_LANGUAGE::GetString (imported from C3DDLL64.dll
-//     through the IAT of SOVIET64.exe) answers the configured id with a
-//     word-wrapped copy. Other plugins may hook the same import (the
-//     resources plugin does); the loader hands back the previous slot value,
-//     so the hooks chain in load order and each answers only its own ids.
-//  2. The two PrintLeftUnicode call sites of the vehicle window's route hint
-//     and route status row are redirected through a near bridge to
-//     PrintLeftLines, which prints one line per '\n' with y advanced by
-//     line_height * ui scale. Texts without a line break pass straight
-//     through, so the status messages drawn by the second site are unchanged.
+// Two hooks, both through the import table of SOVIET64.exe, no executable
+// code changed, no dependency on a particular game build:
+//  1. C3D_LANGUAGE::GetString answers every id listed in [text_wrap_ids]
+//     with a word-wrapped copy from a plugin-owned buffer.
+//  2. The engine's print imports (PrintLeft/Center/RightUnicode on
+//     C3D_FONTMANAGER and C3D_FONT, PrintLeftUnicodeNoArg) are redirected
+//     through small generated stubs. A stub looks at the text pointer only:
+//     inside the plugin's wrap buffers it jumps to a handler that prints one
+//     line per '\n' with y advanced by font size * line_spacing; every other
+//     call jumps straight on to the original with all its arguments intact
+//     (the print functions are variadic, so a C detour could not forward
+//     them; the stub never touches the stack).
+//
+// Other plugins may hook the same imports (the resources plugin hooks
+// GetString). The loader hands back the previous slot value, so the hooks
+// chain in load order and each answers only its own texts.
+//
+// Limit: a caption the game copies into its own buffer before printing is
+// no longer recognised by the pointer check and comes out as one line.
 
-namespace VehicleRouteHint
+namespace TextWrap
 {
-static const char* const MODULE = "VEHICLE_ROUTE_HINT";
-static const char* const SYM_GET_STRING =
-    "?GetString@C3D_LANGUAGE@@QEAAPEA_WH@Z";
+static const char* const MODULE = "TEXT_WRAP";
+static const char* const SECTION = "text_wrap";
+static const char* const LIST_SECTION = "text_wrap_ids";
+static const char* const SYM_GET_STRING = "?GetString@C3D_LANGUAGE@@QEAAPEA_WH@Z";
+static const char* const SYM_FONT_SIZE = "?GetSize@C3D_FONT@@QEAAMXZ";
 
-static const int DEFAULT_TEXT_ID = 1970;
+static const int DEFAULT_TEXT_ID = 1970;      // used when [text_wrap_ids] is absent
 static const int DEFAULT_MAX_CHARS = 58;
 static const int DEFAULT_MAX_LINES = 4;
-static const float DEFAULT_LINE_HEIGHT = 18.0f;   // logical px, label rows use 20
+static const float DEFAULT_LINE_SPACING = 1.15f;
 static const int MIN_TEXT_ID = 1;
 static const int MAX_TEXT_ID = 100000;
 static const int MIN_MAX_CHARS = 20;
 static const int MAX_MAX_CHARS = 200;
 static const int MIN_MAX_LINES = 0;
 static const int MAX_MAX_LINES = 12;
-static const float MIN_LINE_HEIGHT = 8.0f;
-static const float MAX_LINE_HEIGHT = 40.0f;
-static const size_t BUFFER_CHARS = 1024;   // wrapped copy including terminator
-
-// Verified sites in SOVIET64.exe 1.1.1.9 (vehicle window panel).
-static const DWORD RVA_HINT_LOOKUP = 0x007DE5A0;   // mov edx,1970; lea rcx,language; call [GetString]
-static const BYTE EXPECT_HINT_LOOKUP[] = {
-    0xBA, 0xB2, 0x07, 0x00, 0x00,
-    0x48, 0x8D, 0x0D, 0xE4, 0x8F, 0x1B, 0x00,
-    0xFF, 0x15, 0xDE, 0xE2, 0x08, 0x00 };
-static const DWORD RVA_PRINT_CALL_HINT = 0x007DE5F8;     // call [PrintLeftUnicode], route hint
-static const BYTE EXPECT_PRINT_CALL_HINT[] = { 0xFF, 0x15, 0x82, 0xE2, 0x08, 0x00 };
-static const DWORD RVA_PRINT_CALL_STATUS = 0x007DE6D5;   // call [PrintLeftUnicode], route status row
-static const BYTE EXPECT_PRINT_CALL_STATUS[] = { 0xFF, 0x15, 0xA5, 0xE1, 0x08, 0x00 };
-static const DWORD RVA_PRINT_IMPORT_SLOT = 0x0086C880;   // C3DDLL64!C3D_FONTMANAGER::PrintLeftUnicode
-static const DWORD RVA_UI_SCALE = 0x00992088;            // float, layout scale of the game UI
-static const size_t PATCHED_CALL_LENGTH = 6;             // FF 15 disp32 -> E8 rel32 90
+static const float MIN_LINE_SPACING = 0.5f;
+static const float MAX_LINE_SPACING = 3.0f;
+static const int MAX_LOG_LONG = 400;
+static const int MAX_ENTRIES = 64;
+static const size_t BUFFER_CHARS = 1024;      // per text, including terminator
+static const size_t STUB_BYTES = 64;
+static const size_t STUB_PAGE = 4096;
 
 static int g_enabled = 1;
-static int g_textId = DEFAULT_TEXT_ID;
 static int g_maxChars = DEFAULT_MAX_CHARS;
 static int g_maxLines = DEFAULT_MAX_LINES;
 static int g_keepBreaks = 0;
-static float g_lineHeight = DEFAULT_LINE_HEIGHT;
+static int g_logLong = 0;
+static float g_lineSpacing = DEFAULT_LINE_SPACING;
 static bool g_installed = false;
+static bool g_stepLogged = false;
+
+struct Entry
+{
+    int id;
+    int maxChars;        // 0 = [text_wrap] max_chars
+    bool haveWrapped;
+    bool tooLongReported;
+};
+static Entry g_entries[MAX_ENTRIES];
+static int g_entryCount = 0;
+
+// One source copy and one wrapped copy per entry. g_wrapped is one
+// contiguous block: the print stubs recognise the plugin's texts by
+// checking whether the text pointer lies inside it.
+static wchar_t g_sources[MAX_ENTRIES][BUFFER_CHARS];
+static wchar_t g_wrapped[MAX_ENTRIES][BUFFER_CHARS];
+static unsigned char g_longSeen[65536 / 8];
 
 typedef wchar_t* (*GetStringFn)(void* self, int id);
 static GetStringFn o_GetString = nullptr;
+typedef float (*FontSizeFn)(void* font);
+static FontSizeFn g_fontSize = nullptr;
 
-// void C3D_FONTMANAGER::PrintLeftUnicode(C3D_FONT*, float x, float y,
-//                                        unsigned long colour, const wchar_t* format, ...)
-typedef void (*PrintLeftFn)(void* manager, void* font, float x, float y,
+// void C3D_FONTMANAGER::Print*Unicode(C3D_FONT*, float x, float y, unsigned long colour, const wchar_t* format, ...)
+typedef void (*PrintMgrFn)(void* manager, void* font, float x, float y,
+                           unsigned long colour, const wchar_t* format, ...);
+// void C3D_FONTMANAGER::PrintLeftUnicodeNoArg(C3D_FONT*, float x, float y, unsigned long colour, const wchar_t* text)
+typedef void (*PrintMgrNoArgFn)(void* manager, void* font, float x, float y,
+                                unsigned long colour, const wchar_t* text);
+// void C3D_FONT::Print*Unicode(float x, float y, unsigned long colour, const wchar_t* format, ...)
+typedef void (*PrintFontFn)(void* font, float x, float y,
                             unsigned long colour, const wchar_t* format, ...);
-static PrintLeftFn o_PrintLeft = nullptr;
 
-// The source the wrapped copy was built from and the copy itself. The copy is
-// rebuilt only when the game hands back a different string for the id (a
-// language switch); the buffer address stays the same, so pointers the UI
-// still holds remain valid. Guarded by g_lock from tesmio_plugin.h.
-static wchar_t g_source[BUFFER_CHARS];
-static wchar_t g_wrapped[BUFFER_CHARS];
-static bool g_haveWrapped = false;
-static bool g_tooLongReported = false;
+enum HookIndex
+{
+    HOOK_MGR_LEFT = 0, HOOK_MGR_CENTER, HOOK_MGR_RIGHT, HOOK_MGR_LEFT_NOARG,
+    HOOK_FONT_LEFT, HOOK_FONT_RIGHT, HOOK_COUNT
+};
+
+struct PrintHook
+{
+    const char* symbol;
+    const char* label;
+    int formatOffset;     // stack offset of the text pointer at stub entry
+    void* handler;
+    void* original;
+    bool installed;
+};
+static PrintHook g_hooks[HOOK_COUNT];
+static BYTE* g_stubPage = nullptr;
 
 static bool ReadIniInt(const char* section, const char* key,
                        int fallback, int minimum, int maximum, int* output)
@@ -914,39 +946,50 @@ static void MeasureSource(const wchar_t* source, int* lines, size_t* longest)
     }
 }
 
-// Returns the wrapped copy of `original`, rebuilding it when the game's
-// string changed. Falls back to the original when the text is too long for
-// the buffer, so the game never loses the caption.
-static const wchar_t* Wrapped(const wchar_t* original)
+static int FindEntry(int id)
 {
+    for (int i = 0; i < g_entryCount; ++i)
+        if (g_entries[i].id == id) return i;
+    return -1;
+}
+
+// Returns the wrapped copy of `original` for entry `index`, rebuilding it
+// when the game's string changed (language switch). Falls back to the
+// original when the text is too long for the buffer.
+static const wchar_t* Wrapped(int index, const wchar_t* original)
+{
+    Entry& entry = g_entries[index];
+    wchar_t* source = g_sources[index];
+    wchar_t* wrapped = g_wrapped[index];
+
     EnterCriticalSection(&g_lock);
-    if (!g_haveWrapped || wcscmp(original, g_source) != 0)
+    if (!entry.haveWrapped || wcscmp(original, source) != 0)
     {
-        g_haveWrapped = false;
+        entry.haveWrapped = false;
         const size_t sourceLength = wcslen(original);
         if (sourceLength + 1 > BUFFER_CHARS)
         {
-            if (!g_tooLongReported)
+            if (!entry.tooLongReported)
             {
-                g_tooLongReported = true;
+                entry.tooLongReported = true;
                 LogWarning(MODULE, "text-length",
                     "text id %d is %u characters long, the wrap buffer holds %u. "
                     "Action: the native text is shown unchanged",
-                    g_textId, (unsigned)sourceLength, (unsigned)(BUFFER_CHARS - 1));
+                    entry.id, (unsigned)sourceLength, (unsigned)(BUFFER_CHARS - 1));
             }
         }
         else
         {
-            wcscpy_s(g_source, BUFFER_CHARS, original);
+            wcscpy_s(source, BUFFER_CHARS, original);
 
             int sourceLines = 0;
             size_t sourceLongest = 0;
-            MeasureSource(g_source, &sourceLines, &sourceLongest);
+            MeasureSource(source, &sourceLines, &sourceLongest);
 
             // The game's own line breaks either stay as paragraph breaks or
-            // become spaces so the whole hint reflows into fewer lines.
+            // become spaces so the whole text reflows into fewer lines.
             wchar_t flow[BUFFER_CHARS];
-            wcscpy_s(flow, BUFFER_CHARS, g_source);
+            wcscpy_s(flow, BUFFER_CHARS, source);
             if (!g_keepBreaks)
                 for (wchar_t* p = flow; *p; ++p)
                     if (*p == L'\n' || *p == L'\r') *p = L' ';
@@ -954,14 +997,15 @@ static const wchar_t* Wrapped(const wchar_t* original)
             size_t longest = 0;
             MeasureSource(flow, &flowLines, &longest);
 
-            // Start at the configured width; when the line limit is exceeded
-            // widen step by step, never beyond the native line length.
-            size_t width = (size_t)g_maxChars;
+            // Start at the entry's width (or the module default); when the
+            // line limit is exceeded widen step by step, never beyond the
+            // native line length.
+            size_t width = (size_t)(entry.maxChars > 0 ? entry.maxChars : g_maxChars);
             size_t widest = 0;
             int lines = -1;
             for (;;)
             {
-                lines = WrapText(flow, width, g_wrapped, BUFFER_CHARS, &widest);
+                lines = WrapText(flow, width, wrapped, BUFFER_CHARS, &widest);
                 if (lines < 0) break;
                 if (g_maxLines <= 0 || lines <= g_maxLines || width >= longest) break;
                 width += 4;
@@ -970,173 +1014,211 @@ static const wchar_t* Wrapped(const wchar_t* original)
 
             if (lines > 0)
             {
-                g_haveWrapped = true;
+                entry.haveWrapped = true;
                 LogInfo("[%s] text id %d: native %d line(s), longest %u chars -> "
                         "%d line(s), widest %u chars at width %u",
-                    MODULE, g_textId, sourceLines, (unsigned)sourceLongest,
+                    MODULE, entry.id, sourceLines, (unsigned)sourceLongest,
                     lines, (unsigned)widest, (unsigned)width);
             }
         }
     }
-    const wchar_t* result = g_haveWrapped ? g_wrapped : original;
+    const wchar_t* result = entry.haveWrapped ? wrapped : original;
     LeaveCriticalSection(&g_lock);
     return result;
+}
+
+// Diagnostic: every id the game asks for whose longest line exceeds
+// log_long_texts is reported once, so candidates for the list can be found
+// while playing.
+static void NoteLongText(int id, const wchar_t* text)
+{
+    if (id < 0 || id >= 65536) return;
+    const unsigned index = (unsigned)id;
+    if (g_longSeen[index >> 3] & (1u << (index & 7))) return;
+    g_longSeen[index >> 3] |= (unsigned char)(1u << (index & 7));
+
+    int lines = 0;
+    size_t longest = 0;
+    MeasureSource(text, &lines, &longest);
+    if (longest <= (size_t)g_logLong) return;
+    LogInfo("[%s] long text id %d: %d line(s), longest %u chars%s: %.80ls",
+        MODULE, id, lines, (unsigned)longest,
+        FindEntry(id) >= 0 ? " (listed)" : "", text);
 }
 
 static wchar_t* h_GetString(void* self, int id)
 {
     wchar_t* text = o_GetString(self, id);
-    if (id == g_textId && text && text[0])
-        return const_cast<wchar_t*>(Wrapped(text));
-    return text;
+    if (!text || !text[0]) return text;
+    if (g_logLong > 0) NoteLongText(id, text);
+    const int index = FindEntry(id);
+    if (index < 0) return text;
+    return const_cast<wchar_t*>(Wrapped(index, text));
 }
 
-static float UiScale()
+static float LineStep(void* font)
 {
-    float scale = 1.0f;
-    if (g_exeBase && ReadablePtr(g_exeBase + RVA_UI_SCALE, sizeof(scale)))
-        memcpy(&scale, g_exeBase + RVA_UI_SCALE, sizeof(scale));
-    if (!(scale > 0.01f && scale < 100.0f)) scale = 1.0f;
-    return scale;
+    float size = 0.0f;
+    if (g_fontSize && font) size = g_fontSize(font);
+    if (!(size > 1.0f && size < 500.0f)) size = 16.0f;
+    const float step = size * g_lineSpacing;
+    if (!g_stepLogged)
+    {
+        g_stepLogged = true;
+        LogInfo("[%s] first wrapped print: font size %.1f, line spacing %.2f -> line step %.1f",
+            MODULE, size, g_lineSpacing, step);
+    }
+    return step;
 }
 
-// Replacement for the two verified PrintLeftUnicode calls. Both sites pass
-// the caption itself as the format and no further arguments. A caption with
-// line breaks is printed line by line; anything else is forwarded unchanged.
-static void PrintLeftLines(void* manager, void* font, float x, float y,
-                           unsigned long colour, const wchar_t* format, ...)
+// Splits `text` at '\n' into `line` (one call per line, index counts up).
+// Returns false after the last line.
+static bool NextLine(const wchar_t** cursor, wchar_t* line)
 {
-    if (!o_PrintLeft) return;
-    if (!format || !wcschr(format, L'\n'))
-    {
-        o_PrintLeft(manager, font, x, y, colour, format ? format : L"");
-        return;
-    }
-
-    const float step = g_lineHeight * UiScale();
-    wchar_t line[BUFFER_CHARS];
-    const wchar_t* p = format;
-    int index = 0;
-    for (;;)
-    {
-        const wchar_t* newline = wcschr(p, L'\n');
-        size_t length = newline ? (size_t)(newline - p) : wcslen(p);
-        if (length > 0 && p[length - 1] == L'\r') --length;
-        if (length >= BUFFER_CHARS) length = BUFFER_CHARS - 1;
-        memcpy(line, p, length * sizeof(wchar_t));
-        line[length] = 0;
-        o_PrintLeft(manager, font, x, y + step * (float)index, colour, L"%ls", line);
-        ++index;
-        if (!newline) break;
-        p = newline + 1;
-    }
-}
-
-static bool VerifyBuild()
-{
-    const DWORD timestamp = ExeTimestamp();
-    if (g_exeSize != Customhouse::EXPECTED_IMAGE_SIZE ||
-        timestamp != Customhouse::EXPECTED_EXE_TIMESTAMP)
-    {
-        LogError(MODULE, "unsupported-build",
-            "expected SOVIET64.exe 1.1.1.9 "
-            "(image=0x%X timestamp=0x%08X), found image=0x%llX timestamp=0x%08X; "
-            "the module remains inactive",
-            Customhouse::EXPECTED_IMAGE_SIZE, Customhouse::EXPECTED_EXE_TIMESTAMP,
-            (unsigned long long)g_exeSize, timestamp);
-        return false;
-    }
-    return VerifyBytes(RVA_HINT_LOOKUP, EXPECT_HINT_LOOKUP,
-                       sizeof(EXPECT_HINT_LOOKUP), MODULE, "hint-signature",
-                       "vehicle-window route hint lookup") &&
-           VerifyBytes(RVA_PRINT_CALL_HINT, EXPECT_PRINT_CALL_HINT,
-                       sizeof(EXPECT_PRINT_CALL_HINT), MODULE, "print-call",
-                       "route hint print call") &&
-           VerifyBytes(RVA_PRINT_CALL_STATUS, EXPECT_PRINT_CALL_STATUS,
-                       sizeof(EXPECT_PRINT_CALL_STATUS), MODULE, "print-call",
-                       "route status print call");
-}
-
-// Redirects both print calls (FF 15 disp32 -> E8 rel32 + nop) through a
-// near bridge to PrintLeftLines. Written only after every check passed.
-static bool RedirectPrintCalls()
-{
-    BYTE* hintCall = g_exeBase + RVA_PRINT_CALL_HINT;
-    BYTE* statusCall = g_exeBase + RVA_PRINT_CALL_STATUS;
-    BYTE* importSlot = g_exeBase + RVA_PRINT_IMPORT_SLOT;
-
-    if (!ReadablePtr(importSlot, sizeof(void*)))
-    {
-        LogError(MODULE, "print-import",
-            "the PrintLeftUnicode import slot at SOVIET64.exe+0x%X is not readable; no patch was written",
-            RVA_PRINT_IMPORT_SLOT);
-        return false;
-    }
-    PrintLeftFn original = nullptr;
-    memcpy(&original, importSlot, sizeof(original));
-    if (!original)
-    {
-        LogError(MODULE, "print-import",
-            "the PrintLeftUnicode import slot is empty; no patch was written");
-        return false;
-    }
-
-    BYTE* bridge = AllocNear(hintCall, 64);
-    if (!bridge)
-    {
-        LogError(MODULE, "near-allocation",
-            "could not allocate the print-call bridge; no patch was written");
-        return false;
-    }
-    Customhouse::BuildAbsoluteJump(bridge, (void*)&PrintLeftLines);
-
-    LONG hintDisplacement = 0;
-    LONG statusDisplacement = 0;
-    if (!Rel32(hintCall, bridge, &hintDisplacement) ||
-        !Rel32(statusCall, bridge, &statusDisplacement))
-    {
-        LogError(MODULE, "bridge-range",
-            "the allocated print-call bridge is outside rel32 range; no patch was written");
-        return false;
-    }
-    if (!FlushInstructionCache(GetCurrentProcess(), bridge, 64))
-    {
-        ReportWindows("ERROR", MODULE, "bridge-cache",
-            "Could not publish the generated print-call bridge to the instruction cache",
-            GetLastError(),
-            "Restart the game and verify that security software is not blocking the plugin; no patch was written");
-        return false;
-    }
-
-    const SIZE_T range = (SIZE_T)((statusCall + PATCHED_CALL_LENGTH) - hintCall);
-    DWORD protection = 0;
-    if (!VirtualProtect(hintCall, range, PAGE_EXECUTE_READWRITE, &protection))
-    {
-        ReportWindows("ERROR", MODULE, "print-protection",
-            "Could not make the two verified print call sites writable",
-            GetLastError(),
-            "Restart the game and check security software or conflicting UI plugins; no patch was written");
-        return false;
-    }
-
-    BYTE hintPatch[PATCHED_CALL_LENGTH] = { 0xE8, 0, 0, 0, 0, 0x90 };
-    BYTE statusPatch[PATCHED_CALL_LENGTH] = { 0xE8, 0, 0, 0, 0, 0x90 };
-    memcpy(hintPatch + 1, &hintDisplacement, sizeof(hintDisplacement));
-    memcpy(statusPatch + 1, &statusDisplacement, sizeof(statusDisplacement));
-    o_PrintLeft = original;
-    memcpy(hintCall, hintPatch, PATCHED_CALL_LENGTH);
-    memcpy(statusCall, statusPatch, PATCHED_CALL_LENGTH);
-
-    DWORD ignored = 0;
-    if (!VirtualProtect(hintCall, range, protection, &ignored))
-        ReportWindows("WARN", MODULE, "print-protection-restore",
-            "The patch is active, but the print call-site page protection could not be restored",
-            GetLastError(), "Restart the game before changing plugins");
-    if (!FlushInstructionCache(GetCurrentProcess(), hintCall, range))
-        ReportWindows("WARN", MODULE, "print-cache",
-            "The redirected print calls could not be flushed from the instruction cache",
-            GetLastError(), "Restart the game if the route hint is still one line");
+    const wchar_t* p = *cursor;
+    if (!p) return false;
+    const wchar_t* newline = wcschr(p, L'\n');
+    size_t length = newline ? (size_t)(newline - p) : wcslen(p);
+    if (length > 0 && p[length - 1] == L'\r') --length;
+    if (length >= BUFFER_CHARS) length = BUFFER_CHARS - 1;
+    memcpy(line, p, length * sizeof(wchar_t));
+    line[length] = 0;
+    *cursor = newline ? newline + 1 : nullptr;
     return true;
+}
+
+// The handlers receive exactly the fixed arguments of the print function
+// they replace; the stubs only send texts from g_wrapped here, and those
+// never carry format arguments.
+static void PrintMgrLines(int hook, void* manager, void* font, float x, float y,
+                          unsigned long colour, const wchar_t* text)
+{
+    void* original = g_hooks[hook].original;
+    if (!original) return;
+    const float step = LineStep(font);
+    wchar_t line[BUFFER_CHARS];
+    const wchar_t* cursor = text;
+    for (int index = 0; NextLine(&cursor, line); ++index)
+    {
+        const float lineY = y + step * (float)index;
+        if (hook == HOOK_MGR_LEFT_NOARG)
+            ((PrintMgrNoArgFn)original)(manager, font, x, lineY, colour, line);
+        else
+            ((PrintMgrFn)original)(manager, font, x, lineY, colour, L"%ls", line);
+    }
+}
+
+static void PrintFontLines(int hook, void* font, float x, float y,
+                           unsigned long colour, const wchar_t* text)
+{
+    void* original = g_hooks[hook].original;
+    if (!original) return;
+    const float step = LineStep(font);
+    wchar_t line[BUFFER_CHARS];
+    const wchar_t* cursor = text;
+    for (int index = 0; NextLine(&cursor, line); ++index)
+        ((PrintFontFn)original)(font, x, y + step * (float)index, colour, L"%ls", line);
+}
+
+static void HandleMgrLeft(void* m, void* f, float x, float y, unsigned long c, const wchar_t* t)
+{ PrintMgrLines(HOOK_MGR_LEFT, m, f, x, y, c, t); }
+static void HandleMgrCenter(void* m, void* f, float x, float y, unsigned long c, const wchar_t* t)
+{ PrintMgrLines(HOOK_MGR_CENTER, m, f, x, y, c, t); }
+static void HandleMgrRight(void* m, void* f, float x, float y, unsigned long c, const wchar_t* t)
+{ PrintMgrLines(HOOK_MGR_RIGHT, m, f, x, y, c, t); }
+static void HandleMgrLeftNoArg(void* m, void* f, float x, float y, unsigned long c, const wchar_t* t)
+{ PrintMgrLines(HOOK_MGR_LEFT_NOARG, m, f, x, y, c, t); }
+static void HandleFontLeft(void* f, float x, float y, unsigned long c, const wchar_t* t)
+{ PrintFontLines(HOOK_FONT_LEFT, f, x, y, c, t); }
+static void HandleFontRight(void* f, float x, float y, unsigned long c, const wchar_t* t)
+{ PrintFontLines(HOOK_FONT_RIGHT, f, x, y, c, t); }
+
+// Emits one stub:
+//   mov rax, [rsp+formatOffset]   ; the text pointer of this call
+//   mov r10, begin ; cmp rax, r10 ; jb pass
+//   mov r10, end   ; cmp rax, r10 ; jae pass
+//   mov rax, handler ; jmp rax    ; our text: print line by line
+// pass:
+//   mov rax, original ; jmp rax   ; anything else: untouched, arguments intact
+// rax, r10 are scratch registers in the x64 calling convention; nothing is
+// pushed, so the callee sees the caller's frame exactly as built.
+static size_t BuildStub(BYTE* out, int formatOffset, const void* begin,
+                        const void* end, void* handler, void* original)
+{
+    size_t n = 0;
+    out[n++] = 0x48; out[n++] = 0x8B; out[n++] = 0x44; out[n++] = 0x24; out[n++] = (BYTE)formatOffset;
+    out[n++] = 0x49; out[n++] = 0xBA; memcpy(out + n, &begin, 8); n += 8;
+    out[n++] = 0x4C; out[n++] = 0x39; out[n++] = 0xD0;
+    out[n++] = 0x72; const size_t jb = n++;
+    out[n++] = 0x49; out[n++] = 0xBA; memcpy(out + n, &end, 8); n += 8;
+    out[n++] = 0x4C; out[n++] = 0x39; out[n++] = 0xD0;
+    out[n++] = 0x73; const size_t jae = n++;
+    out[n++] = 0x48; out[n++] = 0xB8; memcpy(out + n, &handler, 8); n += 8;
+    out[n++] = 0xFF; out[n++] = 0xE0;
+    const size_t pass = n;
+    out[jb] = (BYTE)(pass - (jb + 1));
+    out[jae] = (BYTE)(pass - (jae + 1));
+    out[n++] = 0x48; out[n++] = 0xB8; memcpy(out + n, &original, 8); n += 8;
+    out[n++] = 0xFF; out[n++] = 0xE0;
+    return n;
+}
+
+static void DefineHooks()
+{
+    g_hooks[HOOK_MGR_LEFT]       = { "?PrintLeftUnicode@C3D_FONTMANAGER@@QEAAXPEAVC3D_FONT@@MMKPEB_WZZ",   "C3D_FONTMANAGER::PrintLeftUnicode",      0x30, (void*)&HandleMgrLeft,      nullptr, false };
+    g_hooks[HOOK_MGR_CENTER]     = { "?PrintCenterUnicode@C3D_FONTMANAGER@@QEAAXPEAVC3D_FONT@@MMKPEB_WZZ", "C3D_FONTMANAGER::PrintCenterUnicode",    0x30, (void*)&HandleMgrCenter,    nullptr, false };
+    g_hooks[HOOK_MGR_RIGHT]      = { "?PrintRightUnicode@C3D_FONTMANAGER@@QEAAXPEAVC3D_FONT@@MMKPEB_WZZ",  "C3D_FONTMANAGER::PrintRightUnicode",     0x30, (void*)&HandleMgrRight,     nullptr, false };
+    g_hooks[HOOK_MGR_LEFT_NOARG] = { "?PrintLeftUnicodeNoArg@C3D_FONTMANAGER@@QEAAXPEAVC3D_FONT@@MMKPEB_W@Z", "C3D_FONTMANAGER::PrintLeftUnicodeNoArg", 0x30, (void*)&HandleMgrLeftNoArg, nullptr, false };
+    g_hooks[HOOK_FONT_LEFT]      = { "?PrintLeftUnicode@C3D_FONT@@QEAAXMMKPEB_WZZ",                        "C3D_FONT::PrintLeftUnicode",             0x28, (void*)&HandleFontLeft,     nullptr, false };
+    g_hooks[HOOK_FONT_RIGHT]     = { "?PrintRightUnicode@C3D_FONT@@QEAAXMMKPEB_WZZ",                       "C3D_FONT::PrintRightUnicode",            0x28, (void*)&HandleFontRight,    nullptr, false };
+}
+
+// Redirects every print import that SOVIET64.exe actually has. An import
+// that is missing is skipped with a note; a failed patch is an error but
+// leaves the other hooks in place.
+static int InstallPrintHooks()
+{
+    DefineHooks();
+    g_stubPage = (BYTE*)VirtualAlloc(nullptr, STUB_PAGE, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    if (!g_stubPage)
+    {
+        ReportWindows("ERROR", MODULE, "stub-allocation",
+            "Could not allocate the page for the print stubs", GetLastError(),
+            "Restart the game; the wrapped texts are drawn as one line until then");
+        return 0;
+    }
+    memset(g_stubPage, 0xCC, STUB_PAGE);
+
+    const void* begin = &g_wrapped[0][0];
+    const void* end = &g_wrapped[MAX_ENTRIES - 1][BUFFER_CHARS - 1] + 1;
+    int installed = 0;
+    for (int i = 0; i < HOOK_COUNT; ++i)
+    {
+        PrintHook& hook = g_hooks[i];
+        void** slot = FindIatSlot((HMODULE)g_exeBase, DLL_ENGINE, hook.symbol);
+        if (!slot || !*slot)
+        {
+            LogInfo("[%s] %s is not imported by SOVIET64.exe; skipped", MODULE, hook.label);
+            continue;
+        }
+        hook.original = *slot;
+        BYTE* stub = g_stubPage + (size_t)i * STUB_BYTES;
+        BuildStub(stub, hook.formatOffset, begin, end, hook.handler, hook.original);
+        FlushInstructionCache(GetCurrentProcess(), stub, STUB_BYTES);
+
+        void* previous = nullptr;
+        if (!PatchIat((HMODULE)g_exeBase, DLL_ENGINE, hook.symbol, (void*)stub, &previous, hook.label) || previous != hook.original)
+        {
+            LogError(MODULE, "print-import",
+                "the import %s!%s could not be redirected; texts drawn through it stay one line",
+                DLL_ENGINE, hook.symbol);
+            hook.original = nullptr;
+            continue;
+        }
+        hook.installed = true;
+        ++installed;
+    }
+    return installed;
 }
 
 static bool Install()
@@ -1146,12 +1228,28 @@ static bool Install()
         LogInfo("[%s] disabled by configuration", MODULE);
         return true;
     }
+    if (g_entryCount == 0)
+    {
+        LogInfo("[%s] no text ids listed in [%s]; nothing to do", MODULE, LIST_SECTION);
+        return true;
+    }
 
-    if (!VerifyBuild()) return false;
+    HMODULE engine = GetModuleHandleA(DLL_ENGINE);
+    if (engine) g_fontSize = (FontSizeFn)GetProcAddress(engine, SYM_FONT_SIZE);
+    if (!g_fontSize)
+        LogWarning(MODULE, "font-size",
+            "%s!%s not found; the line step falls back to 16 * line_spacing", DLL_ENGINE, SYM_FONT_SIZE);
 
-    // The print redirection goes first: should the caption hook fail
-    // afterwards, the native two-line text is at least drawn as two lines.
-    if (!RedirectPrintCalls()) return false;
+    // The print stubs go first: should the caption hook fail afterwards, a
+    // native text with line breaks is at least drawn as separate lines
+    // whenever it is one of ours.
+    const int printHooks = InstallPrintHooks();
+    if (printHooks == 0)
+    {
+        LogError(MODULE, "print-hooks",
+            "none of the print imports could be redirected; wrapped texts would come out as one line, the module stays inactive");
+        return false;
+    }
 
     if (!PatchIat((HMODULE)g_exeBase, DLL_ENGINE, SYM_GET_STRING,
                   (void*)h_GetString, (void**)&o_GetString,
@@ -1159,35 +1257,126 @@ static bool Install()
         !o_GetString)
     {
         LogError(MODULE, "iat-patch",
-            "The import %s!%s of SOVIET64.exe could not be redirected; the route hint keeps its native line length "
-            "(the print redirection stays active and draws the native line break). "
+            "The import %s!%s of SOVIET64.exe could not be redirected; no text is wrapped. "
             "Action: check tesmioloader.log for the loader's reason and conflicting plugins",
             DLL_ENGINE, SYM_GET_STRING);
-        g_installed = true;
         return false;
     }
 
     g_installed = true;
-    LogInfo("[%s] active: text id %d wrapped at %d chars, line limit %d, line height %.1f (ui scale %.2f), keep_breaks=%d; "
-            "scope=caption lookup import + two verified print calls of the vehicle window",
-        MODULE, g_textId, g_maxChars, g_maxLines, g_lineHeight, UiScale(), g_keepBreaks);
+    char ids[512];
+    ids[0] = 0;
+    for (int i = 0; i < g_entryCount; ++i)
+    {
+        char one[32];
+        _snprintf_s(one, sizeof(one), _TRUNCATE, "%s%d", i ? "," : "", g_entries[i].id);
+        strcat_s(ids, sizeof(ids), one);
+        if (g_entries[i].maxChars > 0)
+        {
+            _snprintf_s(one, sizeof(one), _TRUNCATE, "=%d", g_entries[i].maxChars);
+            strcat_s(ids, sizeof(ids), one);
+        }
+    }
+    LogInfo("[%s] active: %d text id(s) [%s], default %d chars, line limit %d, line spacing %.2f, keep_breaks=%d, log_long_texts=%d; "
+            "print hooks %d/%d; scope=caption lookup + print imports; executable code unchanged",
+        MODULE, g_entryCount, ids, g_maxChars, g_maxLines, g_lineSpacing, g_keepBreaks, g_logLong,
+        printHooks, HOOK_COUNT);
     return true;
+}
+
+static void AddEntry(const char* keyText, const char* valueText)
+{
+    char* end = nullptr;
+    const long id = strtol(keyText, &end, 10);
+    if (!end || end == keyText || *end != 0 || id < MIN_TEXT_ID || id > MAX_TEXT_ID)
+    {
+        LogWarning(LIST_SECTION, "invalid-config",
+            "\"%s\" is not a text id in %d..%d. Action: entry skipped", keyText, MIN_TEXT_ID, MAX_TEXT_ID);
+        return;
+    }
+    long chars = 0;
+    if (valueText && valueText[0])
+    {
+        chars = strtol(valueText, &end, 10);
+        while (end && (*end == ' ' || *end == '\t')) ++end;
+        if (!end || end == valueText || *end != 0 || (chars != 0 && (chars < MIN_MAX_CHARS || chars > MAX_MAX_CHARS)))
+        {
+            LogWarning(LIST_SECTION, "invalid-config",
+                "%s=%s is invalid; expected 0 or a whole number in %d..%d. Action: using the default width",
+                keyText, valueText, MIN_MAX_CHARS, MAX_MAX_CHARS);
+            chars = 0;
+        }
+    }
+    if (FindEntry((int)id) >= 0)
+    {
+        LogWarning(LIST_SECTION, "invalid-config", "text id %ld is listed twice. Action: second entry skipped", id);
+        return;
+    }
+    if (g_entryCount >= MAX_ENTRIES)
+    {
+        LogWarning(LIST_SECTION, "invalid-config", "more than %d text ids listed. Action: %ld skipped", MAX_ENTRIES, id);
+        return;
+    }
+    Entry& entry = g_entries[g_entryCount++];
+    entry.id = (int)id;
+    entry.maxChars = (int)chars;
+    entry.haveWrapped = false;
+    entry.tooLongReported = false;
+}
+
+// Reads [text_wrap_ids] as "id = chars" lines. The user_config overlay wins
+// as a whole when it carries the section; otherwise the base INI is read.
+// A file without the section keeps the route hint (1970) as the one entry.
+static bool ReadIdList(const char* path)
+{
+    char buffer[16384];
+    const DWORD got = GetPrivateProfileSectionA(LIST_SECTION, buffer, sizeof(buffer), path);
+    if (got == 0 || got >= sizeof(buffer) - 2) return false;
+    bool any = false;
+    for (char* p = buffer; *p; )
+    {
+        char* next = p + strlen(p) + 1;      // measured before the entry is cut at '='
+        char* eq = strchr(p, '=');
+        char* value = nullptr;
+        if (eq) { *eq = 0; value = eq + 1; }
+        Trim(p);
+        if (value)
+        {
+            for (char* c = value; *c; ++c)
+                if ((*c == ';' || *c == '#') && (c == value || c[-1] == ' ' || c[-1] == '\t')) { *c = 0; break; }
+            Trim(value);
+        }
+        if (*p && *p != ';' && *p != '#')
+        {
+            any = true;
+            AddEntry(p, value);
+        }
+        p = next;
+    }
+    return any;
 }
 
 static void LoadConfig()
 {
-    g_enabled = TsmConfigInt("vehicle_route_hint", "enabled", 1) != 0;
-    ReadIniInt("vehicle_route_hint", "text_id", DEFAULT_TEXT_ID,
-               MIN_TEXT_ID, MAX_TEXT_ID, &g_textId);
-    ReadIniInt("vehicle_route_hint", "max_chars", DEFAULT_MAX_CHARS,
-               MIN_MAX_CHARS, MAX_MAX_CHARS, &g_maxChars);
-    ReadIniInt("vehicle_route_hint", "max_lines", DEFAULT_MAX_LINES,
-               MIN_MAX_LINES, MAX_MAX_LINES, &g_maxLines);
-    ReadIniInt("vehicle_route_hint", "keep_breaks", 0, 0, 1, &g_keepBreaks);
-    ReadIniFloat("vehicle_route_hint", "line_height", DEFAULT_LINE_HEIGHT,
-                 MIN_LINE_HEIGHT, MAX_LINE_HEIGHT, &g_lineHeight);
+    g_enabled = TsmConfigInt(SECTION, "enabled", 1) != 0;
+    ReadIniInt(SECTION, "max_chars", DEFAULT_MAX_CHARS, MIN_MAX_CHARS, MAX_MAX_CHARS, &g_maxChars);
+    ReadIniInt(SECTION, "max_lines", DEFAULT_MAX_LINES, MIN_MAX_LINES, MAX_MAX_LINES, &g_maxLines);
+    ReadIniInt(SECTION, "keep_breaks", 0, 0, 1, &g_keepBreaks);
+    ReadIniInt(SECTION, "log_long_texts", 0, 0, MAX_LOG_LONG, &g_logLong);
+    ReadIniFloat(SECTION, "line_spacing", DEFAULT_LINE_SPACING, MIN_LINE_SPACING, MAX_LINE_SPACING, &g_lineSpacing);
+
+    g_entryCount = 0;
+    bool listed = false;
+    if (g_tsmConfig.hasOverlay) listed = ReadIdList(g_tsmConfig.overlay);
+    if (!listed && g_tsmConfig.hasBase) listed = ReadIdList(g_tsmConfig.base);
+    if (!listed && g_entryCount == 0)
+    {
+        AddEntry("1970", "0");
+        LogInfo("[%s] no [%s] section found; using the built-in entry %d (vehicle window route hint)",
+            MODULE, LIST_SECTION, DEFAULT_TEXT_ID);
+    }
 }
-} // namespace VehicleRouteHint
+} // namespace TextWrap
 
 static void LoadConfig()
 {
@@ -1195,13 +1384,13 @@ static void LoadConfig()
     if (g_enabled)
     {
         Customhouse::LoadConfig();
-        VehicleRouteHint::LoadConfig();
+        TextWrap::LoadConfig();
     }
 }
 
 static bool HasEnabledModule()
 {
-    return Customhouse::g_enabled != 0 || VehicleRouteHint::g_enabled != 0;
+    return Customhouse::g_enabled != 0 || TextWrap::g_enabled != 0;
 }
 
 static const char* ActiveModules(char* out, size_t capacity)
@@ -1209,10 +1398,10 @@ static const char* ActiveModules(char* out, size_t capacity)
     out[0] = 0;
     if (Customhouse::g_enabled)
         strcat_s(out, capacity, "CUSTOMHOUSE");
-    if (VehicleRouteHint::g_installed)
+    if (TextWrap::g_installed)
     {
         if (out[0]) strcat_s(out, capacity, "+");
-        strcat_s(out, capacity, "VEHICLE_ROUTE_HINT");
+        strcat_s(out, capacity, "TEXT_WRAP");
     }
     if (!out[0]) strcpy_s(out, capacity, "none");
     return out;
@@ -1323,7 +1512,7 @@ int TsmPluginStart(void)
 
         // A failed import redirection leaves this module inactive but hooks
         // nothing, so the other modules and the startup result are unaffected.
-        UiLayoutFixes::VehicleRouteHint::Install();
+        UiLayoutFixes::TextWrap::Install();
 
         char active[64];
         UiLayoutFixes::LogInfo(
