@@ -41,7 +41,7 @@
   still returns 0; the summary lists `active modules=CUSTOMHOUSE+VEHICLE_ROUTE_HINT`.
 - Offline check of the wrap with the real texts of id 1970 (`sovietGerman.btf` /
   `sovietEnglish.btf`, big-endian tables, UTF-16BE payload): DE 74/76 chars -> 3 lines with
-  merged paragraphs at `max_chars = 58`, EN 50/66 -> 2. In-game test: pending (user).
+  merged paragraphs at `max_chars = 58`, EN 50/66 -> 2. In-game test 2026-09-09: confirmed by the user (German, three lines drawn downward, text ends above the gauges).
 
 ## Configuration (1.1, `my_plugins\tesmio_config.h`)
 
