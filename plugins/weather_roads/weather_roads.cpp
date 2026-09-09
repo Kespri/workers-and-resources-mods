@@ -17,7 +17,7 @@
 #pragma comment(lib, "gdi32.lib")
 
 #define PLUGIN_NAME       "weather_roads"
-#define PLUGIN_VERSION    "0.3.2"
+#define PLUGIN_VERSION    "0.3.3"
 #define PLUGIN_INI        "plugins\\weather_roads.ini"
 #define PLUGIN_LOG        "weather_roads.log"
 
@@ -247,7 +247,9 @@ struct WeatherRoadsConfig
 
 static WeatherRoadsConfig g_cfg = {
     1, 1, 1,
-    0, 12, 1, 0.30, 50, 1000, 1, 1, 125, 10,
+    0, 12, 1, 0.35, 95, 1000, 1, 1, 1, 125, 10,   // 0.3.3: multiplier 0.35, burst cap 95 (was 0.30 / 50);
+                                                  // the second 1 is releaseFollowsWeather (0.3.1 added the
+                                                  // field without this entry and shifted every later default)
     1, 0.45, 0, 0.85, 1.00,
     1, 120.0, 12.0, 0.50, 1,
     1, 250, 20, 80, 350, 220, VK_F10, 0,

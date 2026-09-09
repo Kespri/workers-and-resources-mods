@@ -9,6 +9,19 @@ it includes `src/tesmio_plugin.h`, `my_plugins/grit_spreader_api.h` (consumer si
 verified SOVIET64.exe / C3DDLL64.dll build. User documentation: README_DE.md / README_EN.md.
 History newest first.
 
+## 0.3.3 (2026-09-09)
+
+- Defaults `[snow] accumulation_multiplier` 0.30 -> 0.35 and `maximum_accumulation_per_burst`
+  50 -> 95 (user decision after in-game tuning: too little snow stayed after short snowfalls).
+  Changed in the compiled-in `g_cfg` initialiser, both INIs, the schema/DE/EN descriptions and
+  the README tables. No code path changed. Users with their own values in `user_config` are not
+  affected; the package defaults_hash changes, so RMM shows the update marker once.
+- Fix: 0.3.1 inserted `releaseFollowsWeather` into `WeatherRoadsConfig` without adding an entry to
+  the aggregate initialiser of `g_cfg`, so every compiled-in default after it was shifted by one
+  (that was the source of the C4244/C4838 warnings at the initialiser, wrongly taken for
+  pre-existing). No runtime effect as long as the INI carries every key, because the readers
+  fall back to those values only for missing keys. Entry added, the build is warning-free again.
+
 ## 0.3.2 (2026-09-09)
 
 - `+0xE28` of the world object is the winter weather roll, not a 0/1/2 precipitation state.

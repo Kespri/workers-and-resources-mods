@@ -1,4 +1,4 @@
-# ❄️ Weather Roads 0.3.2
+# ❄️ Weather Roads 0.3.3
 
 **TesmioLoader-Plugin für Straßenschnee, Schmelze und Schutz nach dem Räumen**
 
@@ -52,6 +52,9 @@ Steuert in *Workers & Resources: Soviet Republic* 1.1.1.9, wie schnell sich Schn
 - ✅ Schutz und Straßenbild werden mit dem Spielstand gespeichert und beim Laden wiederhergestellt, ohne dass die Schutzdauer neu beginnt
 - ✅ Optionales Diagnose-Overlay (F10) und ausführliche Ereignisprotokolle
 - ✅ Keine VFS-Overrides, keine Änderung an Spiel- oder Speicherdateien; unbekannte Spielstände werden vor der Hook-Installation abgewiesen
+
+### 🆕 Neu in 0.3.3
+- ✅ **Neue Standardwerte für den Schneeaufbau:** `accumulation_multiplier = 0.35` (vorher 0.30) und `maximum_accumulation_per_burst = 95` (vorher 50). Mit den alten Werten blieb nach kurzen Schneefällen zu wenig Schnee auf den Straßen liegen. Eigene Werte in `user_config` bleiben unberührt.
 
 ### 🆕 Neu in 0.3.2
 - ✅ **Wetterfeld richtig gelesen:** Das Spiel würfelt im Winter am Ende jeder Wetterperiode einen Wert von 0 bis 7 (auf Klimatyp 3 nur 0 bis 2). Nur die 1 bedeutet Schneefall, alle anderen Werte heißen „kein Schnee“. Bisher nahm das Plugin nur 0 bis 2 an und verwarf den Wetterschnappschuss bei 5 von 8 Würfen (Log-Zeile „weather tick unavailable“ mitten im Spiel, Overlay „keine Weltdaten“, „Mit dem Wetter aufhören“ ohne Wirkung). Jetzt gilt: 1 = Schnee, alles andere = kein Schnee; das Overlay und die Log-Zeilen nennen den Wurf mit Namen.
@@ -160,7 +163,7 @@ Bekannte Zahlenwerte werden auf gültige Zahlen und Bereiche geprüft; ungültig
 | Abschnitt | Aufgabe | Mitgelieferte Werte |
 |---|---|---|
 | `[general]` | gesamtes Plugin | `enabled = 1` |
-| `[snow]` | Schneeaufbau | `enabled = 1`, Multiplikator `0.30`, Obergrenze `50`, schrittweise `1` |
+| `[snow]` | Schneeaufbau | `enabled = 1`, Multiplikator `0.35`, Obergrenze `95`, schrittweise `1` |
 | `[melting]` | natürliche Schneereduktion | `enabled = 1`, Multiplikator `0.45` |
 | `[visual_snow]` | Darstellung erfasster Bereiche | Stufen `0`, Shader-Bereich `0.85`, Kurve `1.00` |
 | `[snowplow]` | Schutz nach dem Räumen | `enabled = 1`, `240.00` Spielminuten, danach `24.00` Spielstunden, Faktor `0.50`, Trockenpflügen erhält `1` |
@@ -175,7 +178,7 @@ Weitere Schlüssel, die die DLL kennt, aber die INI nicht enthält, stehen unter
 
 ## 🌨️ Schnee, Schmelze und Darstellung
 
-- `accumulation_multiplier` skaliert positive interne Schneezuwächse; `maximum_accumulation_per_burst` begrenzt die Summe eines zusammengehörigen Schubs (`0` hebt nur diese Grenze auf). `50` heißt nicht, dass jeder Schneefall 50 Einheiten bringt.
+- `accumulation_multiplier` skaliert positive interne Schneezuwächse; `maximum_accumulation_per_burst` begrenzt die Summe eines zusammengehörigen Schubs (`0` hebt nur diese Grenze auf). `95` heißt nicht, dass jeder Schneefall 95 Einheiten bringt.
 - `release_follows_weather = 1` bricht diese Verteilung ab, sobald der Wetterwurf des Spiels nicht mehr 1 (Schneefall) ist; der Rest der Warteschlange verfällt (Ereignis „gradual snow release stopped with the weather“ im Detail-Log).
 - `gradual_accumulation = 1` verteilt geprüfte Wetterzuwächse auf kleine Schritte. Die Abstände in `[advanced]` sind echte Millisekunden; die Freigabe braucht zusätzlich fortschreitende Spielzeit und pausiert im Spiel.
 - `[melting]` skaliert, wie schnell Schnee von selbst wegschmilzt. `0.00` stoppt nur das Schmelzen, nicht das Räumen durch Fahrzeuge und nicht das komplette Zurücksetzen der Schneedecke.
@@ -265,6 +268,7 @@ Ohne das Plugin lädt der Spielstand normal; die Zusatzdatei wird dann nicht ang
 - `weather_roads_probe.dll` darf nicht gleichzeitig geladen sein.
 
 ### Versionskompatibilität
+- **0.3.3:** Standard `accumulation_multiplier` 0.35 und `maximum_accumulation_per_burst` 95; sonst unverändert
 - **0.3.2:** Wetterfeld als Wurf 0 bis 7 gelesen, nur 1 = Schneefall; Overlay- und Log-Namen; sonst unverändert
 - **0.3.1:** `release_follows_weather` (Standard 1), sonst unverändert
 - **0.3.0:** neue Texte in Republic Mod Manager und README; Betrieb und Speicherformat unverändert
@@ -361,5 +365,5 @@ A: Ja, mit den Regeln aus [Konfiguration](#-konfiguration). Republic Mod Manager
 
 ---
 
-**Letzte Aktualisierung:** Weather Roads 0.3.2  
+**Letzte Aktualisierung:** Weather Roads 0.3.3  
 **Für:** WRSR 1.1.1.9 | TesmioLoader API 4
