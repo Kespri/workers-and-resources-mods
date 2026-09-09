@@ -1,4 +1,4 @@
-# ❄️ Weather Roads 0.3.0
+# ❄️ Weather Roads 0.3.1
 
 **TesmioLoader plugin for road snow, melting and protection after plowing**
 
@@ -52,6 +52,9 @@ Controls in *Workers & Resources: Soviet Republic* 1.1.1.9 how fast snow builds 
 - ✅ Protection and road look are saved with the savegame and restored on load, without restarting the protection period
 - ✅ Optional diagnostic overlay (F10) and detailed event logs
 - ✅ No VFS overrides, no change to game or save files; unknown game builds are refused before any hook is installed
+
+### 🆕 New in 0.3.1
+- ✅ **Snow stops with the weather:** `release_follows_weather = 1` (default) drops the road snow still waiting in the queue as soon as the game reports no more precipitation. Before, the gradual build-up queue could run on for about half a minute after the snowfall ended and roads turned white under a clear sky. The weather itself is untouched; when the weather snapshot cannot be read, the plugin behaves as before.
 
 ### 🆕 New in 0.3.0
 - ✅ Every text in Republic Mod Manager and in this guide rewritten: shorter, in players' language, switches with ON and OFF instead of 1 and 0, line breaks in longer explanations. The note on the interplay with Technical Service Storage now sits in the "Notes" card.
@@ -169,6 +172,7 @@ Further keys the DLL knows but the INI does not contain are listed under [Value 
 ## 🌨️ Snow, melting and appearance
 
 - `accumulation_multiplier` scales positive internal snow increments; `maximum_accumulation_per_burst` caps the sum of one grouped burst (`0` removes only this cap). `50` does not mean every snowfall brings 50 units.
+- `release_follows_weather = 1` cuts that spread short as soon as the game reports no more precipitation; the rest of the queue is dropped (event "gradual snow release stopped with the weather" in the detail log).
 - `gradual_accumulation = 1` spreads verified weather increments over small steps. The intervals in `[advanced]` are real milliseconds; the release also needs the game time to advance and pauses in-game.
 - `[melting]` scales how fast snow melts away on its own. `0.00` stops only the melting, not clearing by vehicles and not full resets of the snow cover.
 - `[visual_snow]` only decides how plowed roads look, not the snow of the whole map and not the snow amount itself. "Protection after plowing" has to be switched on for it.
@@ -257,6 +261,7 @@ Without the plugin the savegame loads normally; the extra file is then not appli
 - `weather_roads_probe.dll` must not be loaded at the same time.
 
 ### Version compatibility
+- **0.3.1:** `release_follows_weather` (default 1), otherwise unchanged
 - **0.3.0:** new texts in Republic Mod Manager and README; operation and file format unchanged
 - **0.2.11:** INI fallback beside the DLL, schema in the package; operation and file format unchanged
 - **0.2.10:** defensive loader checks, cleanup on exceptions, clearer start messages
@@ -351,5 +356,5 @@ A: Yes, following the rules in [Configuration](#-configuration). Republic Mod Ma
 
 ---
 
-**Last update:** Weather Roads 0.3.0  
+**Last update:** Weather Roads 0.3.1  
 **For:** WRSR 1.1.1.9 | TesmioLoader API 4

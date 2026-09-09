@@ -17,7 +17,7 @@
 #pragma comment(lib, "gdi32.lib")
 
 #define PLUGIN_NAME       "weather_roads"
-#define PLUGIN_VERSION    "0.3.0"
+#define PLUGIN_VERSION    "0.3.1"
 #define PLUGIN_INI        "plugins\\weather_roads.ini"
 #define PLUGIN_LOG        "weather_roads.log"
 
@@ -200,6 +200,7 @@ struct WeatherRoadsConfig
     int maximumSnowAccumulationPerBurst;
     int snowBurstResetAfterMs;
     int gradualSnowAccumulation;
+    int releaseFollowsWeather;    // 0.3.1: drop the queued snow once the weather stops precipitating
     int gradualSnowStepUnits;
     int gradualSnowStepIntervalMs;
     int gradualVisualBatchUnits;
@@ -1230,6 +1231,8 @@ static void ReadSettings()
     g_cfg.gradualSnowAccumulation =
         ReadInt("snow", "gradual_accumulation",
                 g_cfg.gradualSnowAccumulation, 0, 1);
+    g_cfg.releaseFollowsWeather =
+        ReadInt("snow", "release_follows_weather", 1, 0, 1);
     g_cfg.gradualSnowStepUnits =
         ReadInt("advanced", "gradual_step_units",
                 g_cfg.gradualSnowStepUnits, 1, 32);
@@ -7386,6 +7389,28 @@ static void ServiceGradualRoadSnow(void* world, ULONGLONG now)
         return;
     }
 
+    // Release follows the weather (0.3.1): once the captured weather object
+    // reports no precipitation, the rest of the queue is dropped, so the road
+    // snow stops with the snowfall instead of trickling on for up to half a
+    // minute. An unreadable or stale snapshot changes nothing (fail open).
+    if (g_cfg.releaseFollowsWeather)
+    {
+        WeatherSnapshot weather;
+        if (ReadWeatherSnapshot(&weather) && weather.precipitationState == 0)
+        {
+            LONG dropped = InterlockedExchange(&g_gradualSnowPendingUnits, 0);
+            if (dropped > 0)
+            {
+                InterlockedExchangeAdd64(&g_gradualSnowCancelledUnits, dropped);
+                Event("gradual snow release stopped with the weather: "
+                      "precipitation_state=0, dropped_units=%ld", (long)dropped);
+            }
+            InterlockedExchange64(&g_gradualSnowNextStepTick, 0);
+            FlushGradualVisualSnowBatch(world, true);
+            return;
+        }
+    }
+
     LONG64 due = InterlockedCompareExchange64(
         &g_gradualSnowNextStepTick, 0, 0);
     if (due <= 0)
@@ -9000,14 +9025,15 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host,
         Info("road-snow accumulation enabled: positive road snow "
              "will use multiplier %.6f and burst maximum %d after %d ms "
              "quiet time; gradual pre-mask release=%s step=%d every %d ms, "
-             "visible redraw batch=%d units",
+             "visible redraw batch=%d units, release follows weather=%s",
               g_cfg.snowAccumulationMultiplier,
               g_cfg.maximumSnowAccumulationPerBurst,
               g_cfg.snowBurstResetAfterMs,
               g_cfg.gradualSnowAccumulation ? "on" : "off",
               g_cfg.gradualSnowStepUnits,
               g_cfg.gradualSnowStepIntervalMs,
-              g_cfg.gradualVisualBatchUnits);
+              g_cfg.gradualVisualBatchUnits,
+              g_cfg.releaseFollowsWeather ? "on" : "off");
     if (g_cfg.naturalMelting)
         Info("natural road-snow melting enabled: verified reduction -30 "
              "will use multiplier %.6f; visual snow mode=%s levels=%d "

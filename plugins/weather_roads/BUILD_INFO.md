@@ -9,6 +9,21 @@ it includes `src/tesmio_plugin.h`, `my_plugins/grit_spreader_api.h` (consumer si
 verified SOVIET64.exe / C3DDLL64.dll build. User documentation: README_DE.md / README_EN.md.
 History newest first.
 
+## 0.3.1 (2026-09-09)
+
+- `[snow] release_follows_weather` (default 1, 0..1): `ServiceGradualRoadSnow` reads the weather
+  snapshot before every release step; with `precipitation_state == 0` the remaining queued units
+  are dropped (counted in `g_gradualSnowCancelledUnits`, one EVENT line), the next-step tick is
+  cleared and the visual batch flushed. `ReadWeatherSnapshot` failing (no capture, stale > 30 s,
+  implausible values) leaves the release untouched - fail open. Values seen in the user's log:
+  precipitation_state 1 while it snows, 0 afterwards (plausible range 0..2).
+- Reason: the queue (up to 255 units at 1 unit / 125 ms) kept whitening roads for up to ~30 s
+  after the snowfall had visibly ended. The alternative of holding the weather object in the
+  snowing state was rejected (feedback into the same queue, fighting the game's weather machine).
+- Startup INFO line now ends with `release follows weather=on|off`.
+- Package: schema field on the Snow tab (order 45), DE/EN texts, INI comment, READMEs.
+- In-game test: pending (user).
+
 ## 0.3.0 (2026-09-08)
 
 - Final number of the September rework (user's call); follows 0.2.11-beta, the DLL logic is
