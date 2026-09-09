@@ -32,7 +32,7 @@ Passt Gebäude des Spiels, der DLCs und des Workshops in *Workers & Resources: S
 
 ### In drei Schritten
 1. **Eine Installationsmethode wählen** (siehe unten) und das Plugin aktivieren.
-2. **Regelsätze einrichten:** Die mitgelieferte INI enthält zwei Beispiele, beide ausgeschaltet: `[example_plastics_factory]` zeigt alle Befehle, `[technical_services_grit]` gibt den Technischen Diensten Lager für Streusalz, Kies und Sand. In Republic Mod Manager schaltest du einen Regelsatz ein oder legst mit + einen eigenen an.
+2. **Regelsätze einrichten:** Die mitgelieferte INI enthält ein ausgeschaltetes Beispiel, `[example_plastics_factory]` mit allen Befehlen. In Republic Mod Manager legst du mit + einen eigenen Regelsatz an, zum Beispiel Streugut-Lager für die Technischen Dienste wie unten gezeigt; ein getippter Name wie „Technical Service Storage“ wird zum Abschnittsnamen technical_service_storage.
 3. **Spiel vollständig neu starten.** Im Log steht je Ziel `[overlay-opened]`, sobald das Spiel die geänderte Datei liest.
 
 ---
@@ -151,12 +151,12 @@ Die alten Namen `[vanilla_buildings]` und `verbose` bleiben mit einer Warnung im
 
 ### Regelsätze: ein Abschnitt je Regelsatz
 
-Der Abschnittsname ist frei wählbar und muss eindeutig sein. Jede `target`-Zeile ergänzt eine Zieldatei; alle Befehle gelten für jedes Ziel, egal wo sie im Abschnitt stehen. Beispiel, so wie ausgeliefert:
+Der Abschnittsname ist frei wählbar und muss eindeutig sein. Jede `target`-Zeile ergänzt eine Zieldatei; alle Befehle gelten für jedes Ziel, egal wo sie im Abschnitt stehen. Beispiel für einen eigenen Regelsatz, der den Technischen Diensten Lager für Streusalz, Kies und Sand gibt:
 
 ```ini
-[technical_services_grit]
+[technical_service_storage]
 ; 0 lässt den Regelsatz in der Datei, wendet aber nichts an
-enabled = 0
+enabled = 1
 ; Zieldateien, relativ zu media_soviet bzw. zum Workshop-Ordner des Spiels
 target = buildings_types\technical_services_small.ini
 target = buildings_types\technical_services.ini

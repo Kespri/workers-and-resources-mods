@@ -32,7 +32,7 @@ Adjusts Vanilla, DLC and Workshop buildings in *Workers & Resources: Soviet Repu
 
 ### In three steps
 1. **Choose one installation method** (see below) and enable the plugin.
-2. **Set up rule sets:** the shipped INI contains two examples, both disabled: `[example_plastics_factory]` shows every command, `[technical_services_grit]` gives the technical services storages for road salt, gravel and sand. In Republic Mod Manager you enable a rule set or add your own with +.
+2. **Set up rule sets:** the shipped INI contains one disabled example, `[example_plastics_factory]` with every command. In Republic Mod Manager you add your own rule set with +, for example grit storages for the technical services as shown below; a typed name such as "Technical Service Storage" becomes the section name technical_service_storage.
 3. **Restart the game completely.** The log shows `[overlay-opened]` per target as soon as the game reads the changed file.
 
 ---
@@ -151,12 +151,12 @@ The old names `[vanilla_buildings]` and `verbose` stay supported with a warning 
 
 ### Rule sets: one section per rule set
 
-The section name is free and must be unique. Every `target` line adds a target file; all commands apply to every target, wherever they sit in the section. Example, as shipped:
+The section name is free and must be unique. Every `target` line adds a target file; all commands apply to every target, wherever they sit in the section. Example of a rule set of your own that gives the technical services storages for road salt, gravel and sand:
 
 ```ini
-[technical_services_grit]
+[technical_service_storage]
 ; 0 keeps the rule set in the file but applies nothing
-enabled = 0
+enabled = 1
 ; target files, relative to media_soviet or to the game's Workshop folder
 target = buildings_types\technical_services_small.ini
 target = buildings_types\technical_services.ini

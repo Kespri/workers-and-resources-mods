@@ -11,6 +11,9 @@ numbering, back into beta). No runtime change: patch logic, commands, INI keys a
 those of 1.3.1. Package texts in player style (launcher notice, [activity], Log settings card,
 group notice, multi-line field texts). Backup: `_backups\vanilla_buildings_1.3.1_before_0.4.0_*`.
 The in-game test of the `insert` command (1.3.1) was not reported by the user before the release.
+Later the same day the user removed the shipped `[technical_services_grit]` rule set from the INI (kept
+as a README example only; the plastics factory example is the one shipped rule set); source, package
+and READMEs follow that.
 
 ## 1.3.1 (2026-09-09)
 
