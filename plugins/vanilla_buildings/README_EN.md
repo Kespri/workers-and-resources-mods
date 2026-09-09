@@ -1,4 +1,4 @@
-# 🏗️ Vanilla Buildings 1.3
+# 🏗️ Vanilla Buildings 1.3.1
 
 **TesmioLoader plugin for temporary changes to building files**
 
@@ -45,6 +45,9 @@ Adjusts Vanilla, DLC and Workshop buildings in *Workers & Resources: Soviet Repu
 - ✅ Commands: replace, remove, add a line, insert before an anchor; add, replace, remove connection blocks
 - ✅ Original files in the game and Workshop folders are never touched; a restart without the plugin restores everything
 - ✅ A rejected target does not block the others; every rejection is logged with section, target and cause
+
+### 🆕 New in 1.3.1
+- ✅ **`insert` replaces `insert_before`:** `insert = 0 | ANCHOR | LINE` inserts before the anchor, `insert = 1 | ANCHOR | LINE` after it. For `$COST_RESOURCE_AUTO`, 1 adds the material to the phase of the `$COST_WORK` anchor line, 0 to the phase before it. `insert_before = ANCHOR | LINE` is still read and acts like `insert = 0 | …`.
 
 ### 🆕 New in 1.3
 - ✅ **INI beside the DLL:** when `plugins\vanilla_buildings.ini` does not exist, the DLL reads the INI from its own folder, i.e. from the Workshop package under Soviet Mod Loader or the Workshop Bridge. The plugin runs straight from the Steam subscription.
@@ -177,7 +180,8 @@ The same target file may appear only once across enabled rule sets; all changes 
 | `replace = OLD \| NEW` | Replaces a complete line that occurs exactly once. |
 | `remove = LINE` | Removes a complete line that occurs exactly once. |
 | `add = LINE` | Inserts a new single line before the final `end`; rejected when it already exists. |
-| `insert_before = ANCHOR \| LINE` | Inserts a line before a unique anchor line; several with the same anchor keep their order. |
+| `insert = 0 \| ANCHOR \| LINE` | Inserts a line before a unique anchor line; several with the same anchor keep their order. |
+| `insert = 1 \| ANCHOR \| LINE` | The same after the anchor line. `insert_before = ANCHOR \| LINE` is the old spelling of `insert = 0 \| …`. |
 
 Whitespace at the start and end of a line is ignored, differences inside the line are not.
 
@@ -203,7 +207,7 @@ remove = $CONSUMPTION_PER_SECOND eletric 0.26
 remove_connection = $CONNECTION_CONNECTION | -23.4 0.0 15.9 | -21.4 0.0 15.9
 add = $PRODUCTION glass 0.45
 add_connection = $CONNECTION_WATERPIPE_OUTPUT | 30 0 0 | 32 0 0
-insert_before = $COST_WORK SOVIET_CONSTRUCTION_STEEL_LAYING 1.0 | $COST_RESOURCE_AUTO steel 2.0
+insert = 0 | $COST_WORK SOVIET_CONSTRUCTION_STEEL_LAYING 1.0 | $COST_RESOURCE_AUTO steel 2.0
 ```
 
 ---
@@ -229,9 +233,9 @@ Errors in `[general]`, ambiguous section boundaries, a wrong encoding or exceede
 ## 🔒 Safety rules
 
 - Every rule is checked against the **unchanged original file** before a copy is created.
-- `replace`, `remove`, `insert_before` and the connection commands need exactly one match; otherwise the target is rejected as a whole, without a partial change.
+- `replace`, `remove`, `insert` and the connection commands need exactly one match; otherwise the target is rejected as a whole, without a partial change.
 - Overlapping changes and anchors that another rule modifies are not allowed.
-- `add` accepts no `$COST_` lines; `insert_before` accepts as a new `$COST_` line only `$COST_RESOURCE_AUTO` with a unique `$COST_WORK` line as anchor.
+- `add` accepts no `$COST_` lines; `insert` accepts as a new `$COST_` line only `$COST_RESOURCE_AUTO` with a unique `$COST_WORK` line as anchor (1 = material of that phase, 0 = of the phase before).
 - Only read calls (`fopen`, `fopen_s`, `_wfopen`, `_wfopen_s`, engine buffer reader) on files under the real game or Workshop folder are redirected; write access never.
 - The checks protect the patch structure, not the game-specific values of the directives.
 
@@ -246,6 +250,7 @@ The plugin changes building definitions, not saved buildings. New storages apply
 Other plugins that replace the same building file are not merged with these changes. For materials from Vehicle Materials this plugin provides the matching `$STORAGE_IMPORT_SPECIAL` line in the vehicle factories.
 
 ### Version compatibility
+- **1.3.1:** `insert` command with a position before/after the anchor; `insert_before` still readable
 - **1.3:** INI fallback beside the DLL, editor schema in the package; patch logic unchanged from 1.2
 - **1.2:** targets under `buildings_types`, `dlcN\buildings` and Workshop ids, several targets per rule set
 - **Going back to an older version:** restore the old DLL and its INI
@@ -338,5 +343,5 @@ A: No. Republic Mod Manager shows the rule sets as a list with targets and comma
 
 ---
 
-**Last update:** Vanilla Buildings 1.3  
+**Last update:** Vanilla Buildings 1.3.1  
 **For:** WRSR 1.1.1.9 | TesmioLoader API 4

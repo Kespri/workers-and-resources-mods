@@ -1,4 +1,4 @@
-# 🏗️ Vanilla Buildings 1.3
+# 🏗️ Vanilla Buildings 1.3.1
 
 **TesmioLoader-Plugin für temporäre Änderungen an Gebäudedateien**
 
@@ -45,6 +45,9 @@ Passt Gebäude des Spiels, der DLCs und des Workshops in *Workers & Resources: S
 - ✅ Befehle: Zeile ersetzen, entfernen, hinzufügen, vor einem Anker einfügen; Anschlussblöcke hinzufügen, ersetzen, entfernen
 - ✅ Originaldateien im Spiel- und Workshopordner werden nie angefasst; ein Neustart ohne Plugin stellt alles zurück
 - ✅ Ein abgewiesenes Ziel blockiert die anderen nicht; jede Ablehnung wird mit Abschnitt, Ziel und Ursache protokolliert
+
+### 🆕 Neu in 1.3.1
+- ✅ **`insert` statt `insert_before`:** `insert = 0 | ANKER | ZEILE` fügt vor dem Anker ein, `insert = 1 | ANKER | ZEILE` danach. Bei `$COST_RESOURCE_AUTO` hängt 1 das Material an die Phase der `$COST_WORK`-Ankerzeile, 0 an die Phase davor. `insert_before = ANKER | ZEILE` wird weiter gelesen und wirkt wie `insert = 0 | …`.
 
 ### 🆕 Neu in 1.3
 - ✅ **INI neben der DLL:** Fehlt `plugins\vanilla_buildings.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket unter Soviet Mod Loader oder der Workshop Bridge. Das Plugin läuft damit direkt aus dem Steam-Abo.
@@ -177,7 +180,8 @@ Dieselbe Zieldatei darf in aktiven Regelsätzen nur einmal vorkommen; alle Ände
 | `replace = ALT \| NEU` | Ersetzt eine vollständige Zeile, die genau einmal vorkommt. |
 | `remove = ZEILE` | Entfernt eine vollständige Zeile, die genau einmal vorkommt. |
 | `add = ZEILE` | Fügt eine neue Einzelzeile vor dem letzten `end` ein; abgewiesen, wenn sie schon existiert. |
-| `insert_before = ANKER \| ZEILE` | Fügt eine Zeile vor einer eindeutigen Ankerzeile ein; mehrere mit demselben Anker behalten ihre Reihenfolge. |
+| `insert = 0 \| ANKER \| ZEILE` | Fügt eine Zeile vor einer eindeutigen Ankerzeile ein; mehrere mit demselben Anker behalten ihre Reihenfolge. |
+| `insert = 1 \| ANKER \| ZEILE` | Dasselbe nach der Ankerzeile. `insert_before = ANKER \| ZEILE` ist die alte Schreibweise von `insert = 0 \| …`. |
 
 Leerzeichen am Zeilenanfang und -ende werden ignoriert, Unterschiede innerhalb der Zeile nicht.
 
@@ -203,7 +207,7 @@ remove = $CONSUMPTION_PER_SECOND eletric 0.26
 remove_connection = $CONNECTION_CONNECTION | -23.4 0.0 15.9 | -21.4 0.0 15.9
 add = $PRODUCTION glass 0.45
 add_connection = $CONNECTION_WATERPIPE_OUTPUT | 30 0 0 | 32 0 0
-insert_before = $COST_WORK SOVIET_CONSTRUCTION_STEEL_LAYING 1.0 | $COST_RESOURCE_AUTO steel 2.0
+insert = 0 | $COST_WORK SOVIET_CONSTRUCTION_STEEL_LAYING 1.0 | $COST_RESOURCE_AUTO steel 2.0
 ```
 
 ---
@@ -229,9 +233,9 @@ Fehler in `[general]`, mehrdeutige Abschnittsgrenzen, falsche Kodierung oder üb
 ## 🔒 Sicherheitsregeln
 
 - Alle Regeln werden gegen die **unveränderte Originaldatei** geprüft, bevor eine Kopie entsteht.
-- `replace`, `remove`, `insert_before` und die Anschlussbefehle brauchen genau einen Treffer; sonst wird das Ziel als Ganzes abgewiesen, ohne Teiländerung.
+- `replace`, `remove`, `insert` und die Anschlussbefehle brauchen genau einen Treffer; sonst wird das Ziel als Ganzes abgewiesen, ohne Teiländerung.
 - Überlappende Änderungen und Anker, die eine andere Regel verändert, sind unzulässig.
-- `add` akzeptiert keine `$COST_`-Zeilen; `insert_before` als neue `$COST_`-Zeile nur `$COST_RESOURCE_AUTO` mit einer eindeutigen `$COST_WORK`-Zeile als Anker.
+- `add` akzeptiert keine `$COST_`-Zeilen; `insert` als neue `$COST_`-Zeile nur `$COST_RESOURCE_AUTO` mit einer eindeutigen `$COST_WORK`-Zeile als Anker (1 = Material dieser Phase, 0 = der Phase davor).
 - Nur Leseaufrufe (`fopen`, `fopen_s`, `_wfopen`, `_wfopen_s`, Engine-Pufferleser) auf Dateien unter dem echten Spiel- oder Workshopordner werden umgeleitet; Schreibzugriffe nie.
 - Die Prüfung schützt die Patchstruktur, nicht die fachlichen Werte der Spiel-Direktiven.
 
@@ -246,6 +250,7 @@ Das Plugin ändert Gebäudedefinitionen, keine gespeicherten Gebäude. Neue Lage
 Andere Plugins, die dieselbe Gebäudedatei ersetzen, werden nicht mit diesen Änderungen zusammengeführt. Für Materialien aus Vehicle Materials liefert dieses Plugin die passende `$STORAGE_IMPORT_SPECIAL`-Zeile in den Fahrzeugfabriken.
 
 ### Versionskompatibilität
+- **1.3.1:** Befehl `insert` mit Position vor/nach dem Anker; `insert_before` bleibt lesbar
 - **1.3:** INI-Fallback neben der DLL, Editor-Schema im Paket; Patchlogik gegenüber 1.2 unverändert
 - **1.2:** Zieldateien unter `buildings_types`, `dlcN\buildings` und Workshop-IDs, mehrere Ziele je Regelsatz
 - **Zurück auf eine ältere Fassung:** alte DLL und die dazugehörige INI wiederherstellen
@@ -338,5 +343,5 @@ A: Nein. Republic Mod Manager zeigt die Regelsätze als Liste mit Zielen und Bef
 
 ---
 
-**Letzte Aktualisierung:** Vanilla Buildings 1.3  
+**Letzte Aktualisierung:** Vanilla Buildings 1.3.1  
 **Für:** WRSR 1.1.1.9 | TesmioLoader API 4

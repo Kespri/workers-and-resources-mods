@@ -30,7 +30,7 @@ static const size_t MAX_OPERATIONS = 512;
 
 #define SYM_READ_FILE "?C3DHelp_ReadFileIntoBuffer@@YAHPEBDPEAPEADPEAI_N@Z"
 
-#define PLUGIN_VERSION "1.3"
+#define PLUGIN_VERSION "1.3.1"
 #define PLUGIN_INI "plugins\\vanilla_buildings.ini"
 #define PLUGIN_LOG_NAME "tesmioloader.vanilla_buildings.log"
 
@@ -42,7 +42,7 @@ enum OpKind
     OP_REMOVE_CONNECTION,
     OP_ADD,
     OP_ADD_CONNECTION,
-    OP_INSERT_BEFORE
+    OP_INSERT
 };
 
 struct Point
@@ -66,9 +66,11 @@ struct Operation
     int matchStart;
     int matchEnd;
     int insertAt;
+    int anchorAt;         // insert: line index of the anchor (collision check)
+    bool after;           // insert: 1 = the new line follows the anchor
     size_t configLine;
 
-    Operation() : kind(OP_ADD), matchStart(-1), matchEnd(-1), insertAt(-1), configLine(0) {}
+    Operation() : kind(OP_ADD), matchStart(-1), matchEnd(-1), insertAt(-1), anchorAt(-1), after(false), configLine(0) {}
 };
 
 struct Decl
@@ -699,7 +701,7 @@ static const char* OpName(OpKind kind)
     case OP_REMOVE_CONNECTION: return "remove_connection";
     case OP_ADD: return "add";
     case OP_ADD_CONNECTION: return "add_connection";
-    case OP_INSERT_BEFORE: return "insert_before";
+    case OP_INSERT: return "insert";
     }
     return "?";
 }
@@ -849,28 +851,44 @@ static bool ValidateOperations(Decl* d, const std::vector<std::string>& lines)
             plannedSecond.push_back(second);
             op.insertAt = connectionInsert;
         }
-        else if (op.kind == OP_INSERT_BEFORE)
+        else if (op.kind == OP_INSERT)
         {
-            std::string anchor = Trimmed(op.field[0]);
+            // insert = position | anchor | new line; position 0 puts the new line
+            // before the anchor, 1 after it. A $COST_RESOURCE_AUTO line belongs to
+            // the $COST_WORK line above it in the game's format, so position 1
+            // attaches it to the anchor's phase and 0 to the phase before.
+            const std::string position = Trimmed(op.field[0]);
+            if (position != "0" && position != "1")
+                return Fail(d, "insert: position must be 0 (before the anchor) or 1 (after the anchor)");
+            op.after = position == "1";
+            std::string anchor = Trimmed(op.field[1]);
             if (anchor != "end" && TokenOf(anchor).empty())
-                return Fail(d, "insert_before: anchor must be a complete $TOKEN line or 'end'");
-            if (!ValidateSingleLine(op.field[1], false, true, &why))
-                return Fail(d, "insert_before (new line): " + why);
-            if (TokenOf(op.field[1]) == "$COST_RESOURCE_AUTO" &&
+                return Fail(d, "insert: anchor must be a complete $TOKEN line or 'end'");
+            if (op.after && anchor == "end")
+                return Fail(d, "insert: nothing can follow the final end; use position 0");
+            if (!ValidateSingleLine(op.field[2], false, true, &why))
+                return Fail(d, "insert (new line): " + why);
+            if (TokenOf(op.field[2]) == "$COST_RESOURCE_AUTO" &&
                 TokenOf(anchor) != "$COST_WORK")
-                return Fail(d, "insert_before: $COST_RESOURCE_AUTO requires a $COST_WORK phase anchor");
+                return Fail(d, "insert: $COST_RESOURCE_AUTO requires a $COST_WORK phase anchor");
             int at = -1;
             int count = CountLine(lines, anchor, &at);
             if (count != 1)
-                return Fail(d, "insert_before: anchor has " + std::to_string(count) +
+                return Fail(d, "insert: anchor has " + std::to_string(count) +
                     " matches instead of exactly one");
-            if (at > 0 && Trimmed(lines[at - 1]) == Trimmed(op.field[1]))
-                return Fail(d, "insert_before: the new line already stands directly before the anchor");
+            const int slot = op.after ? at + 1 : at;
+            const int neighbour = op.after ? at + 1 : at - 1;
+            if (neighbour >= 0 && neighbour < (int)lines.size() &&
+                Trimmed(lines[neighbour]) == Trimmed(op.field[2]))
+                return Fail(d, op.after
+                    ? "insert: the new line already stands directly after the anchor"
+                    : "insert: the new line already stands directly before the anchor");
             for (int pi = 0; pi < (int)plannedInsert.size(); pi++)
-                if (plannedInsert[pi].first == at && plannedInsert[pi].second == Trimmed(op.field[1]))
-                    return Fail(d, "insert_before: the same line is specified more than once for this anchor");
-            plannedInsert.push_back(std::make_pair(at, Trimmed(op.field[1])));
-            op.insertAt = at;
+                if (plannedInsert[pi].first == slot && plannedInsert[pi].second == Trimmed(op.field[2]))
+                    return Fail(d, "insert: the same line is specified more than once for this anchor");
+            plannedInsert.push_back(std::make_pair(slot, Trimmed(op.field[2])));
+            op.insertAt = slot;
+            op.anchorAt = at;
         }
 
         if (op.matchStart >= 0)
@@ -886,22 +904,22 @@ static bool ValidateOperations(Decl* d, const std::vector<std::string>& lines)
     {
         Operation& op = d->operations[oi];
         d->errorContext = RuleContext(op, oi);
-        if (op.kind == OP_ADD || op.kind == OP_INSERT_BEFORE)
+        if (op.kind == OP_ADD || op.kind == OP_INSERT)
         {
-            const std::string value = Trimmed(op.field[op.kind == OP_ADD ? 0 : 1]);
+            const std::string value = Trimmed(op.field[op.kind == OP_ADD ? 0 : 2]);
             for (int previous = 0; previous < oi; ++previous)
             {
                 const Operation& other = d->operations[previous];
-                if ((other.kind == OP_ADD || other.kind == OP_INSERT_BEFORE) &&
+                if ((other.kind == OP_ADD || other.kind == OP_INSERT) &&
                     other.insertAt == op.insertAt &&
-                    Trimmed(other.field[other.kind == OP_ADD ? 0 : 1]) == value)
+                    Trimmed(other.field[other.kind == OP_ADD ? 0 : 2]) == value)
                     return Fail(d, "the same line would be inserted twice at one position");
             }
         }
-        if (op.kind != OP_INSERT_BEFORE) continue;
+        if (op.kind != OP_INSERT) continue;
         for (int ci = 0; ci < (int)changed.size(); ci++)
-            if (op.insertAt >= changed[ci].first && op.insertAt <= changed[ci].second)
-                return Fail(d, "insert_before: the anchor is modified or removed by another rule");
+            if (op.anchorAt >= changed[ci].first && op.anchorAt <= changed[ci].second)
+                return Fail(d, "insert: the anchor is modified or removed by another rule");
     }
     d->errorContext.clear();
     return true;
@@ -922,13 +940,18 @@ static std::string ApplyOperations(const Decl& d, const std::vector<std::string>
     for (int i = 0; i < (int)lines.size(); )
     {
         // Insertions at one position retain their order in the INI section.
+        // Lines that follow an anchor (insert = 1) come first, so they stay
+        // adjacent to it when additions or before-anchor lines share the slot.
+        for (int pass = 0; pass < 2; pass++)
         for (int oi = 0; oi < (int)d.operations.size(); oi++)
         {
             const Operation& op = d.operations[oi];
             if (op.insertAt != i) continue;
-            if (op.kind == OP_ADD || op.kind == OP_INSERT_BEFORE)
+            const bool followsAnchor = op.kind == OP_INSERT && op.after;
+            if (followsAnchor != (pass == 0)) continue;
+            if (op.kind == OP_ADD || op.kind == OP_INSERT)
             {
-                out += Trimmed(op.field[op.kind == OP_INSERT_BEFORE ? 1 : 0]);
+                out += Trimmed(op.field[op.kind == OP_INSERT ? 2 : 0]);
                 out += "\r\n";
             }
             else if (op.kind == OP_ADD_CONNECTION)
@@ -981,10 +1004,12 @@ static bool AddOperation(Decl* d, const std::string& key, const std::string& val
     else if (key == "remove_connection") { op.kind = OP_REMOVE_CONNECTION; expected = 3; }
     else if (key == "add") { op.kind = OP_ADD; expected = 1; }
     else if (key == "add_connection") { op.kind = OP_ADD_CONNECTION; expected = 3; }
-    else if (key == "insert_before") { op.kind = OP_INSERT_BEFORE; expected = 2; }
+    else if (key == "insert") { op.kind = OP_INSERT; expected = 3; }
+    else if (key == "insert_before") { op.kind = OP_INSERT; expected = 2; }   // 1.3 spelling of "insert = 0 | ..."
     else return false;
 
     op.field = SplitFields(value);
+    if (key == "insert_before" && op.field.size() == 2) { op.field.insert(op.field.begin(), "0"); expected = 3; }
     if ((int)op.field.size() != expected)
     {
         Fail(d, key + ": expected " + std::to_string(expected) + " fields separated by |");
@@ -1792,8 +1817,9 @@ static int RunSelfTests(void)
     d.operations.push_back(TestOp(OP_ADD, "$PRODUCTION alcohol 0.10"));
     d.operations.push_back(TestOp(OP_ADD, "$WORKERS_NEEDED 20"));
     d.operations.push_back(TestOp(OP_ADD_CONNECTION, "$CONNECTION_WATERPIPE_OUTPUT", "20 0 0", "22 0 0"));
-    d.operations.push_back(TestOp(OP_INSERT_BEFORE, "$COST_WORK SOVIET_CONSTRUCTION_BUILDING_NODE 1.0", "$COST_RESOURCE_AUTO steel 2.0"));
-    d.operations.push_back(TestOp(OP_INSERT_BEFORE, "$COST_WORK SOVIET_CONSTRUCTION_BUILDING_NODE 1.0", "$COST_RESOURCE_AUTO bricks 3.0"));
+    d.operations.push_back(TestOp(OP_INSERT, "0", "$COST_WORK SOVIET_CONSTRUCTION_BUILDING_NODE 1.0", "$COST_RESOURCE_AUTO steel 2.0"));
+    d.operations.push_back(TestOp(OP_INSERT, "0", "$COST_WORK SOVIET_CONSTRUCTION_BUILDING_NODE 1.0", "$COST_RESOURCE_AUTO bricks 3.0"));
+    d.operations.push_back(TestOp(OP_INSERT, "1", "$COST_WORK SOVIET_CONSTRUCTION_BUILDING_NODE 1.0", "$COST_RESOURCE_AUTO gravel 1.0"));
     if (!ValidateOperations(&d, lines))
     {
         fprintf(stderr, "FATAL: self-test [valid-rules] %s. Action: correct the validator or test data\n",
@@ -1808,7 +1834,7 @@ static int RunSelfTests(void)
             !Has(out, "$CONNECTION_WATERPIPE_INPUT\r\n-7 -3.0 33\r\n-7 -3.0 31") ||
             Has(out, "$CONNECTION_PIPE_INPUT") ||
             !Has(out, "$CONNECTION_WATERPIPE_OUTPUT\r\n20 0 0\r\n22 0 0\r\n$COST_WORK") ||
-            !Has(out, "$COST_RESOURCE_AUTO steel 2.0\r\n$COST_RESOURCE_AUTO bricks 3.0\r\n$COST_WORK") ||
+            !Has(out, "$COST_RESOURCE_AUTO steel 2.0\r\n$COST_RESOURCE_AUTO bricks 3.0\r\n$COST_WORK SOVIET_CONSTRUCTION_BUILDING_NODE 1.0\r\n$COST_RESOURCE_AUTO gravel 1.0\r\n") ||
             !Has(out, "$PRODUCTION alcohol 0.10\r\n$WORKERS_NEEDED 20\r\nend"))
         {
             fprintf(stderr, "FATAL: self-test [transformed-output] Output mismatch. "

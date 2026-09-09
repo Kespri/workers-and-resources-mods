@@ -4,6 +4,22 @@ Target: WRSR 1.1.1.9, TesmioLoader API 4. Build: the standard line (`cl /O2 /MT 
 ... /link kernel32.lib`); exports TsmPluginApiVersion/TsmPluginInit/TsmPluginStart. History
 newest first.
 
+## 1.3.1 (2026-09-09)
+
+- New command `insert = <position> | <anchor> | <line>`: position 0 inserts before the anchor
+  (the old `insert_before` behaviour), 1 after it. `insert_before = anchor | line` is still
+  parsed and rewritten to `insert = 0 | ...` (fields shifted, no log noise). Validation as
+  before (anchor exactly once, no duplicate directly next to the anchor, `$COST_RESOURCE_AUTO`
+  only with a `$COST_WORK` anchor); position 1 with the anchor `end` is rejected. The
+  collision check with replaced/removed lines now uses the anchor index (`Operation.anchorAt`)
+  instead of the insertion slot, which for position 1 is the line after the anchor.
+- Self-test: the two `$COST_RESOURCE_AUTO` inserts as `insert = 0`, one new `insert = 1`
+  (gravel after the `$COST_WORK` anchor), transformed-output check extended to the exact
+  four-line sequence.
+- Package: schema detail `insert` (label "Insert before or after an anchor"), INI example and
+  comments, READMEs. Requested by the user during the text review ("0 = Vor und 1 = Nach").
+- In-game test: pending (user).
+
 ## 1.3 (2026-09-07)
 
 - The INI is looked up as `plugins\vanilla_buildings.ini` first, otherwise beside the DLL
