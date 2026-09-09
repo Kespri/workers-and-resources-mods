@@ -1,4 +1,4 @@
-# 🔬 Research Expansion 1.7
+# 🔬 Research Expansion 1.8
 
 **TesmioLoader plugin for new research and changes to the research tree**
 
@@ -48,6 +48,9 @@ Adds your own research entries to *Workers & Resources: Soviet Republic* 1.1.1.9
 - ✅ Own icons per research with a fallback icon
 - ✅ Every error rejects the whole extension and leaves Vanilla research active; the log names file, rule and line
 - ✅ Original files stay untouched; the generated file lives in the loader's VFS
+
+### 🆕 New in 1.8
+- ✅ **Short text keys:** in `[research:<id>]` `name = quartz_smasher` or nothing at all is enough; the plugin turns it into `research_expansion.quartz_smasher.name` and `.desc`. A key with dots is still used as it is.
 
 ### 🆕 New in 1.7
 - ✅ **New research as an INI section:** `[research:<id>]` with the keys `type`, `cost`, `name`, `desc`, `requires`, `unlock` and `line` is the same research as a `$RESEARCH` block, only as a section so Republic Mod Manager can edit it. Both forms may be mixed and pass the same checks; sections are placed after the free blocks.
@@ -194,8 +197,6 @@ requires = faculty_geology | before | uranium_study
 type = technical
 cost = 1800
 unlock = $UNLOCK_BUILDING_PRODUCTION raw_quartz
-name = research_expansion.quartz_smasher.name
-desc = research_expansion.quartz_smasher.desc
 ```
 
 | Key | Meaning |
@@ -203,7 +204,7 @@ desc = research_expansion.quartz_smasher.desc
 | `enabled` | `0` keeps the section but applies nothing; a missing key means `1` |
 | `type` | `technical`, `soviet` or `medical` |
 | `cost` | positive whole number |
-| `name`, `desc` | language keys as with `$NAME` and `$DESC` |
+| `name`, `desc` | optional: a word without a dot becomes `research_expansion.<word>.name` or `.desc`, a missing key means the research id; a key with dots is used literally |
 | `requires` | one line per parent: `<research>`, optionally `\| before` or `\| after` and `\| <anchor>`; equals a `+` line plus `@before_`/`@after_` |
 | `unlock` | one `$UNLOCK_…` line per entry |
 | `line` | any other directive line, copied as it is |
@@ -276,6 +277,7 @@ Research is part of the savegame: a new research a savegame already knows should
 Localization is mandatory. Other plugins that replace `research.ini` are not merged.
 
 ### Version compatibility
+- **1.8:** short `name`/`desc` in `[research:]`, default = research id; otherwise unchanged
 - **1.7:** `[research:<id>]` sections as the INI form of new research; otherwise unchanged
 - **1.6:** icons only in the VFS folder `media_soviet\research`, existing ones stay, missing ones come from `noimage.png`; `icon_folder`/`noimage_name` removed
 - **1.5:** INI and icon fallback beside the DLL, editor schema in the package; validation and generation unchanged from 1.4
@@ -374,5 +376,5 @@ A: For new research blocks, yes. Edits of Vanilla research and the plugin settin
 
 ---
 
-**Last update:** Research Expansion 1.7  
+**Last update:** Research Expansion 1.8  
 **For:** WRSR 1.1.1.9 | TesmioLoader API 4

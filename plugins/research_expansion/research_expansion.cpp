@@ -32,7 +32,11 @@ typedef struct TsmLocalizationApi
 #include <limits.h>
 #include <ctype.h>
 
-#define PLUGIN_VERSION "1.7"
+#define PLUGIN_VERSION "1.8"
+// The namespace of the plugin's own Localization text pack (localization.ini of
+// plugins\localization\research_expansion); [research:] sections complete short
+// name / desc values with it (1.8).
+#define TEXT_NAMESPACE "research_expansion"
 
 static const size_t MAX_INI_BYTES = 8u * 1024u * 1024u;   // 8 MB
 static const size_t MAX_PNG_BYTES = 4u * 1024u * 1024u;   // 4 MB
@@ -947,8 +951,10 @@ static bool ParseResearchKey(ResearchSection& rs, const std::string& key,
     {
         size_t& seen = key == "name" ? rs.nameLine : rs.descLine;
         if (seen) return EditError(rs.id, lineNo, key.c_str(), "research-duplicate-key", key + " may occur once");
+        // 1.8: a bare word is completed to <namespace>.<word>.name / .desc by
+        // ExpandResearchSections; a value with dots is a complete key.
         if (value.empty() || value.find_first_of(" \t|") != std::string::npos)
-            return EditError(rs.id, lineNo, key.c_str(), "research-text-key", "Expected one Localization key namespace.key");
+            return EditError(rs.id, lineNo, key.c_str(), "research-text-key", "Expected a Localization key (namespace.key) or a bare word");
         (key == "name" ? rs.nameKey : rs.descKey) = value; seen = lineNo;
         return true;
     }
@@ -1029,8 +1035,15 @@ static bool ExpandResearchSections(std::vector<NewBlock>& blocks)
         if (rs.costLine) { nb.lines.push_back("$COST " + rs.cost); nb.sourceLines.push_back(rs.costLine); }
         for (size_t i = 0; i < rs.unlocks.size(); ++i) { nb.lines.push_back(rs.unlocks[i].first); nb.sourceLines.push_back(rs.unlocks[i].second); }
         for (size_t i = 0; i < rs.raws.size(); ++i) { nb.lines.push_back(rs.raws[i].first); nb.sourceLines.push_back(rs.raws[i].second); }
-        if (rs.nameLine) { nb.lines.push_back("$NAME " + rs.nameKey); nb.sourceLines.push_back(rs.nameLine); }
-        if (rs.descLine) { nb.lines.push_back("$DESC " + rs.descKey); nb.sourceLines.push_back(rs.descLine); }
+        // 1.8: name / desc default to the research id and are completed with the
+        // plugin's text-pack namespace, so "quartz_smasher" (or nothing) becomes
+        // research_expansion.quartz_smasher.name; a key with dots is used as it is.
+        std::string nameKey = rs.nameLine ? rs.nameKey : rs.id;
+        std::string descKey = rs.descLine ? rs.descKey : rs.id;
+        if (nameKey.find('.') == std::string::npos) nameKey = std::string(TEXT_NAMESPACE) + "." + nameKey + ".name";
+        if (descKey.find('.') == std::string::npos) descKey = std::string(TEXT_NAMESPACE) + "." + descKey + ".desc";
+        nb.lines.push_back("$NAME " + nameKey); nb.sourceLines.push_back(rs.nameLine ? rs.nameLine : rs.sourceLine);
+        nb.lines.push_back("$DESC " + descKey); nb.sourceLines.push_back(rs.descLine ? rs.descLine : rs.sourceLine);
         nb.lines.push_back("$RESEARCH_ADD"); nb.sourceLines.push_back(rs.sourceLine);
         blocks.push_back(nb);
     }

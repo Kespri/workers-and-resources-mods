@@ -1,4 +1,4 @@
-# 🔬 Research Expansion 1.7
+# 🔬 Research Expansion 1.8
 
 **TesmioLoader-Plugin für neue Forschungen und Änderungen am Forschungsbaum**
 
@@ -48,6 +48,9 @@ Fügt *Workers & Resources: Soviet Republic* 1.1.1.9 eigene Forschungseinträge 
 - ✅ Eigene Icons je Forschung mit Ersatz-Icon
 - ✅ Jeder Fehler weist die ganze Erweiterung ab und lässt die Vanilla-Forschung aktiv; das Log nennt Datei, Regel und Zeile
 - ✅ Originaldateien bleiben unverändert; die erzeugte Datei liegt im VFS des Loaders
+
+### 🆕 Neu in 1.8
+- ✅ **Kurze Textschlüssel:** In `[research:<id>]` reichen `name = quartz_smasher` oder gar nichts; das Plugin macht daraus `research_expansion.quartz_smasher.name` und `.desc`. Ein Schlüssel mit Punkten gilt weiter unverändert.
 
 ### 🆕 Neu in 1.7
 - ✅ **Neue Forschung als INI-Abschnitt:** `[research:<id>]` mit den Schlüsseln `type`, `cost`, `name`, `desc`, `requires`, `unlock` und `line` ist dieselbe Forschung wie ein `$RESEARCH`-Block, nur als Abschnitt, damit Republic Mod Manager sie bearbeiten kann. Beide Formen dürfen gemischt werden und laufen durch dieselbe Prüfung; Abschnitte werden nach den freien Blöcken eingeordnet.
@@ -194,8 +197,6 @@ requires = faculty_geology | before | uranium_study
 type = technical
 cost = 1800
 unlock = $UNLOCK_BUILDING_PRODUCTION raw_quartz
-name = research_expansion.quartz_smasher.name
-desc = research_expansion.quartz_smasher.desc
 ```
 
 | Schlüssel | Bedeutung |
@@ -203,7 +204,7 @@ desc = research_expansion.quartz_smasher.desc
 | `enabled` | `0` lässt den Abschnitt stehen, wendet ihn aber nicht an; fehlt der Schlüssel, gilt `1` |
 | `type` | `technical`, `soviet` oder `medical` |
 | `cost` | positive ganze Zahl |
-| `name`, `desc` | Sprachschlüssel wie bei `$NAME` und `$DESC` |
+| `name`, `desc` | optional: ein Wort ohne Punkt wird zu `research_expansion.<wort>.name` bzw. `.desc`, fehlt der Schlüssel, zählt die Forschungs-ID; ein Schlüssel mit Punkten gilt wörtlich |
 | `requires` | eine Zeile je Vorgänger: `<forschung>`, optional `\| before` oder `\| after` und `\| <anker>`; entspricht `+`-Zeile plus `@before_`/`@after_` |
 | `unlock` | eine `$UNLOCK_…`-Zeile je Eintrag |
 | `line` | jede andere Direktivzeile, unverändert übernommen |
@@ -276,6 +277,7 @@ Forschungen sind Teil des Spielstands: Eine neue Forschung, die ein Spielstand b
 Localization ist Pflicht. Andere Plugins, die `research.ini` ersetzen, werden nicht zusammengeführt.
 
 ### Versionskompatibilität
+- **1.8:** kurze `name`/`desc` in `[research:]`, Standard = Forschungs-ID; sonst unverändert
 - **1.7:** `[research:<id>]`-Abschnitte als INI-Form neuer Forschungen; sonst unverändert
 - **1.6:** Icons nur noch im VFS-Ordner `media_soviet\research`, vorhandene bleiben, fehlende aus `noimage.png`; `icon_folder`/`noimage_name` entfallen
 - **1.5:** INI- und Icon-Fallback neben der DLL, Editor-Schema im Paket; Prüf- und Erzeugungslogik gegenüber 1.4 unverändert
@@ -374,5 +376,5 @@ A: Für neue Forschungsblöcke ja. Änderungen an Vanilla-Forschungen und die Pl
 
 ---
 
-**Letzte Aktualisierung:** Research Expansion 1.7  
+**Letzte Aktualisierung:** Research Expansion 1.8  
 **Für:** WRSR 1.1.1.9 | TesmioLoader API 4

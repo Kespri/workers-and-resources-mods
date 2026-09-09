@@ -7,6 +7,18 @@ plugin. Output: a generated `research.ini` plus one `<id>.png` per new research 
 (`<loader>\vfs\media_soviet\research`). User documentation: README_DE.md / README_EN.md.
 History newest first.
 
+## 1.8 (2026-09-10)
+
+- `[research:]` sections: `name` / `desc` are optional and may be a bare word. `ExpandResearchSections`
+  completes a value without a dot to `TEXT_NAMESPACE.<value>.name` / `.desc`
+  (`TEXT_NAMESPACE` = "research_expansion", the namespace of the plugin's own text pack); a
+  missing key uses the research id. A value with dots is emitted unchanged, so 1.7 files keep
+  working. Free `$RESEARCH` blocks are untouched.
+- Reason (user decision 2026-09-10): the namespace is fixed by the modder and the suffixes are
+  fixed by the plugin, so typing the full key was pure error potential. Republic Mod Manager
+  0.4.31 shows the fields as `[<word>].[name]` with the id as placeholder.
+- In-game test: pending (user).
+
 ## 1.7 (2026-09-10)
 
 - `[research:<id>]` sections: the INI form of a new research block for Republic Mod Manager.
