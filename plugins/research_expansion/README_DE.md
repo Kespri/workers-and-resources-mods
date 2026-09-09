@@ -1,4 +1,4 @@
-# 🔬 Research Expansion 1.5
+# 🔬 Research Expansion 1.6
 
 **TesmioLoader-Plugin für neue Forschungen und Änderungen am Forschungsbaum**
 
@@ -34,7 +34,7 @@ Fügt *Workers & Resources: Soviet Republic* 1.1.1.9 eigene Forschungseinträge 
 
 ### In drei Schritten
 1. **Eine Installationsmethode wählen** (siehe unten) und das Plugin aktivieren; Localization muss laufen.
-2. **Forschung eintragen:** Neue Forschungsblöcke in `research_expansion.ini` schreiben (Beispiele stehen auskommentiert darin), Icons als 128 × 128 PNG in den Ordner `research_expansion\icons` legen. Änderungen an Vanilla-Forschungen am bequemsten in Republic Mod Manager.
+2. **Forschung eintragen:** Neue Forschungsblöcke in `research_expansion.ini` schreiben (Beispiele stehen auskommentiert darin), Icons als 128 × 128 PNG unter dem Namen `<forschungs_id>.png` in den Ordner `tesmioloader\vfs\media_soviet\research` legen (Republic Mod Manager zeigt und öffnet ihn in der Karte Forschungs-Icons). Änderungen an Vanilla-Forschungen am bequemsten in Republic Mod Manager.
 3. **Spiel vollständig neu starten.** Die erzeugte `research.ini` liegt danach unter `tesmioloader\vfs\media_soviet\research`.
 
 ---
@@ -48,6 +48,9 @@ Fügt *Workers & Resources: Soviet Republic* 1.1.1.9 eigene Forschungseinträge 
 - ✅ Eigene Icons je Forschung mit Ersatz-Icon
 - ✅ Jeder Fehler weist die ganze Erweiterung ab und lässt die Vanilla-Forschung aktiv; das Log nennt Datei, Regel und Zeile
 - ✅ Originaldateien bleiben unverändert; die erzeugte Datei liegt im VFS des Loaders
+
+### 🆕 Neu in 1.6
+- ✅ **Ein Icon-Ordner statt zwei:** Die Icons liegen nur noch in `tesmioloader\vfs\media_soviet\research`, dem Ordner, aus dem das Spiel sie liest. Ein Icon, das dort liegt, bleibt unangetastet; fehlt eines, erzeugt das Plugin es beim Start aus `noimage.png` (aus `research_expansion\icons` neben der DLL, sonst aus `plugins\research_expansion\noimage.png`). Die Schlüssel `icon_folder` und `noimage_name` entfallen; alte INIs mit diesen Schlüsseln laufen weiter, ein abweichender Wert wird einmal im Log gemeldet.
 
 ### 🆕 Neu in 1.5
 - ✅ **INI und Icons neben der DLL:** Fehlt `plugins\research_expansion.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket unter Soviet Mod Loader oder der Workshop Bridge. Der Icon-Ordner wird genauso gesucht: zuerst `plugins\research_expansion\icons`, sonst neben der DLL. Beide Pfade stehen im Log.
@@ -118,7 +121,7 @@ Wähle **eine** der vier Methoden. Dieselbe DLL darf nie zweimal geladen werden.
 
 Das Paket enthält im Ordner `config` ein Editor-Schema. Republic Mod Manager (ab 0.33.0) zeigt Research Expansion damit in zwei Reitern, deutsch und englisch:
 
-- **Allgemein:** Hinweise, „Dateien nur lokal“, Knopf für diese Anleitung und die Plugin-Einstellungen (Plugin aktiv, Diagnoseprotokoll, Icon-Ordner, Ersatz-Icon)
+- **Allgemein:** Hinweise, „Dateien nur lokal“, Knopf für diese Anleitung und die Plugin-Einstellungen (Erweiterung anwenden, Forschungs-Icons, Diagnoseprotokoll)
 - **Vanilla-Änderungen:** links die geänderten Forschungen, rechts die gewählte mit Schalter und je einem Mehrzeilenfeld für ersetzen, entfernen, hinzufügen, einfügen und verschieben; der Plus-Knopf legt eine Änderung für eine Vanilla-Forschungs-ID an
 
 Neue Forschungsblöcke (`$RESEARCH … $RESEARCH_ADD`) sind freie Textblöcke und werden weiterhin in der INI geschrieben; Republic Mod Manager lässt sie unverändert stehen. Persönliche Änderungen liegen in `user_config\research_expansion.editor.ini`, die wirksame Datei ist `plugins\research_expansion.ini`; die INI im Paket bleibt unverändert.
@@ -133,7 +136,7 @@ Die DLL liest in dieser Reihenfolge:
 - **Zuerst:** `tesmioloader\build\plugins\research_expansion.ini`, falls vorhanden (klassische Installation, „Dateien nur lokal“ oder die von Republic Mod Manager geschriebene wirksame INI)
 - **Sonst:** die INI neben der DLL, im Paket `hooks\research_expansion.ini` (Soviet Mod Loader, Workshop Bridge)
 
-⚠️ **Kommentare nur in eigenen Zeilen mit `;`.** UTF-8 ohne BOM, höchstens 8 MiB. Direktivennamen sind schreibungsabhängig. In `[general]` sind nur `enabled`, `debug`, `icon_folder` und `noimage_name` erlaubt. Änderungen gelten nach einem vollständigen Neustart.
+⚠️ **Kommentare nur in eigenen Zeilen mit `;`.** UTF-8 ohne BOM, höchstens 8 MiB. Direktivennamen sind schreibungsabhängig. In `[general]` sind nur `enabled` und `debug` erlaubt (`icon_folder` und `noimage_name` aus 1.5 werden ignoriert). Änderungen gelten nach einem vollständigen Neustart.
 
 ### Abschnitt `[general]`
 
@@ -143,10 +146,6 @@ Die DLL liest in dieser Reihenfolge:
 enabled = 1
 ; 1 protokolliert vorbereitete Befehle, Positionierungen und lokale Pfade
 debug = 0
-; Ordner der Icons, relativ zu research_expansion neben INI oder DLL
-icon_folder = icons
-; Ersatz-Icon, wenn <forschungs_id>.png fehlt
-noimage_name = noimage.png
 ```
 
 ⚠️ **Vor dem Abschalten der DLL** erst `enabled = 0` setzen und das Spiel einmal starten: Nur so entfernt das Plugin die erzeugte `research.ini` aus dem VFS. Wird die DLL direkt im Launcher abgeschaltet, bleibt die Datei liegen und das Spiel liest weiter die erweiterte Forschung.
@@ -209,7 +208,7 @@ Die Befehle laufen in Dateireihenfolge, nach den automatischen Freischaltungen n
 
 ## 🖼️ Icons und Texte
 
-**Icons:** PNG, genau 128 × 128 Pixel, höchstens 4 MiB, Dateiname `<forschungs_id>.png` im Ordner `research_expansion\icons` (im Paket `hooks\research_expansion\icons`, lokal `plugins\research_expansion\icons`). Fehlt das Icon, wird `noimage.png` unter dem Namen der Forschung ins VFS kopiert und eine Warnung protokolliert. Fehlt auch das Ersatz-Icon, wird die Erweiterung abgewiesen.
+**Icons:** PNG, genau 128 × 128 Pixel, höchstens 4 MiB, Dateiname `<forschungs_id>.png` im Ordner `tesmioloader\vfs\media_soviet\research`. Das Plugin legt den Ordner beim ersten Start an. Ein Icon, das dort liegt, bleibt; fehlt eines, wird es aus `noimage.png` erzeugt und eine Warnung protokolliert (Quelle: `research_expansion\icons` neben der DLL, sonst `plugins\research_expansion\noimage.png`). Ein unbrauchbares Icon im Ordner oder ein fehlendes `noimage.png` weist die Erweiterung ab.
 
 **Texte:** `$NAME` und `$DESC` verweisen auf ein Localization-Textpaket, etwa `plugins\localization\research_expansion\sovietGerman.ini`:
 
@@ -248,6 +247,7 @@ Forschungen sind Teil des Spielstands: Eine neue Forschung, die ein Spielstand b
 Localization ist Pflicht. Andere Plugins, die `research.ini` ersetzen, werden nicht zusammengeführt.
 
 ### Versionskompatibilität
+- **1.6:** Icons nur noch im VFS-Ordner `media_soviet\research`, vorhandene bleiben, fehlende aus `noimage.png`; `icon_folder`/`noimage_name` entfallen
 - **1.5:** INI- und Icon-Fallback neben der DLL, Editor-Schema im Paket; Prüf- und Erzeugungslogik gegenüber 1.4 unverändert
 - **1.4:** Positionierte Freischaltungen, Änderungsabschnitte `[modify:]`
 - **Zurück auf eine ältere Fassung:** alte DLL und die dazugehörige INI wiederherstellen
@@ -262,7 +262,8 @@ Localization ist Pflicht. Andere Plugins, die `research.ini` ersetzen, werden ni
 |---|---|---|
 | Erweiterung wird nicht angewendet | Localization fehlt oder ist aus | localization.dll installieren und einschalten |
 | `Localization key ... could not be resolved` | Schlüssel fehlt im Textpaket | Textpaket prüfen, Schlüssel exakt schreiben |
-| `Neither own icon nor ... found` | Icon und Ersatz-Icon fehlen | 128 × 128 PNG in den Icon-Ordner legen |
+| `No icon for ... and no usable noimage.png` | Icon und Ersatz-Icon fehlen | 128 × 128 PNG als `<id>.png` nach `vfs\media_soviet\research` legen oder `noimage.png` bereitstellen |
+| `Icon for ... is unusable` | PNG im VFS-Ordner kaputt oder falsche Größe | Datei ersetzen oder löschen, dann entsteht sie neu aus `noimage.png` |
 | `Unknown directive` | Tippfehler oder nicht unterstützte Direktive | Zeile mit der originalen research.ini vergleichen |
 | `Research ... already exists` | ID doppelt | eindeutige ID wählen |
 | `Dependency cycle detected` | Kreis in den `+`-Zeilen | Abhängigkeiten entwirren |
@@ -274,7 +275,7 @@ Alle Meldungen stehen in `tesmioloader.log` und im Detail-Log `tesmioloader.rese
 - In **Republic Mod Manager** öffnet das Symbol mit dem Dokument unten in der Plugin-Leiste die Protokollansicht mit Filter und Absender.
 
 Suche nach:
-- `Configuration file` und `Icon folder` → welche INI und welcher Icon-Ordner gewählt wurden
+- `Configuration file`, `Icon store` und `Fallback icon` → welche INI, welcher Icon-Ordner und welches Ersatz-Icon gewählt wurden
 - `research_expansion` → alle Meldungen des Plugins, Ablehnungen mit Regel und Zeile
 
 ---
@@ -288,7 +289,7 @@ research_expansion\
 │   ├── research_expansion.dll      (Plugin)
 │   ├── research_expansion.ini      (Original-INI, Beispiele auskommentiert)
 │   └── research_expansion\icons\
-│       └── noimage.png             (Ersatz-Icon; eigene <id>.png dazulegen)
+│       └── noimage.png             (Ersatz-Icon)
 ├── config\                         (Editor-Schema für Republic Mod Manager)
 │   ├── research_expansion.launcher.ini
 │   └── languages\
@@ -310,10 +311,10 @@ tesmioloader\
 │   │   ├── localization\research_expansion\   (Textpaket, aus dem Localization-Paket)
 │   │   ├── research_expansion.dll
 │   │   ├── research_expansion.ini  (wirksame INI)
-│   │   └── research_expansion\icons\
+│   │   └── research_expansion\noimage.png (nur ohne Workshop, von Hand kopiert)
 │   └── user_config\
 │       └── research_expansion.editor.ini (persönliche Änderungen aus Republic Mod Manager)
-└── vfs\media_soviet\research\      (erzeugte research.ini und Icons)
+└── vfs\media_soviet\research\      (erzeugte research.ini und die Icons <id>.png)
 ```
 
 ---
@@ -343,5 +344,5 @@ A: Für neue Forschungsblöcke ja. Änderungen an Vanilla-Forschungen und die Pl
 
 ---
 
-**Letzte Aktualisierung:** Research Expansion 1.5  
+**Letzte Aktualisierung:** Research Expansion 1.6  
 **Für:** WRSR 1.1.1.9 | TesmioLoader API 4

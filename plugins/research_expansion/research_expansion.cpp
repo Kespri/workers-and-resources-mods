@@ -32,7 +32,7 @@ typedef struct TsmLocalizationApi
 #include <limits.h>
 #include <ctype.h>
 
-#define PLUGIN_VERSION "1.5"
+#define PLUGIN_VERSION "1.6"
 
 static const size_t MAX_INI_BYTES = 8u * 1024u * 1024u;   // 8 MB
 static const size_t MAX_PNG_BYTES = 4u * 1024u * 1024u;   // 4 MB
@@ -125,8 +125,6 @@ static std::string g_gameDir;
 static std::string g_mediaDir;
 static std::string g_vfsDir;
 static std::string g_pluginDir;
-static std::string g_iconFolder;
-static std::string g_noimageName;
 
 struct UnlockPlacement
 {
@@ -187,6 +185,7 @@ struct IconPlan
     std::string source;
     std::string destination;
     bool fallback = false;
+    bool keep = false;       // 1.6: a valid icon is already in the VFS research folder
 };
 
 static std::vector<NewBlock>       g_newBlocks;
@@ -1059,26 +1058,17 @@ static bool ReadGeneralString(const char* key, const char* fallback,
 
 static bool ReadGeneralConfig()
 {
-    if (!ReadGeneralString("icon_folder", "icons", g_iconFolder) ||
-        !ReadGeneralString("noimage_name", "noimage.png", g_noimageName))
-    {
+    // 1.6: icon_folder and noimage_name are no longer used - the icons live in
+    // the VFS research folder and noimage.png is looked up beside the DLL and in
+    // plugins\research_expansion (see PlanIcons). Old INIs may still carry the
+    // keys; a value other than the old default is reported once and ignored.
+    std::string legacyFolder, legacyName;
+    if (!ReadGeneralString("icon_folder", "icons", legacyFolder) ||
+        !ReadGeneralString("noimage_name", "noimage.png", legacyName))
         return false;
-    }
-
-    if (!IsSafeRelativePath(g_iconFolder, true))
-    {
-        Report("ERROR", PLUGIN_INI, "icon-folder",
-            "icon_folder='%s' is not a safe relative path",
-            g_iconFolder.c_str());
-        return false;
-    }
-    if (!IsSafeRelativePath(g_noimageName, false))
-    {
-        Report("ERROR", PLUGIN_INI, "fallback-icon",
-            "noimage_name='%s' must be one file name without a directory",
-            g_noimageName.c_str());
-        return false;
-    }
+    if (legacyFolder != "icons" || legacyName != "noimage.png")
+        Report("WARN", PLUGIN_INI, "legacy-key",
+            "icon_folder / noimage_name are ignored since 1.6: icons are read from the VFS research folder, noimage.png from research_expansion\\icons beside the DLL or plugins\\research_expansion");
     return true;
 }
 
@@ -1555,56 +1545,80 @@ static bool ValidateLocalizationAndPlanIcons(std::vector<IconPlan>& plans)
         nb.descId = descId;
     }
 
-    std::string srcIconDir = JoinPath(g_pluginDir, "research_expansion\\" + g_iconFolder);
-    if (!DirExistsA(srcIconDir))
-    {
-        // 1.5: the icons beside the DLL (Workshop package) when plugins\ has none.
-        std::string ownDir;
-        if (OwnDirectory(ownDir) && DirExistsA(JoinPath(ownDir, "research_expansion\\" + g_iconFolder)))
-            srcIconDir = JoinPath(ownDir, "research_expansion\\" + g_iconFolder);
-    }
-    Info("Icon folder: %s", srcIconDir.c_str());
+    // 1.6: the VFS research folder is the icon store. An icon that is already
+    // there is kept (it has to be a valid 128 x 128 PNG); a missing one is
+    // seeded from <id>.png in research_expansion\icons beside the DLL, else
+    // created from noimage.png. noimage.png is looked for beside the DLL (the
+    // Workshop package or a local copy), then in plugins\research_expansion
+    // (a hand copy for installs without the Workshop).
     std::string dstIconDir = JoinPath(g_vfsDir, RESEARCH_DIR_REL);
-
     if (!EnsureDir(dstIconDir))
     {
         Report("ERROR", dstIconDir.c_str(), "vfs-dir",
             "Could not create VFS research folder");
         return false;
     }
-
-    std::string noimageSrc = JoinPath(srcIconDir, g_noimageName);
-    std::string noimageReason;
-    bool noimageOk = ValidatePng(noimageSrc, noimageReason);
+    std::string ownDir;
+    std::string packageIconDir;
+    if (OwnDirectory(ownDir)) packageIconDir = JoinPath(ownDir, "research_expansion\\icons");
+    const std::string candidates[] = {
+        packageIconDir.empty() ? std::string() : JoinPath(packageIconDir, "noimage.png"),
+        JoinPath(g_pluginDir, "research_expansion\\noimage.png"),
+        JoinPath(g_pluginDir, "research_expansion\\icons\\noimage.png")
+    };
+    std::string noimageSrc;
+    std::string noimageReason = "no noimage.png found";
+    bool noimageOk = false;
+    for (const std::string& candidate : candidates)
+    {
+        if (candidate.empty()) continue;
+        std::string reason;
+        if (ValidatePng(candidate, reason)) { noimageSrc = candidate; noimageOk = true; break; }
+        if (FileExistsA(candidate)) noimageReason = candidate + ": " + reason;
+    }
+    Info("Icon store: %s", dstIconDir.c_str());
+    Info("Fallback icon: %s", noimageOk ? noimageSrc.c_str() : noimageReason.c_str());
 
     for (NewBlock& nb : g_newBlocks)
     {
-        std::string ownSrc = JoinPath(srcIconDir, nb.id + ".png");
-        std::string ownReason;
-        bool ownOk = ValidatePng(ownSrc, ownReason);
         std::string dst = JoinPath(dstIconDir, nb.id + ".png");
         IconPlan plan;
         plan.researchId = nb.id;
         plan.destination = dst;
-
-        if (ownOk)
+        if (FileExistsA(dst))
         {
-            plan.source = ownSrc;
+            std::string reason;
+            if (!ValidatePng(dst, reason))
+            {
+                Report("ERROR", dst.c_str(), "icon-invalid",
+                    "Icon for %s in the VFS research folder is unusable (%s). Action: replace it with a 128 x 128 PNG or delete it so it is created from noimage.png",
+                    nb.id.c_str(), reason.c_str());
+                return false;
+            }
+            plan.keep = true;
+            plans.push_back(plan);
+            continue;
+        }
+        std::string seed = packageIconDir.empty() ? std::string() : JoinPath(packageIconDir, nb.id + ".png");
+        std::string seedReason;
+        if (!seed.empty() && ValidatePng(seed, seedReason))
+        {
+            plan.source = seed;
             plan.fallback = false;
         }
         else if (noimageOk)
         {
             plan.source = noimageSrc;
             plan.fallback = true;
-            Report("WARN", ownSrc.c_str(), "icon-fallback",
-                "Custom icon for %s is unavailable (%s); using validated fallback %s",
-                nb.id.c_str(), ownReason.c_str(), g_noimageName.c_str());
+            Report("WARN", dst.c_str(), "icon-fallback",
+                "No icon for %s in the VFS research folder yet; creating %s.png from noimage.png. Action: replace it there with your own 128 x 128 PNG",
+                nb.id.c_str(), nb.id.c_str());
         }
         else
         {
             Report("ERROR", PLUGIN_INI, "icon-missing",
-                "No usable icon is available for %s: custom icon %s; fallback %s",
-                nb.id.c_str(), ownReason.c_str(), noimageReason.c_str());
+                "No icon for %s and no usable noimage.png (%s). Action: put a 128 x 128 PNG named %s.png into the VFS research folder, or provide noimage.png in research_expansion\\icons beside the DLL or in plugins\\research_expansion",
+                nb.id.c_str(), noimageReason.c_str(), nb.id.c_str());
             return false;
         }
         plans.push_back(plan);
@@ -1616,6 +1630,11 @@ static bool ApplyIconPlan(const std::vector<IconPlan>& plans)
 {
     for (const IconPlan& plan : plans)
     {
+        if (plan.keep)
+        {
+            Info("Icon for %s kept from the VFS research folder", plan.researchId.c_str());
+            continue;
+        }
         if (!CopyFileAtomic(plan.source, plan.destination))
         {
             ReportWindows("ERROR", plan.source.c_str(), "icon-copy",
@@ -1624,8 +1643,8 @@ static bool ApplyIconPlan(const std::vector<IconPlan>& plans)
                 "Verify that the source icon is readable and the VFS directory is writable");
             return false;
         }
-        Info("Icon for %s activated from %s",
-            plan.researchId.c_str(), plan.fallback ? "fallback" : "custom file");
+        Info("Icon for %s created from %s",
+            plan.researchId.c_str(), plan.fallback ? "noimage.png" : "the package icon");
     }
     return true;
 }
@@ -2288,9 +2307,8 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
             return 1;
         }
 
-        Info("Configuration: enabled=1 debug=%d icon_folder='%s' fallback_icon='%s' max_research=%d required_icon=%Iux%Iu",
-            g_debug, g_iconFolder.c_str(), g_noimageName.c_str(),
-            MAX_NEW_RESEARCH, REQUIRED_ICON_SIDE, REQUIRED_ICON_SIDE);
+        Info("Configuration: enabled=1 debug=%d max_research=%d required_icon=%Iux%Iu; icons live in the VFS research folder (1.6)",
+            g_debug, MAX_NEW_RESEARCH, REQUIRED_ICON_SIDE, REQUIRED_ICON_SIDE);
         Debug("Paths: game='%s' plugin='%s' vfs='%s'",
             g_gameDir.c_str(), g_pluginDir.c_str(), g_vfsDir.c_str());
 

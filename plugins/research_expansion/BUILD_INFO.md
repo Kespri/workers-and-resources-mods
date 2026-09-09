@@ -1,0 +1,34 @@
+# Research Expansion – build notes
+
+TesmioLoader plugin (API 4) for WRSR 1.1.1.9, GPL v3. Build: the standard line of the root
+`build.bat` (`cl /O2 /MT /W3 /EHsc /std:c++17 /LD`, kernel32.lib) compiles `research_expansion.cpp`;
+it includes `src/tesmio_plugin.h` and consumes the `localization` service of the Localization
+plugin. Output: a generated `research.ini` plus one `<id>.png` per new research in the loader's VFS
+(`<loader>\vfs\media_soviet\research`). User documentation: README_DE.md / README_EN.md.
+History newest first.
+
+## 1.6 (2026-09-09)
+
+- The VFS research folder is the only icon store. `PlanIcons`: an existing `<id>.png` there is
+  kept (validated as 128 x 128 PNG, an unusable one fails closed with `icon-invalid`); a missing
+  one is seeded from `<id>.png` in `research_expansion\icons` beside the DLL, else created from
+  `noimage.png` (`icon-fallback` WARN). `noimage.png` candidates in order: `research_expansion\icons`
+  beside the DLL (Workshop package or local copy), `plugins\research_expansion\noimage.png`,
+  `plugins\research_expansion\icons\noimage.png` (1.5 layout). `ApplyIconPlan` skips kept icons.
+- `[general] icon_folder` and `noimage_name` are no longer used. Both keys stay accepted by the
+  strict INI layout check so existing effective INIs keep loading; a value other than the 1.5
+  defaults logs one `legacy-key` WARN. Removed from the shipped INI, the RMM schema and the READMEs.
+- Log lines: `Icon store: <path>`, `Fallback icon: <path or reason>`, `Icon for <id> kept from the
+  VFS research folder`, `Icon for <id> created from noimage.png|the package icon`.
+- Reason (user decision 2026-09-09): keeping user icons in the Workshop package or in
+  `plugins\research_expansion\icons` meant a second copy of every icon and a folder Steam may
+  replace on update; the game reads from the VFS folder anyway.
+- Package: schema fields for the two keys removed; the card "Research icons" is kept for the
+  folder/file rows that Republic Mod Manager 0.4.28 adds. Version 1.6 until the user names the
+  final number of the text round.
+- In-game test: pending (user).
+
+## 1.5 (2026-09-07)
+
+- INI and icon fallback beside the DLL (Workshop package under SML or the Workshop Bridge),
+  editor schema shipped in the package. Validation and generation unchanged from 1.4.
