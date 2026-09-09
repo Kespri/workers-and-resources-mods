@@ -30,7 +30,7 @@ static const size_t MAX_OPERATIONS = 512;
 
 #define SYM_READ_FILE "?C3DHelp_ReadFileIntoBuffer@@YAHPEBDPEAPEADPEAI_N@Z"
 
-#define PLUGIN_VERSION "0.4.0"
+#define PLUGIN_VERSION "0.4.1"
 #define PLUGIN_INI "plugins\\vanilla_buildings.ini"
 #define PLUGIN_LOG_NAME "tesmioloader.vanilla_buildings.log"
 
@@ -67,10 +67,11 @@ struct Operation
     int matchEnd;
     int insertAt;
     int anchorAt;         // insert: line index of the anchor (collision check)
+    int anchorOp;         // insert: index of the earlier operation whose line is the anchor (-1 = original line)
     bool after;           // insert: 1 = the new line follows the anchor
     size_t configLine;
 
-    Operation() : kind(OP_ADD), matchStart(-1), matchEnd(-1), insertAt(-1), anchorAt(-1), after(false), configLine(0) {}
+    Operation() : kind(OP_ADD), matchStart(-1), matchEnd(-1), insertAt(-1), anchorAt(-1), anchorOp(-1), after(false), configLine(0) {}
 };
 
 struct Decl
@@ -873,22 +874,51 @@ static bool ValidateOperations(Decl* d, const std::vector<std::string>& lines)
                 return Fail(d, "insert: $COST_RESOURCE_AUTO requires a $COST_WORK phase anchor");
             int at = -1;
             int count = CountLine(lines, anchor, &at);
-            if (count != 1)
-                return Fail(d, "insert: anchor has " + std::to_string(count) +
-                    " matches instead of exactly one");
-            const int slot = op.after ? at + 1 : at;
-            const int neighbour = op.after ? at + 1 : at - 1;
-            if (neighbour >= 0 && neighbour < (int)lines.size() &&
-                Trimmed(lines[neighbour]) == Trimmed(op.field[2]))
-                return Fail(d, op.after
-                    ? "insert: the new line already stands directly after the anchor"
-                    : "insert: the new line already stands directly before the anchor");
-            for (int pi = 0; pi < (int)plannedInsert.size(); pi++)
-                if (plannedInsert[pi].first == slot && plannedInsert[pi].second == Trimmed(op.field[2]))
-                    return Fail(d, "insert: the same line is specified more than once for this anchor");
-            plannedInsert.push_back(std::make_pair(slot, Trimmed(op.field[2])));
-            op.insertAt = slot;
-            op.anchorAt = at;
+            if (count == 0)
+            {
+                // The anchor may be a line an earlier command of this section
+                // produces (add, insert, replace). The new line is then placed
+                // next to that produced line in the output, see ApplyOperations.
+                int producer = -1;
+                for (int pi = 0; pi < oi && producer < 0; pi++)
+                {
+                    const Operation& other = d->operations[pi];
+                    if (other.kind == OP_ADD && Trimmed(other.field[0]) == anchor) producer = pi;
+                    else if (other.kind == OP_INSERT && Trimmed(other.field[2]) == anchor) producer = pi;
+                    else if (other.kind == OP_REPLACE && Trimmed(other.field[1]) == anchor) producer = pi;
+                }
+                if (producer < 0)
+                    return Fail(d, "insert: anchor has 0 matches in the original and no earlier add, insert or replace of this section produces it");
+                for (int pi = 0; pi < oi; pi++)
+                {
+                    const Operation& other = d->operations[pi];
+                    if (other.kind == OP_INSERT && other.anchorOp == producer && other.after == op.after &&
+                        Trimmed(other.field[2]) == Trimmed(op.field[2]))
+                        return Fail(d, "insert: the same line is specified more than once for this anchor");
+                }
+                op.anchorOp = producer;
+                op.insertAt = -1;
+                op.anchorAt = -1;
+            }
+            else
+            {
+                if (count != 1)
+                    return Fail(d, "insert: anchor has " + std::to_string(count) +
+                        " matches instead of exactly one");
+                const int slot = op.after ? at + 1 : at;
+                const int neighbour = op.after ? at + 1 : at - 1;
+                if (neighbour >= 0 && neighbour < (int)lines.size() &&
+                    Trimmed(lines[neighbour]) == Trimmed(op.field[2]))
+                    return Fail(d, op.after
+                        ? "insert: the new line already stands directly after the anchor"
+                        : "insert: the new line already stands directly before the anchor");
+                for (int pi = 0; pi < (int)plannedInsert.size(); pi++)
+                    if (plannedInsert[pi].first == slot && plannedInsert[pi].second == Trimmed(op.field[2]))
+                        return Fail(d, "insert: the same line is specified more than once for this anchor");
+                plannedInsert.push_back(std::make_pair(slot, Trimmed(op.field[2])));
+                op.insertAt = slot;
+                op.anchorAt = at;
+            }
         }
 
         if (op.matchStart >= 0)
@@ -911,7 +941,7 @@ static bool ValidateOperations(Decl* d, const std::vector<std::string>& lines)
             {
                 const Operation& other = d->operations[previous];
                 if ((other.kind == OP_ADD || other.kind == OP_INSERT) &&
-                    other.insertAt == op.insertAt &&
+                    op.insertAt >= 0 && other.insertAt == op.insertAt &&
                     Trimmed(other.field[other.kind == OP_ADD ? 0 : 2]) == value)
                     return Fail(d, "the same line would be inserted twice at one position");
             }
@@ -929,13 +959,11 @@ static bool ValidateOperations(Decl* d, const std::vector<std::string>& lines)
 
 static std::string ApplyOperations(const Decl& d, const std::vector<std::string>& lines, bool hadBom)
 {
-    std::string out;
-    size_t estimated = 0;
-    for (const std::string& line : lines) estimated += line.size() + 2;
-    for (const Operation& op : d.operations) if (op.insertAt >= 0) estimated += 64;
-    out.reserve(estimated + (hadBom ? 3 : 0));
-
-    if (hadBom) out.append("\xef\xbb\xbf", 3);
+    // Every output line remembers the operation that produced it (-1 = an
+    // original line), so an insert whose anchor is itself a produced line can
+    // be spliced next to it afterwards.
+    std::vector<std::pair<int, std::string> > emitted;
+    emitted.reserve(lines.size() + d.operations.size() * 3);
 
     for (int i = 0; i < (int)lines.size(); )
     {
@@ -950,43 +978,61 @@ static std::string ApplyOperations(const Decl& d, const std::vector<std::string>
             const bool followsAnchor = op.kind == OP_INSERT && op.after;
             if (followsAnchor != (pass == 0)) continue;
             if (op.kind == OP_ADD || op.kind == OP_INSERT)
-            {
-                out += Trimmed(op.field[op.kind == OP_INSERT ? 2 : 0]);
-                out += "\r\n";
-            }
+                emitted.push_back(std::make_pair(oi, Trimmed(op.field[op.kind == OP_INSERT ? 2 : 0])));
             else if (op.kind == OP_ADD_CONNECTION)
             {
-                out += Trimmed(op.field[0]); out += "\r\n";
-                out += Trimmed(op.field[1]); out += "\r\n";
-                out += Trimmed(op.field[2]); out += "\r\n";
+                emitted.push_back(std::make_pair(oi, Trimmed(op.field[0])));
+                emitted.push_back(std::make_pair(oi, Trimmed(op.field[1])));
+                emitted.push_back(std::make_pair(oi, Trimmed(op.field[2])));
             }
         }
 
         const Operation* action = NULL;
+        int actionIndex = -1;
         for (int oi = 0; oi < (int)d.operations.size(); oi++)
-            if (d.operations[oi].matchStart == i) { action = &d.operations[oi]; break; }
+            if (d.operations[oi].matchStart == i) { action = &d.operations[oi]; actionIndex = oi; break; }
 
         if (!action)
         {
-            out += lines[i];
-            out += "\r\n";
+            emitted.push_back(std::make_pair(-1, lines[i]));
             i++;
             continue;
         }
 
         if (action->kind == OP_REPLACE)
-        {
-            out += Trimmed(action->field[1]);
-            out += "\r\n";
-        }
+            emitted.push_back(std::make_pair(actionIndex, Trimmed(action->field[1])));
         else if (action->kind == OP_REPLACE_CONNECTION)
         {
-            out += Trimmed(action->field[3]); out += "\r\n";
-            out += lines[i + 1]; out += "\r\n";
-            out += lines[i + 2]; out += "\r\n";
+            emitted.push_back(std::make_pair(actionIndex, Trimmed(action->field[3])));
+            emitted.push_back(std::make_pair(-1, lines[i + 1]));
+            emitted.push_back(std::make_pair(-1, lines[i + 2]));
         }
         // remove and remove_connection deliberately emit nothing.
         i = action->matchEnd + 1;
+    }
+
+    // Inserts anchored on a produced line, in INI order so a chain of them works.
+    for (int oi = 0; oi < (int)d.operations.size(); oi++)
+    {
+        const Operation& op = d.operations[oi];
+        if (op.kind != OP_INSERT || op.anchorOp < 0) continue;
+        for (size_t k = 0; k < emitted.size(); k++)
+        {
+            if (emitted[k].first != op.anchorOp) continue;
+            emitted.insert(emitted.begin() + (op.after ? k + 1 : k), std::make_pair(oi, Trimmed(op.field[2])));
+            break;
+        }
+    }
+
+    std::string out;
+    size_t estimated = 0;
+    for (size_t k = 0; k < emitted.size(); k++) estimated += emitted[k].second.size() + 2;
+    out.reserve(estimated + (hadBom ? 3 : 0));
+    if (hadBom) out.append("\xef\xbb\xbf", 3);
+    for (size_t k = 0; k < emitted.size(); k++)
+    {
+        out += emitted[k].second;
+        out += "\r\n";
     }
     return out;
 }
@@ -1820,6 +1866,9 @@ static int RunSelfTests(void)
     d.operations.push_back(TestOp(OP_INSERT, "0", "$COST_WORK SOVIET_CONSTRUCTION_BUILDING_NODE 1.0", "$COST_RESOURCE_AUTO steel 2.0"));
     d.operations.push_back(TestOp(OP_INSERT, "0", "$COST_WORK SOVIET_CONSTRUCTION_BUILDING_NODE 1.0", "$COST_RESOURCE_AUTO bricks 3.0"));
     d.operations.push_back(TestOp(OP_INSERT, "1", "$COST_WORK SOVIET_CONSTRUCTION_BUILDING_NODE 1.0", "$COST_RESOURCE_AUTO gravel 1.0"));
+    d.operations.push_back(TestOp(OP_ADD, "$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 120 sand"));
+    d.operations.push_back(TestOp(OP_INSERT, "1", "$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 120 sand", "$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 120 gravel"));
+    d.operations.push_back(TestOp(OP_INSERT, "0", "$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 120 gravel", "$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 120 road_salt"));
     if (!ValidateOperations(&d, lines))
     {
         fprintf(stderr, "FATAL: self-test [valid-rules] %s. Action: correct the validator or test data\n",
@@ -1835,7 +1884,7 @@ static int RunSelfTests(void)
             Has(out, "$CONNECTION_PIPE_INPUT") ||
             !Has(out, "$CONNECTION_WATERPIPE_OUTPUT\r\n20 0 0\r\n22 0 0\r\n$COST_WORK") ||
             !Has(out, "$COST_RESOURCE_AUTO steel 2.0\r\n$COST_RESOURCE_AUTO bricks 3.0\r\n$COST_WORK SOVIET_CONSTRUCTION_BUILDING_NODE 1.0\r\n$COST_RESOURCE_AUTO gravel 1.0\r\n") ||
-            !Has(out, "$PRODUCTION alcohol 0.10\r\n$WORKERS_NEEDED 20\r\nend"))
+            !Has(out, "$PRODUCTION alcohol 0.10\r\n$WORKERS_NEEDED 20\r\n$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 120 sand\r\n$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 120 road_salt\r\n$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 120 gravel\r\nend"))
         {
             fprintf(stderr, "FATAL: self-test [transformed-output] Output mismatch. "
                 "Action: inspect the generated text below\n%s\n", out.c_str());

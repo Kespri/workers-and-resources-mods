@@ -1,4 +1,4 @@
-# 🏗️ Vanilla Buildings 0.4.0
+# 🏗️ Vanilla Buildings 0.4.1
 
 **TesmioLoader plugin for temporary changes to building files**
 
@@ -185,7 +185,7 @@ The same target file may appear only once across enabled rule sets; all changes 
 | `remove = LINE` | Removes a complete line that occurs exactly once. |
 | `add = LINE` | Inserts a new single line before the final `end`; rejected when it already exists. |
 | `insert = 0 \| ANCHOR \| LINE` | Inserts a line before a unique anchor line; several with the same anchor keep their order. |
-| `insert = 1 \| ANCHOR \| LINE` | The same after the anchor line. `insert_before = ANCHOR \| LINE` is the old spelling of `insert = 0 \| …`. |
+| `insert = 1 \| ANCHOR \| LINE` | The same after the anchor line. The anchor may also be a line an earlier `add`, `insert` or `replace` of the same rule set produces. `insert_before = ANCHOR \| LINE` is the old spelling of `insert = 0 \| …`. |
 
 Whitespace at the start and end of a line is ignored, differences inside the line are not.
 
@@ -254,6 +254,7 @@ The plugin changes building definitions, not saved buildings. New storages apply
 Other plugins that replace the same building file are not merged with these changes. For materials from Vehicle Materials this plugin provides the matching `$STORAGE_IMPORT_SPECIAL` line in the vehicle factories.
 
 ### Version compatibility
+- **0.4.1:** `insert` also accepts lines produced by earlier commands of the same rule set as anchors
 - **0.4.0:** version scheme and Republic Mod Manager texts; patch logic and INI unchanged
 - **1.3.1:** `insert` command with a position before/after the anchor; `insert_before` still readable
 - **1.3:** INI fallback beside the DLL, editor schema in the package; patch logic unchanged from 1.2
@@ -348,5 +349,5 @@ A: No. Republic Mod Manager shows the rule sets as a list with targets and comma
 
 ---
 
-**Last update:** Vanilla Buildings 0.4.0  
+**Last update:** Vanilla Buildings 0.4.1  
 **For:** WRSR 1.1.1.9 | TesmioLoader API 4

@@ -1,4 +1,4 @@
-# 🏗️ Vanilla Buildings 0.4.0
+# 🏗️ Vanilla Buildings 0.4.1
 
 **TesmioLoader-Plugin für temporäre Änderungen an Gebäudedateien**
 
@@ -185,7 +185,7 @@ Dieselbe Zieldatei darf in aktiven Regelsätzen nur einmal vorkommen; alle Ände
 | `remove = ZEILE` | Entfernt eine vollständige Zeile, die genau einmal vorkommt. |
 | `add = ZEILE` | Fügt eine neue Einzelzeile vor dem letzten `end` ein; abgewiesen, wenn sie schon existiert. |
 | `insert = 0 \| ANKER \| ZEILE` | Fügt eine Zeile vor einer eindeutigen Ankerzeile ein; mehrere mit demselben Anker behalten ihre Reihenfolge. |
-| `insert = 1 \| ANKER \| ZEILE` | Dasselbe nach der Ankerzeile. `insert_before = ANKER \| ZEILE` ist die alte Schreibweise von `insert = 0 \| …`. |
+| `insert = 1 \| ANKER \| ZEILE` | Dasselbe nach der Ankerzeile. Der Anker darf auch eine Zeile sein, die ein früherer `add`, `insert` oder `replace` desselben Regelsatzes erzeugt. `insert_before = ANKER \| ZEILE` ist die alte Schreibweise von `insert = 0 \| …`. |
 
 Leerzeichen am Zeilenanfang und -ende werden ignoriert, Unterschiede innerhalb der Zeile nicht.
 
@@ -254,6 +254,7 @@ Das Plugin ändert Gebäudedefinitionen, keine gespeicherten Gebäude. Neue Lage
 Andere Plugins, die dieselbe Gebäudedatei ersetzen, werden nicht mit diesen Änderungen zusammengeführt. Für Materialien aus Vehicle Materials liefert dieses Plugin die passende `$STORAGE_IMPORT_SPECIAL`-Zeile in den Fahrzeugfabriken.
 
 ### Versionskompatibilität
+- **0.4.1:** `insert` nimmt als Anker auch Zeilen, die frühere Befehle desselben Regelsatzes erzeugen
 - **0.4.0:** Versionsschema und Texte für Republic Mod Manager; Patchlogik und INI unverändert
 - **1.3.1:** Befehl `insert` mit Position vor/nach dem Anker; `insert_before` bleibt lesbar
 - **1.3:** INI-Fallback neben der DLL, Editor-Schema im Paket; Patchlogik gegenüber 1.2 unverändert
@@ -348,5 +349,5 @@ A: Nein. Republic Mod Manager zeigt die Regelsätze als Liste mit Zielen und Bef
 
 ---
 
-**Letzte Aktualisierung:** Vanilla Buildings 0.4.0  
+**Letzte Aktualisierung:** Vanilla Buildings 0.4.1  
 **Für:** WRSR 1.1.1.9 | TesmioLoader API 4

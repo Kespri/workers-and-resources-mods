@@ -4,6 +4,22 @@ Target: WRSR 1.1.1.9, TesmioLoader API 4. Build: the standard line (`cl /O2 /MT 
 ... /link kernel32.lib`); exports TsmPluginApiVersion/TsmPluginInit/TsmPluginStart. History
 newest first.
 
+## 0.4.1 (2026-09-09)
+
+- `insert` accepts as anchor a line that an earlier `add`, `insert` or `replace` of the same
+  section produces (`Operation.anchorOp`). Validation: when the anchor has no match in the
+  original, the earlier operations are searched (add field 0, insert field 2, replace field 1);
+  none found is still "0 matches"; the same line twice at one produced anchor is rejected.
+  Produced anchors skip the neighbour and collision checks (they are not original lines).
+- `ApplyOperations` now builds a vector of (producer, line) pairs and splices produced-anchor
+  inserts afterwards in INI order, so chains work (add sand -> insert 1 after sand: gravel ->
+  insert 0 before gravel: road_salt gives sand, road_salt, gravel). The duplicate-position check
+  ignores operations without a slot.
+- Self-test extended with exactly that chain. Reason: the user's rule set anchored a storage
+  line on another storage line his own `add` produced; every target was rejected with
+  "anchor has 0 matches" and the plugin stayed inactive.
+- In-game test: pending (user).
+
 ## 0.4.0 (2026-09-09)
 
 Declared finished by the user after the text review; version string `0.4.0` follows 1.3.1 (user's
