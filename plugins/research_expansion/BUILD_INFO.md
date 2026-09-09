@@ -17,7 +17,10 @@ History newest first.
 - Reason (user decision 2026-09-10): the namespace is fixed by the modder and the suffixes are
   fixed by the plugin, so typing the full key was pure error potential. Republic Mod Manager
   0.4.31 shows the fields as `[<word>].[name]` with the id as placeholder.
-- In-game test: pending (user).
+- In-game test 2026-09-10 01:17 (user): [research:clay_study] with requires = faculty_geology | before | uranium_study,
+  name = clay_study, no desc; log "1 new research entr(y/ies) (1 of them [research:] sections)",
+  "Icon for clay_study created from noimage.png", name, description and the position before
+  uranium_study confirmed in the game.
 
 ## 1.7 (2026-09-10)
 
@@ -32,7 +35,7 @@ History newest first.
 - Duplicate ids between a free block and a section are rejected (`research-duplicate`); unknown
   keys (`research-key`), bad values and repeated single keys fail closed like everything else.
 - Unknown-section message now names `[research:id]`. INI and READMEs document the section form.
-- In-game test: pending (user, through Republic Mod Manager 0.4.29).
+- In-game test: covered by the 1.8 test above (section written by Republic Mod Manager 0.4.31).
 
 ## 1.6 (2026-09-09)
 
@@ -53,7 +56,7 @@ History newest first.
 - Package: schema fields for the two keys removed; the card "Research icons" is kept for the
   folder/file rows that Republic Mod Manager 0.4.28 adds. Version 1.6 until the user names the
   final number of the text round.
-- In-game test: pending (user).
+- In-game test: covered by the 1.8 test (VFS store created, clay_study.png seeded from noimage.png).
 
 ## 1.5 (2026-09-07)
 

@@ -19,7 +19,9 @@ User documentation: README_DE.md / README_EN.md. History newest first.
   <k> local language file(s))`; a namespace mismatch between the two is a WARN, the local one applies.
 - Reason (user decision 2026-09-10): Republic Mod Manager will edit the research_expansion pack in
   `plugins\localization`; a package update by the author must still reach players with local edits.
-- In-game test: pending (user).
+- In-game test 2026-09-10 01:17 (user): log "Pack 'research_expansion': local folder merged over the shipped one
+  (4 keys added, 4 replaced, 2 local language file(s))", 3 packs / 14 keys ready; the local clay_study texts
+  showed in the game.
 
 ## 1.2 (2026-09-07)
 
