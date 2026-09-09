@@ -1,4 +1,4 @@
-# 🏗️ Vanilla Buildings 1.3.1
+# 🏗️ Vanilla Buildings 0.4.0
 
 **TesmioLoader plugin for temporary changes to building files**
 
@@ -45,6 +45,10 @@ Adjusts Vanilla, DLC and Workshop buildings in *Workers & Resources: Soviet Repu
 - ✅ Commands: replace, remove, add a line, insert before an anchor; add, replace, remove connection blocks
 - ✅ Original files in the game and Workshop folders are never touched; a restart without the plugin restores everything
 - ✅ A rejected target does not block the others; every rejection is logged with section, target and cause
+
+### 🆕 New in 0.4.0
+- ✅ New version scheme (0.4.0 follows 1.3.1); patch logic, commands and INI keys unchanged.
+- ✅ Every Republic Mod Manager text reworked in player style: warning only in the Notes card, one header switch, Log settings card, notice box and multi-line field texts on the Buildings tab.
 
 ### 🆕 New in 1.3.1
 - ✅ **`insert` replaces `insert_before`:** `insert = 0 | ANCHOR | LINE` inserts before the anchor, `insert = 1 | ANCHOR | LINE` after it. For `$COST_RESOURCE_AUTO`, 1 adds the material to the phase of the `$COST_WORK` anchor line, 0 to the phase before it. `insert_before = ANCHOR | LINE` is still read and acts like `insert = 0 | …`.
@@ -250,6 +254,7 @@ The plugin changes building definitions, not saved buildings. New storages apply
 Other plugins that replace the same building file are not merged with these changes. For materials from Vehicle Materials this plugin provides the matching `$STORAGE_IMPORT_SPECIAL` line in the vehicle factories.
 
 ### Version compatibility
+- **0.4.0:** version scheme and Republic Mod Manager texts; patch logic and INI unchanged
 - **1.3.1:** `insert` command with a position before/after the anchor; `insert_before` still readable
 - **1.3:** INI fallback beside the DLL, editor schema in the package; patch logic unchanged from 1.2
 - **1.2:** targets under `buildings_types`, `dlcN\buildings` and Workshop ids, several targets per rule set
@@ -343,5 +348,5 @@ A: No. Republic Mod Manager shows the rule sets as a list with targets and comma
 
 ---
 
-**Last update:** Vanilla Buildings 1.3.1  
+**Last update:** Vanilla Buildings 0.4.0  
 **For:** WRSR 1.1.1.9 | TesmioLoader API 4

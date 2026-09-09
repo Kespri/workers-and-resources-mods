@@ -4,6 +4,14 @@ Target: WRSR 1.1.1.9, TesmioLoader API 4. Build: the standard line (`cl /O2 /MT 
 ... /link kernel32.lib`); exports TsmPluginApiVersion/TsmPluginInit/TsmPluginStart. History
 newest first.
 
+## 0.4.0 (2026-09-09)
+
+Declared finished by the user after the text review; version string `0.4.0` follows 1.3.1 (user's
+numbering, back into beta). No runtime change: patch logic, commands, INI keys and defaults are
+those of 1.3.1. Package texts in player style (launcher notice, [activity], Log settings card,
+group notice, multi-line field texts). Backup: `_backups\vanilla_buildings_1.3.1_before_0.4.0_*`.
+The in-game test of the `insert` command (1.3.1) was not reported by the user before the release.
+
 ## 1.3.1 (2026-09-09)
 
 - New command `insert = <position> | <anchor> | <line>`: position 0 inserts before the anchor

@@ -1,4 +1,4 @@
-# 🏗️ Vanilla Buildings 1.3.1
+# 🏗️ Vanilla Buildings 0.4.0
 
 **TesmioLoader-Plugin für temporäre Änderungen an Gebäudedateien**
 
@@ -45,6 +45,10 @@ Passt Gebäude des Spiels, der DLCs und des Workshops in *Workers & Resources: S
 - ✅ Befehle: Zeile ersetzen, entfernen, hinzufügen, vor einem Anker einfügen; Anschlussblöcke hinzufügen, ersetzen, entfernen
 - ✅ Originaldateien im Spiel- und Workshopordner werden nie angefasst; ein Neustart ohne Plugin stellt alles zurück
 - ✅ Ein abgewiesenes Ziel blockiert die anderen nicht; jede Ablehnung wird mit Abschnitt, Ziel und Ursache protokolliert
+
+### 🆕 Neu in 0.4.0
+- ✅ Neues Versionsschema (0.4.0 folgt auf 1.3.1); Patchlogik, Befehle und INI-Schlüssel unverändert.
+- ✅ Alle Texte für Republic Mod Manager im Spieler-Stil überarbeitet: Warnhinweis nur noch in der Karte Hinweise, ein Kopfschalter, Karte Log-Einstellungen, Hinweiskasten und mehrzeilige Feldtexte auf dem Reiter Gebäude.
 
 ### 🆕 Neu in 1.3.1
 - ✅ **`insert` statt `insert_before`:** `insert = 0 | ANKER | ZEILE` fügt vor dem Anker ein, `insert = 1 | ANKER | ZEILE` danach. Bei `$COST_RESOURCE_AUTO` hängt 1 das Material an die Phase der `$COST_WORK`-Ankerzeile, 0 an die Phase davor. `insert_before = ANKER | ZEILE` wird weiter gelesen und wirkt wie `insert = 0 | …`.
@@ -250,6 +254,7 @@ Das Plugin ändert Gebäudedefinitionen, keine gespeicherten Gebäude. Neue Lage
 Andere Plugins, die dieselbe Gebäudedatei ersetzen, werden nicht mit diesen Änderungen zusammengeführt. Für Materialien aus Vehicle Materials liefert dieses Plugin die passende `$STORAGE_IMPORT_SPECIAL`-Zeile in den Fahrzeugfabriken.
 
 ### Versionskompatibilität
+- **0.4.0:** Versionsschema und Texte für Republic Mod Manager; Patchlogik und INI unverändert
 - **1.3.1:** Befehl `insert` mit Position vor/nach dem Anker; `insert_before` bleibt lesbar
 - **1.3:** INI-Fallback neben der DLL, Editor-Schema im Paket; Patchlogik gegenüber 1.2 unverändert
 - **1.2:** Zieldateien unter `buildings_types`, `dlcN\buildings` und Workshop-IDs, mehrere Ziele je Regelsatz
@@ -343,5 +348,5 @@ A: Nein. Republic Mod Manager zeigt die Regelsätze als Liste mit Zielen und Bef
 
 ---
 
-**Letzte Aktualisierung:** Vanilla Buildings 1.3.1  
+**Letzte Aktualisierung:** Vanilla Buildings 0.4.0  
 **Für:** WRSR 1.1.1.9 | TesmioLoader API 4

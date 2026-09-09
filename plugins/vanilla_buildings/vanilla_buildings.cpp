@@ -30,7 +30,7 @@ static const size_t MAX_OPERATIONS = 512;
 
 #define SYM_READ_FILE "?C3DHelp_ReadFileIntoBuffer@@YAHPEBDPEAPEADPEAI_N@Z"
 
-#define PLUGIN_VERSION "1.3.1"
+#define PLUGIN_VERSION "0.4.0"
 #define PLUGIN_INI "plugins\\vanilla_buildings.ini"
 #define PLUGIN_LOG_NAME "tesmioloader.vanilla_buildings.log"
 
