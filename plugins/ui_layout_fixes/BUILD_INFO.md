@@ -42,8 +42,9 @@
   column `chars`, `id_suggestions = 0`), tabs General / Customs house / Text wrap / Text ids;
   `user_overlay` dropped from the manifest because the list editor writes the effective INI.
   Needs RMM 0.4.20 (id_suggestions, card notice_style).
-- In-game test: pending (user). Points to watch: font size / step line in the detail log,
-  the route hint as three lines, other windows unchanged.
+- In-game test 2026-09-09: confirmed by the user. Log: print hooks 6/6, id 1970 -> 3 lines
+  (widest 50 at width 58), font size 17.0 -> line step 19.5 (label rows use 20); route hint
+  drawn as three lines, other windows unchanged.
 
 ## 1.2.1 (2026-09-09) - VEHICLE_ROUTE_HINT module
 
