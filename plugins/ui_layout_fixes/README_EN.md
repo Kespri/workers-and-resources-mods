@@ -117,7 +117,7 @@ The package ships a launcher schema in the `config` folder. Republic Mod Manager
 - **General:** notes, "Files local only" and the button for this guide
 - **Customs house:** module switch and row spacing of the resource list
 - **Text wrap:** module switch, characters per line, line limit, line spacing, paragraph handling and the log helper for long texts
-- **Text ids:** the list of wrapped texts with a width of their own per entry; the route hint 1970 is preset and can be hidden
+- **Text ids:** the list of wrapped texts with a width of their own per entry; the route hint 1970 is preset and can be hidden. The "Choose text..." button in the add dialog lists every caption of your game language with search and minimum length (needs RMM 0.4.21)
 
 The "Plugin active" switch in the header also sets `enabled = 1` when switched on. Republic Mod Manager writes the effective INI to `tesmioloader\build\plugins\ui_layout_fixes.ini` and keeps a copy of the shipped one; your own text ids are stored separately and merged in when you save. If you prefer editing the INI by hand, everything else is below.
 
@@ -313,7 +313,7 @@ A: The plugin warns in the log and uses 30.0; the module stays active.
 A: Lower `Characters per line`, best with a width of its own for that entry in the list; the module spreads the words evenly over the lines. If the text needs more lines than `Line limit`, the module widens the lines again; raise the limit or set it to 0.
 
 **Q: How do I find the text id of a caption?**
-A: Set `Log long texts` to 70, for example, start the game and open the window. The detail log then lists every shown text id with a line over 70 characters, together with the start of the text. Set it back to 0 afterwards.
+A: Quickest through "Choose text..." in the add dialog of Republic Mod Manager: search for a word of the caption or filter "Lines from 60 characters", a double click takes the id. Without RMM: set `Log long texts` to 70, for example, start the game and open the window; the detail log then lists every shown text id with a line over 70 characters, together with the start of the text. Set it back to 0 afterwards.
 
 **Q: Will more windows be added?**
 A: The plugin is built for it: every window is its own module with its own section in the INI.

@@ -117,7 +117,7 @@ Das Paket enthält im Ordner `config` ein Launcher-Schema. Republic Mod Manager 
 - **Allgemein:** Hinweise, „Dateien nur lokal“ und der Knopf für diese Anleitung
 - **Zollhaus:** Modulschalter und Zeilenabstand der Ressourcenliste
 - **Textumbruch:** Modulschalter, Zeichen je Zeile, Zeilenlimit, Zeilenabstand, Absatzverhalten und die Log-Hilfe für lange Texte
-- **Text-IDs:** die Liste der umgebrochenen Texte mit eigener Breite je Eintrag; der Routenhinweis 1970 ist vorbelegt und kann ausgeblendet werden
+- **Text-IDs:** die Liste der umgebrochenen Texte mit eigener Breite je Eintrag; der Routenhinweis 1970 ist vorbelegt und kann ausgeblendet werden. Der Knopf „Text auswählen…“ im Hinzufügen-Dialog zeigt alle Texte deiner Spielsprache mit Suche und Mindestlänge (braucht RMM 0.4.21)
 
 Der Schalter „Plugin aktiv“ im Kopf setzt beim Einschalten auch `enabled = 1`. Republic Mod Manager schreibt die wirksame INI nach `tesmioloader\build\plugins\ui_layout_fixes.ini` und sichert die ausgelieferte Fassung; eigene Text-IDs liegen getrennt und werden beim Speichern eingemischt. Wer die INI lieber von Hand bearbeitet, findet alles Weitere unten.
 
@@ -313,7 +313,7 @@ A: Das Plugin warnt im Log und verwendet 30.0; das Modul bleibt aktiv.
 A: `Zeichen je Zeile` verkleinern, für diesen Text am besten in der Liste mit eigener Breite; das Modul verteilt die Wörter gleichmäßig auf die Zeilen. Braucht der Text mehr Zeilen als `Zeilenlimit`, macht das Modul die Zeilen wieder breiter; dann das Limit erhöhen oder auf 0 setzen.
 
 **F: Wie finde ich die Text-ID eines Textes?**
-A: `Lange Texte loggen` auf zum Beispiel 70 stellen, das Spiel starten und das Fenster öffnen. Im Detail-Log steht dann jede angezeigte Text-ID mit einer Zeile über 70 Zeichen samt Textanfang. Danach wieder auf 0.
+A: Am schnellsten über „Text auswählen…“ im Hinzufügen-Dialog von Republic Mod Manager: Suche nach einem Wort aus dem Text oder Filter „Zeilen ab 60 Zeichen“, Doppelklick übernimmt die ID. Ohne RMM: `Lange Texte loggen` auf zum Beispiel 70 stellen, das Spiel starten und das Fenster öffnen; im Detail-Log steht dann jede angezeigte Text-ID mit einer Zeile über 70 Zeichen samt Textanfang. Danach wieder auf 0.
 
 **F: Kommen weitere Fenster dazu?**
 A: Das Plugin ist dafür angelegt: jedes Fenster ist ein eigenes Modul mit eigenem Abschnitt in der INI.
