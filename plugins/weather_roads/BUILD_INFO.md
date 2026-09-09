@@ -29,8 +29,10 @@ History newest first.
 - Package: INI comment, schema and DE/EN descriptions say "snowfall" instead of "precipitation"
   and "a few seconds" instead of "half a minute" (the burst maximum caps the queue at 80 units,
   4.4 s at step 2 / 110 ms).
-- In-game test: pending (user). Expect no "weather tick unavailable" lines while playing and
-  overlay values like `Precipitation: 6 (no snow)`.
+- In-game test 2026-09-09 21:45 (user): 23 weather lines with named rolls 0..7 in two minutes, no
+  "weather tick unavailable" line, one snowfall (roll 1, 11 ticks, 100 units queued) ended by
+  "gradual snow release stopped with the weather: precipitation_state=4 (no snow), dropped_units=4"
+  19 ms before the roll change was logged.
 
 ## 0.3.1 (2026-09-09)
 
