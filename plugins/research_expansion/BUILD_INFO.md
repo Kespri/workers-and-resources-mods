@@ -7,6 +7,14 @@ plugin. Output: a generated `research.ini` plus one `<id>.png` per new research 
 (`<loader>\vfs\media_soviet\research`). User documentation: README_DE.md / README_EN.md.
 History newest first.
 
+## 1.9 (2026-09-10)
+
+- `[modify:<id>]` accepts `cost = <points>` (once, positive integer): `ParseEditOperation` stores it on the
+  `Modification`, `ApplyVanillaModifications` turns it into a `replace` of the block's single `$COST` line
+  before the listed operations (rule `modify-cost` when the line is missing or ambiguous). Sections with
+  only a `cost` key count as active. Everything else unchanged. Reason: Republic Mod Manager 0.4.42 offers
+  the cost as a number field on the Vanilla edits tab.
+
 ## 1.8 (2026-09-10)
 
 - `[research:]` sections: `name` / `desc` are optional and may be a bare word. `ExpandResearchSections`

@@ -32,7 +32,7 @@ typedef struct TsmLocalizationApi
 #include <limits.h>
 #include <ctype.h>
 
-#define PLUGIN_VERSION "1.8"
+#define PLUGIN_VERSION "1.9"
 // The namespace of the plugin's own Localization text pack (localization.ini of
 // plugins\localization\research_expansion); [research:] sections complete short
 // name / desc values with it (1.8).
@@ -152,6 +152,8 @@ struct Modification
     bool enabledSeen = false;
     size_t sourceLine = 0;
     std::vector<EditOperation> operations;
+    std::string cost;       // 1.9: cost = <points>, applied as a replace of the $COST line
+    size_t costLine = 0;
 };
 
 struct NewBlock
@@ -859,6 +861,18 @@ static bool ParseEditOperation(Modification& mod, const std::string& key,
                 "enabled must occur once at most and must be exactly 0 or 1");
         mod.enabledSeen = true;
         mod.enabled = value == "1";
+        return true;
+    }
+    // 1.9: cost = <points> replaces the block's single $COST line; the Republic Mod
+    // Manager offers it as a plain number instead of a replace command.
+    if (key == "cost")
+    {
+        if (!mod.cost.empty() || value.empty() || value.size() > 10 ||
+            value.find_first_not_of("0123456789") != std::string::npos || value[0] == '0')
+            return EditError(mod.id, lineNo, "cost", "modify-cost",
+                "cost must occur once at most and be a positive integer without leading zeros");
+        mod.cost = value;
+        mod.costLine = lineNo;
         return true;
     }
     bool single = key == "remove" || key == "add";
@@ -2083,7 +2097,7 @@ static bool ApplyEditOperation(OriginalBlock& block, const Modification& mod,
 static bool HasActiveModifications()
 {
     for (const Modification& mod : g_modifications)
-        if (mod.enabled && !mod.operations.empty()) return true;
+        if (mod.enabled && (!mod.operations.empty() || !mod.cost.empty())) return true;
     return false;
 }
 
@@ -2101,12 +2115,32 @@ static bool ApplyVanillaModifications()
         if (block.deactivated)
             return EditError(mod.id, mod.sourceLine, "section", "modify-deactivated", "Deactivated Vanilla research is protected");
         InsertionTails afterTails;
+        if (!mod.cost.empty())
+        {
+            // 1.9: the cost key becomes a replace of the block's single $COST line.
+            size_t hits = 0; std::string current;
+            for (const std::string& line : block.lines)
+            {
+                std::string t = TrimA(line);
+                if (t.size() > 6 && t.compare(0, 6, "$COST ") == 0) { ++hits; current = t; }
+            }
+            if (hits != 1)
+                return EditError(mod.id, mod.costLine, "cost", "modify-cost",
+                    "Expected exactly one $COST line in the Vanilla block");
+            EditOperation op;
+            op.command = "replace";
+            op.first = current;
+            op.second = "$COST " + mod.cost;
+            op.sourceLine = mod.costLine;
+            if (!ApplyEditOperation(block, mod, op, afterTails)) return false;
+            ++edits;
+        }
         for (const EditOperation& op : mod.operations)
         {
             if (!ApplyEditOperation(block, mod, op, afterTails)) return false;
             ++edits;
         }
-        if (!mod.operations.empty()) ++blocks;
+        if (!mod.operations.empty() || !mod.cost.empty()) ++blocks;
     }
     if (blocks) Info("Staged %Iu edit operation(s) in %Iu Vanilla block(s); final validation pending", edits, blocks);
     return true;
