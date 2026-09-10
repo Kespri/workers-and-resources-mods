@@ -1,4 +1,4 @@
-# 🏭 Deposits Plus 0.4.0
+# 🏭 Deposits Plus 0.4.1
 
 **Erweiterung des TesmioLoader-Plugins deposits**
 
@@ -59,8 +59,9 @@ Vollständig konfigurierbare Rohstoffvorkommen für *Workers & Resources: Soviet
 #### 2️⃣ **Sandige Wiese** (`sand_surface`)
 - Visuelle Bodentextur auf Sandvorkommen
 - Stärke mit Ergiebigkeit skaliert (reiche Felder deutlicher)
-- Separate Sommer- und Herbstvariante
+- Kacheltabelle je Bodentextur: Wiese, Siberia (Sommer und Schneeherbst), Dschungel; eigene DDS-Dateien möglich
 - Rein optisch, kein Gameplay-Effekt
+- Wüstenkarten: `desert_fill` macht die ganze Landfläche zum Sandvorkommen
 
 #### 3️⃣ **Arbeitsfahrzeuge** (`working_vehicle_skill`)
 - Vorkommen können die Fahrzeugfreigabe des Kiesabbaus übernehmen
@@ -143,6 +144,7 @@ Das Paket enthält im Ordner `config` ein Editor-Schema. Republic Mod Manager (a
 
 - **Allgemein:** Hinweise, „Dateien nur lokal“, Knöpfe für diese Anleitung und die Plugin-Schalter Code-Patch, Minimap-Ebenen, Editor-Pinsel
 - **Sand-Struktur:** Sandige Wiese und Natürliche Verteilung
+- **Sand-Texturen:** die Kacheltabelle, je Bodentextur ein Eintrag mit Farb- und Normalmap-Datei
 - **Vorkommen:** Liste links, alle Einstellungen des gewählten Vorkommens rechts, Plus-Knopf für neue Vorkommen mit Ressourcen aus resources.ini und automatisch vorgeschlagener Typnummer
 
 Persönliche Änderungen liegen in `user_config\deposits_plus.editor.ini`, die wirksame Datei ist `plugins\deposits_plus.ini`. Die INI im Paket bleibt unverändert; ein Steam-Update ist sofort die neue Originalbasis. Wer die INI lieber von Hand bearbeitet, findet alles Weitere unten.
@@ -212,6 +214,8 @@ map = terrain
 component = 1
 ; 1 legt einen eigenen Ressourcenkanal an und kopiert vorhandenen Sand dorthin
 independent_map = 1
+; 1 = auf Wüstenkarten ($TYPE_DESERT in der script.ini) ist beim ersten Anlegen die ganze Landfläche dieses Vorkommen
+desert_fill = 1
 ; 7 = Mine (Standard), 92 = Wasserbrunnen
 building_type = 7
 ; Suchradius der Mine: oil, ore, bauxite, gravel, wood, water, watersurface oder eine Zahl in Metern
@@ -346,9 +350,10 @@ Ein Feld zählt nur, wenn nach dem Beschneiden mindestens 60 % seiner Fläche ü
 
 Blendet eine sandig-fleckige Bodentextur über Sandvorkommen ein, deutlicher bei reichen Vorkommen. **Rein optisch – kein Gameplay-Effekt.** Spielstand und Karten werden nicht verändert.
 
-- **Sommer:** Sandflecken auf grüner Wiese
-- **Herbst:** Sandflecken auf brauner Wiese
-- **Schnee:** die Schneedecke des Spiels überlagert alles
+- **Wiese:** Sandflecken auf grüner Wiese im Sommer, auf brauner im Herbst
+- **Siberia:** eigene Einträge für Sommer und den angezuckerten Herbst (`grass2snow.dds`)
+- **Dschungel:** Sommer mit Sand, der Herbst läuft über die normale Herbstwiese
+- **Wüste und Winter:** immer nativ, Wüste ist schon Sand, Schnee deckt alles
 - **Mit Abbau:** die Textur verschwindet mit der Ressource
 
 Voraussetzung: Das Vorkommen aus `sand_surface_token` hat einen eigenen Kanal ab resourcemap3, bei Sand über `independent_map = 1`. Sonst meldet das Log „no independent map; disabled“.
@@ -364,18 +369,34 @@ sand_surface_strength = 1.0
 sand_surface_token = $TYPE_MINE_SAND
 ```
 
+### Kacheltabelle (seit 0.4.1)
+
+Je Bodentextur des Geländes ein Abschnitt `[sand_tile:<name>]`: `base` ist die Textur, die die material.mtl der Karte auf Platz 5 nennt, mit Ordner; `color` und `normal` sind deine DDS-Dateien im Ordner `deposits_plus\assets`, den die DLL zuerst neben sich (Paket: `hooks\deposits_plus\assets`) und dann unter `plugins\deposits_plus\assets` sucht. Im Republic Mod Manager pflegst du die Tabelle auf dem Reiter Sand-Texturen.
+
+```ini
+[sand_tile:meadow]
+base   = tiles_normal/grass2.dds
+color  = sand_meadow_color.dds
+normal = sand_meadow_normal.dds
+
+[sand_tile:siberia_autumn]
+base   = dlc2/tiles_siberia/grass2snow.dds
+color  = sand_siberia_autumn_color.dds
+normal = sand_siberia_autumn_normal.dds
+```
+
+Ausgeliefert sind Wiese Sommer/Herbst, Siberia Sommer/Herbst und Dschungel Sommer; Siberia und Dschungel zeigen anfangs auf die Wiesendateien, bis du eigene Dateien ablegst und die Namen änderst. Eine Bodentextur ohne Eintrag bleibt nativ, ebenso ein Eintrag, dessen Dateien fehlen (Logzeile `sand surface WARN tile`). Bekannte Bodentexturen: `tiles_normal/grass2.dds`, `tiles_normal/grass2_fall.dds`, `dlc2/tiles_siberia/grass2.dds`, `dlc2/tiles_siberia/grass2snow.dds`, `dlc2/tiles_asia/jungle_swamp_dm.dds`.
+
 ### Dateien
 
-Vier Texturen im Ordner `deposits_plus\assets`, den die DLL zuerst neben sich (Paket: `hooks\deposits_plus\assets`) und dann unter `plugins\deposits_plus\assets` sucht:
-
 ```
-sand_meadow_color.dds           (Sommerfarbe)
-sand_meadow_normal.dds          (Sommer-Normalmap)
-sand_meadow_autumn_color.dds    (Herbstfarbe)
-sand_meadow_autumn_normal.dds   (Herbst-Normalmap)
+sand_meadow_color.dds           (Wiese Sommerfarbe)
+sand_meadow_normal.dds          (Wiese Sommer-Normalmap)
+sand_meadow_autumn_color.dds    (Wiese Herbstfarbe)
+sand_meadow_autumn_normal.dds   (Wiese Herbst-Normalmap)
 ```
 
-**Format:** 1024×1024, 11 Mipmap-Stufen
+**Format:** quadratisch, Zweierpotenz 256 bis 4096 (1024 oder 2048 empfohlen), vollständige Mipmap-Kette
 - **Farbe:** BC1/DXT1
 - **Normal:** BC3/DXT5
 

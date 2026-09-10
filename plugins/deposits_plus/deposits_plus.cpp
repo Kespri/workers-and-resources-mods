@@ -132,6 +132,7 @@ struct DepositDef
     bool generationInvalid;
     unsigned generationFrequency, generationSize;   // presets; 0 = default (3 regions, size class 2)
     bool independentMap;
+    bool desertFill;       // 0.4.1: on a $TYPE_DESERT map the whole land is this deposit
     int legacyTerrainComponent;
 
     // Anything in the section the loader itself has no use for, kept verbatim
@@ -164,6 +165,14 @@ struct DepositDef
 
 static DepositDef g_dep[MAX_DEPOSITS];
 static int        g_depCount;
+
+// 0.4.1: [sand_tile:<id>] sections - which sand pair the sand surface blends over
+// which base texture of the terrain (folder included, so tiles_siberia/grass2.dds and
+// tiles_normal/grass2.dds stay apart). Read here, used by deposit_visual_runtime.inl.
+#define MAX_SAND_TILES 16
+struct SandTile { char id[32]; char base[128]; char color[64]; char normal[64]; };
+static SandTile g_tiles[MAX_SAND_TILES];
+static int      g_tileCount;
 
 // The search-radius constants, by the deposit that uses each. A type the table
 // at 0x1DCA70 does not know gets radius zero, and a mine that searches nothing
@@ -202,6 +211,7 @@ static bool GenerationSetting(DepositDef* d,const char* key,const char* value)
     } else {
         if(KeyIs(key,"generation")) { valid=GenerationNumber(value,0,1,&n) && n==floor(n); if(valid) d->generation.enabled=n!=0; }
         else if(KeyIs(key,"independent_map")) { valid=GenerationNumber(value,0,1,&n) && n==floor(n); if(valid) d->independentMap=n!=0; }
+        else if(KeyIs(key,"desert_fill")) { valid=GenerationNumber(value,0,1,&n) && n==floor(n); if(valid) d->desertFill=n!=0; }
         else if(KeyIs(key,"generation_frequency")) { valid=GenerationNumber(value,1,6,&n) && n==floor(n); if(valid) d->generationFrequency=(unsigned)n; }
         else if(KeyIs(key,"generation_size")) { valid=GenerationNumber(value,1,3,&n) && n==floor(n); if(valid) d->generationSize=(unsigned)n; }
         else if(KeyIs(key,"generation_richness_min")) { valid=GenerationNumber(value,.001,1,&n); if(valid) d->generation.richnessMin=(float)n; }
@@ -267,6 +277,7 @@ static void LoadDepositRegistry()
     if(got>=3 && (BYTE)buf[0]==0xef && (BYTE)buf[1]==0xbb && (BYTE)buf[2]==0xbf) buf+=3;
 
     DepositDef* d = NULL;
+    SandTile* tile = NULL;
     bool globalSection=false;
     char* ctx = NULL;
     for (char* line = strtok_s(buf, "\n", &ctx); line; line = strtok_s(NULL, "\n", &ctx))
@@ -277,6 +288,7 @@ static void LoadDepositRegistry()
         if (line[0] == '[')
         {
             d = NULL;
+            tile = NULL;
             globalSection=false;
             char* end = strchr(line, ']');
             if (!end) continue;
@@ -286,6 +298,16 @@ static void LoadDepositRegistry()
             // deposit. They share a file so a feature is one file, and the name
             // of the plugin is the one name a deposit may not have.
             if (_stricmp(line + 1, "deposits_plus") == 0) { globalSection=true; continue; }
+
+            // 0.4.1: [sand_tile:<id>] is a texture pair of the sand surface, not a deposit.
+            if (_strnicmp(line + 1, "sand_tile:", 10) == 0)
+            {
+                if (g_tileCount >= MAX_SAND_TILES) { Logf("sand surface \"%s\" ignored - only %d tiles fit", line + 1, MAX_SAND_TILES); continue; }
+                tile = &g_tiles[g_tileCount++];
+                memset(tile, 0, sizeof(*tile));
+                strncpy_s(tile->id, sizeof(tile->id), line + 11, _TRUNCATE);
+                continue;
+            }
 
             if (g_depCount >= MAX_DEPOSITS)
             {
@@ -311,6 +333,15 @@ static void LoadDepositRegistry()
             continue;
         }
 
+        if (tile)
+        {
+            char* eq2 = strchr(line, '='); if (!eq2) continue; *eq2 = 0; char* v = eq2 + 1; Trim(line); Trim(v);
+            if      (KeyIs(line, "base"))   strncpy_s(tile->base,   sizeof(tile->base),   v, _TRUNCATE);
+            else if (KeyIs(line, "color"))  strncpy_s(tile->color,  sizeof(tile->color),  v, _TRUNCATE);
+            else if (KeyIs(line, "normal")) strncpy_s(tile->normal, sizeof(tile->normal), v, _TRUNCATE);
+            else Logf("sand surface WARN [sand_tile:%s] unknown key %s ignored", tile->id, line);
+            continue;
+        }
         if (!d && !globalSection) continue;
 
         char* eq = strchr(line, '=');
@@ -3313,7 +3344,7 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
 {
     TsmBind(host);
     info->name    = "deposits_plus";
-    info->version = "0.4.0";
+    info->version = "0.4.1";
 
     // deposits_plus is a fork of the upstream deposits plugin: same code sites,
     // same service name, same save file. Both loaded at once would double the

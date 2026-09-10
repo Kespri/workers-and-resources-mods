@@ -1,4 +1,4 @@
-# 🏭 Deposits Plus 0.4.0
+# 🏭 Deposits Plus 0.4.1
 
 **Extension of the TesmioLoader plugin deposits**
 
@@ -59,8 +59,9 @@ Fully configurable resource deposits for *Workers & Resources: Soviet Republic* 
 #### 2️⃣ **Sandy meadow** (`sand_surface`)
 - Visual ground texture on sand deposits
 - Strength scales with richness (rich fields show more clearly)
-- Separate summer and autumn variants
+- Tile table per ground texture: meadow, Siberia (summer and snow-dusted autumn), jungle; your own DDS files welcome
 - Purely visual, no gameplay effect
+- Desert maps: `desert_fill` turns the whole land into the sand deposit
 
 #### 3️⃣ **Working vehicles** (`working_vehicle_skill`)
 - A deposit can borrow the vehicle skill of gravel mining
@@ -143,6 +144,7 @@ The package ships an editor schema in the `config` folder. Republic Mod Manager 
 
 - **General:** notices, "Files local only", buttons for this guide, and the plugin switches code patch, minimap layers, editor brushes
 - **Sand structure:** sandy meadow and natural generation
+- **Sand tiles:** the tile table, one entry per ground texture with colour and normal-map file
 - **Deposits:** the list on the left, every setting of the selected deposit on the right, a plus button for new deposits with resources from resources.ini and an automatically proposed type number
 
 Personal changes live in `user_config\deposits_plus.editor.ini`; the effective file is `plugins\deposits_plus.ini`. The INI in the package stays untouched; a Steam update is the new baseline at once. If you prefer editing the INI by hand, everything you need is below.
@@ -212,6 +214,8 @@ map = terrain
 component = 1
 ; 1 allocates a separate resource channel and copies existing sand there
 independent_map = 1
+; 1 = on desert maps ($TYPE_DESERT in script.ini) the whole land is this deposit when its map is first created
+desert_fill = 1
 ; 7 = mine (default), 92 = water well
 building_type = 7
 ; search radius of the mine: oil, ore, bauxite, gravel, wood, water, watersurface, or a number in metres
@@ -346,9 +350,10 @@ A field counts only if at least 60 % of its area remains after clipping. If ther
 
 Blends a sandy, patchy ground texture over sand deposits, more clearly on rich deposits. **Purely visual – no gameplay effect.** Saved game and maps are not changed.
 
-- **Summer:** sand patches on green meadow
-- **Autumn:** sand patches on brown meadow
-- **Snow:** the game's snow cover overlays everything
+- **Meadow:** sand patches on green meadow in summer, on brown meadow in autumn
+- **Siberia:** own entries for summer and the snow-dusted autumn (`grass2snow.dds`)
+- **Jungle:** summer with sand; autumn runs through the normal autumn meadow
+- **Desert and winter:** always native - desert is sand already, snow covers everything
 - **With mining:** the texture disappears with the resource
 
 Requirement: the deposit named in `sand_surface_token` has its own channel from resourcemap3 upwards, for sand through `independent_map = 1`. Otherwise the log reports "no independent map; disabled".
@@ -364,18 +369,34 @@ sand_surface_strength = 1.0
 sand_surface_token = $TYPE_MINE_SAND
 ```
 
+### Tile table (since 0.4.1)
+
+One section `[sand_tile:<name>]` per ground texture: `base` is the texture the map's material.mtl names on slot 5, folder included; `color` and `normal` are your DDS files in `deposits_plus\assets`, which the DLL looks for beside itself first (package: `hooks\deposits_plus\assets`) and then under `plugins\deposits_plus\assets`. In Republic Mod Manager the table lives on the Sand tiles tab.
+
+```ini
+[sand_tile:meadow]
+base   = tiles_normal/grass2.dds
+color  = sand_meadow_color.dds
+normal = sand_meadow_normal.dds
+
+[sand_tile:siberia_autumn]
+base   = dlc2/tiles_siberia/grass2snow.dds
+color  = sand_siberia_autumn_color.dds
+normal = sand_siberia_autumn_normal.dds
+```
+
+Shipped: meadow summer/autumn, Siberia summer/autumn and jungle summer; Siberia and jungle point at the meadow files until you drop in your own and change the names. A ground texture without an entry stays native, and so does an entry whose files are missing (log line `sand surface WARN tile`). Known ground textures: `tiles_normal/grass2.dds`, `tiles_normal/grass2_fall.dds`, `dlc2/tiles_siberia/grass2.dds`, `dlc2/tiles_siberia/grass2snow.dds`, `dlc2/tiles_asia/jungle_swamp_dm.dds`.
+
 ### Files
 
-Four textures in the folder `deposits_plus\assets`, which the DLL looks for beside itself first (package: `hooks\deposits_plus\assets`) and then under `plugins\deposits_plus\assets`:
-
 ```
-sand_meadow_color.dds           (summer colour)
-sand_meadow_normal.dds          (summer normal map)
-sand_meadow_autumn_color.dds    (autumn colour)
-sand_meadow_autumn_normal.dds   (autumn normal map)
+sand_meadow_color.dds           (meadow summer colour)
+sand_meadow_normal.dds          (meadow summer normal map)
+sand_meadow_autumn_color.dds    (meadow autumn colour)
+sand_meadow_autumn_normal.dds   (meadow autumn normal map)
 ```
 
-**Format:** 1024×1024, 11 mipmap levels
+**Format:** square, power of two from 256 to 4096 (1024 or 2048 recommended), complete mipmap chain
 - **Colour:** BC1/DXT1
 - **Normal:** BC3/DXT5
 

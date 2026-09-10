@@ -34,8 +34,11 @@ static VsTextureName vsTextureName=nullptr;
 static VsTextureResource vsResource=nullptr;
 static ComPtr<ID3D11Device> vsDevice;
 static ComPtr<ID3D11DeviceContext> vsContext;
-static ComPtr<ID3D11ShaderResourceView> vsColor,vsNormal,vsMapView;
-static ComPtr<ID3D11ShaderResourceView> vsAutumnColor,vsAutumnNormal;
+static ComPtr<ID3D11ShaderResourceView> vsMapView;
+// 0.4.1: one colour/normal pair per [sand_tile:] entry, loaded with the device.
+static ComPtr<ID3D11ShaderResourceView> vsTileColor[MAX_SAND_TILES],vsTileNormal[MAX_SAND_TILES];
+static bool vsTileReady[MAX_SAND_TILES]={};
+static int vsTilesReady=0;
 static ComPtr<ID3D11Resource> vsMapResource;
 static ComPtr<ID3D11Buffer> vsBuffer;
 static ComPtr<ID3D11SamplerState> vsSampler;
@@ -122,30 +125,41 @@ static bool VsReadFile(const char*name,VSand::Bytes&bytes){
   h=CreateFileA(p,GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);if(h==INVALID_HANDLE_VALUE)return false;
  }
  if(!vsAssetDirLogged){vsAssetDirLogged=true;char dir[MAX_PATH];strncpy_s(dir,p,_TRUNCATE);char*slash=strrchr(dir,'\\');if(slash)*slash=0;Logf("sand surface assets from %s",dir);}
- LARGE_INTEGER n;bool ok=GetFileSizeEx(h,&n)&&n.QuadPart>0&&n.QuadPart<=4*1024*1024;
+ LARGE_INTEGER n;bool ok=GetFileSizeEx(h,&n)&&n.QuadPart>0&&n.QuadPart<=48*1024*1024;   // 0.4.1: room for 2048 and 4096 tiles
  if(ok){try{bytes.resize((size_t)n.QuadPart);}catch(...){CloseHandle(h);throw;}DWORD got=0;ok=ReadFile(h,bytes.data(),(DWORD)bytes.size(),&got,nullptr)&&got==bytes.size();}
  CloseHandle(h);return ok;
 }
 static bool VsDds(ID3D11Device*d,const char*name,unsigned fourcc,ComPtr<ID3D11ShaderResourceView>&view){
  VSand::Bytes b;if(!VsReadFile(name,b)||b.size()<128||memcmp(b.data(),"DDS ",4)||VSand::Read(b.data()+4)!=124||
-  VSand::Read(b.data()+12)!=1024||VSand::Read(b.data()+16)!=1024||VSand::Read(b.data()+28)!=11||
   VSand::Read(b.data()+76)!=32||VSand::Read(b.data()+84)!=fourcc)return false;
- unsigned block=fourcc==0x31545844?8:16;size_t p=128;D3D11_SUBRESOURCE_DATA sub[11]={};
- for(unsigned m=0,w=1024;m<11;++m,w=(std::max)(1u,w/2)){
+ // 0.4.1: any square power-of-two side from 256 to 4096 with a complete mip chain (1024 and 2048 in practice).
+ unsigned side=VSand::Read(b.data()+16),mips=VSand::Read(b.data()+28),levels=0;
+ if(VSand::Read(b.data()+12)!=side||side<256||side>4096||(side&(side-1)))return false;
+ for(unsigned s=side;s;s>>=1)++levels;
+ if(mips!=levels)return false;
+ unsigned block=fourcc==0x31545844?8:16;size_t p=128;D3D11_SUBRESOURCE_DATA sub[13]={};
+ for(unsigned m=0,w=side;m<levels;++m,w=(std::max)(1u,w/2)){
   unsigned blocks=(std::max)(1u,(w+3)/4),size=blocks*blocks*block;if(size>b.size()-p)return false;
   sub[m].pSysMem=b.data()+p;sub[m].SysMemPitch=blocks*block;p+=size;
  }
  if(p!=b.size())return false;
- D3D11_TEXTURE2D_DESC t={};t.Width=t.Height=1024;t.MipLevels=11;t.ArraySize=1;t.SampleDesc.Count=1;
+ D3D11_TEXTURE2D_DESC t={};t.Width=t.Height=side;t.MipLevels=levels;t.ArraySize=1;t.SampleDesc.Count=1;
  t.Format=block==8?DXGI_FORMAT_BC1_UNORM:DXGI_FORMAT_BC3_UNORM;t.Usage=D3D11_USAGE_IMMUTABLE;t.BindFlags=D3D11_BIND_SHADER_RESOURCE;
  ComPtr<ID3D11Texture2D>tex;return SUCCEEDED(d->CreateTexture2D(&t,sub,&tex))&&SUCCEEDED(d->CreateShaderResourceView(tex.Get(),nullptr,&view));
 }
 static bool VsResources(ID3D11Device*device){
  if(vsDevice.Get()==device && vsBuffer)return true;
- vsColor.Reset();vsNormal.Reset();vsAutumnColor.Reset();vsAutumnNormal.Reset();vsMapView.Reset();vsMapResource.Reset();vsBuffer.Reset();vsSampler.Reset();vsContext.Reset();vsDevice=device;
+ for(int t=0;t<MAX_SAND_TILES;++t){vsTileColor[t].Reset();vsTileNormal[t].Reset();vsTileReady[t]=false;}vsTilesReady=0;
+ vsMapView.Reset();vsMapResource.Reset();vsBuffer.Reset();vsSampler.Reset();vsContext.Reset();vsDevice=device;
  device->GetImmediateContext(&vsContext);
- if(!VsDds(device,"sand_meadow_color.dds",0x31545844,vsColor)||!VsDds(device,"sand_meadow_normal.dds",0x35545844,vsNormal))return false;
- if(!VsDds(device,"sand_meadow_autumn_color.dds",0x31545844,vsAutumnColor)||!VsDds(device,"sand_meadow_autumn_normal.dds",0x35545844,vsAutumnNormal))return false;
+ // 0.4.1: every [sand_tile:] pair; a missing or malformed pair only leaves its base texture native.
+ for(int t=0;t<g_tileCount;++t){
+  vsTileReady[t]=VsDds(device,g_tiles[t].color,0x31545844,vsTileColor[t])&&VsDds(device,g_tiles[t].normal,0x35545844,vsTileNormal[t]);
+  if(vsTileReady[t])++vsTilesReady;
+  else{vsTileColor[t].Reset();vsTileNormal[t].Reset();Logf("sand surface WARN tile %s: %s / %s missing or not a square DXT1 + DXT5 pair with a full mip chain; base %s stays native",g_tiles[t].id,g_tiles[t].color,g_tiles[t].normal,g_tiles[t].base);}
+ }
+ if(!vsTilesReady){Logf("sand surface WARN no usable tile pair; native terrain retained");return false;}
+ Logf("sand surface tiles ready: %d of %d",vsTilesReady,g_tileCount);
  D3D11_BUFFER_DESC b={};b.ByteWidth=32;b.Usage=D3D11_USAGE_DEFAULT;b.BindFlags=D3D11_BIND_CONSTANT_BUFFER;
  float zero[8]={};D3D11_SUBRESOURCE_DATA init={};init.pSysMem=zero;
  if(FAILED(device->CreateBuffer(&b,&init,&vsBuffer)))return false;
@@ -153,13 +167,19 @@ static bool VsResources(ID3D11Device*device){
  s.ComparisonFunc=D3D11_COMPARISON_NEVER;s.MaxLOD=D3D11_FLOAT32_MAX;
  return SUCCEEDED(device->CreateSamplerState(&s,&vsSampler));
 }
-static int VsMeadow(void*material){
+// 0.4.1: which [sand_tile:] entry belongs to a material's base texture (slot 5), by the
+// path the engine holds for it with its folder, matched as a whole path element from the
+// end. 0 = no entry, the base stays native (snow, desert, another mod's material).
+static void VsCanonical(const char*in,char*out,size_t n){size_t i=0;for(;in[i]&&i+1<n;++i){char c=in[i];out[i]=c=='\\'?'/':(c>='A'&&c<='Z')?(char)(c+32):c;}out[i]=0;}
+static int VsTile(void*material){
  if(!material)return 0;void*texture=vsTexture(material,5);if(!texture)return 0;
  char name[256];if(!SafeReadStr(vsTextureName(texture),name,sizeof(name)))return 0;
- const char*base=VsBaseName(name);
- // Do not replace snow, desert, tropical or another mod's base material.
- if(!_stricmp(base,"grass2.dds"))return 1;
- if(!_stricmp(base,"grass2_fall.dds"))return 2;
+ char have[256];VsCanonical(name,have,sizeof(have));size_t hl=strlen(have);
+ for(int t=0;t<g_tileCount;++t){
+  char want[128];VsCanonical(g_tiles[t].base,want,sizeof(want));size_t wl=strlen(want);
+  if(!wl||wl>hl)continue;
+  if(strcmp(have+hl-wl,want)==0&&(hl==wl||have[hl-wl-1]=='/'))return t+1;
+ }
  return 0;
 }
 static void VsLayerKinds(void*terrain,int season,int transition,int(&kind)[2]){
@@ -167,10 +187,10 @@ static void VsLayerKinds(void*terrain,int season,int transition,int(&kind)[2]){
  // Native Render RVA F76B9..F7825: 1=GetMaterial (140),
  // 2=GetMaterialFall (150), 3=GetMaterialWinter (148).
  // Transitions are summer->fall, fall->snow, snow->summer.
- if(transition>=1&&transition<=3){kind[0]=VsMeadow(vsMaterials[transition-1](terrain));kind[1]=VsMeadow(vsMaterials[transition%3](terrain));}
- else if(transition==0&&season>=1&&season<=3)kind[0]=VsMeadow(vsMaterials[season-1](terrain));
+ if(transition>=1&&transition<=3){kind[0]=VsTile(vsMaterials[transition-1](terrain));kind[1]=VsTile(vsMaterials[transition%3](terrain));}
+ else if(transition==0&&season>=1&&season<=3)kind[0]=VsTile(vsMaterials[season-1](terrain));
 }
-static const char* VsKindName(int kind){return kind==1?"summer":kind==2?"autumn":"native";}
+static const char* VsKindName(int kind){return kind>0&&kind<=g_tileCount?g_tiles[kind-1].id:"native";}
 struct VsBinding {
  ComPtr<ID3D11ShaderResourceView> views[VSand::ResourceCount];ComPtr<ID3D11Buffer> buffer;ComPtr<ID3D11SamplerState> sampler;bool bound=false;
  bool Begin(void*terrain,bool materials,int season,int transition){
@@ -179,7 +199,7 @@ struct VsBinding {
   if(!ReadablePtr(game,P_TERRAIN_OFF+8)||*(void**)(game+P_TERRAIN_OFF)!=terrain)return false;
   int kinds[2];VsLayerKinds(terrain,season,transition,kinds);
   float flags[2]={kinds[0]?1.f:0.f,kinds[1]?1.f:0.f};
-  int selection=kinds[0]*3+kinds[1];
+  int selection=kinds[0]*32+kinds[1];
   if(!vsSelectionLogged||vsSelectionTerrain!=terrain||vsSelectionSeason!=season||vsSelectionTransition!=transition||vsSelectionKinds!=selection){
    char names[3][256]={};
    for(int i=0;i<3;++i){void*m=vsMaterials[i](terrain);void*t=m?vsTexture(m,5):nullptr;
@@ -207,10 +227,15 @@ struct VsBinding {
   // No other renderer/mod may own the reserved slots. Never overwrite it.
   bool occupied=oldBuffer||oldSampler;for(auto*v:oldViews)occupied|=v!=nullptr;
   if(occupied){vsFault=true;Logf("sand surface WARN reserved D3D slots already occupied; native terrain retained");return false;}
+  // 0.4.1: an entry whose pair failed to load falls back to native.
+  for(int i=0;i<2;++i)if(kinds[i]>0&&!vsTileReady[kinds[i]-1])kinds[i]=0;
+  flags[0]=kinds[0]?1.f:0.f;flags[1]=kinds[1]?1.f:0.f;if(!flags[0]&&!flags[1])return false;
   float data[8]={};data[g_dep[vsDeposit].component]=vsStrength;data[4]=flags[0];data[5]=flags[1];
   memcpy(data+6,&VSand::Tag0,4);memcpy(data+7,&VSand::Tag1,4);
   vsContext->UpdateSubresource(vsBuffer.Get(),0,nullptr,data,0,0);
-  ID3D11ShaderResourceView*now[]={vsMapView.Get(),kinds[0]==2?vsAutumnColor.Get():vsColor.Get(),kinds[0]==2?vsAutumnNormal.Get():vsNormal.Get(),kinds[1]==2?vsAutumnColor.Get():vsColor.Get(),kinds[1]==2?vsAutumnNormal.Get():vsNormal.Get()};auto*cb=vsBuffer.Get();auto*ss=vsSampler.Get();
+  int fallback=0;for(int t=0;t<g_tileCount;++t)if(vsTileReady[t]){fallback=t;break;}
+  int t0=kinds[0]?kinds[0]-1:fallback,t1=kinds[1]?kinds[1]-1:fallback;
+  ID3D11ShaderResourceView*now[]={vsMapView.Get(),vsTileColor[t0].Get(),vsTileNormal[t0].Get(),vsTileColor[t1].Get(),vsTileNormal[t1].Get()};auto*cb=vsBuffer.Get();auto*ss=vsSampler.Get();
   vsContext->PSSetShaderResources(VSand::MapSlot,VSand::ResourceCount,now);vsContext->PSSetConstantBuffers(VSand::BufferSlot,1,&cb);vsContext->PSSetSamplers(VSand::SamplerSlot,1,&ss);bound=true;
   if(!vsLogged){vsLogged=true;Logf("sand surface active: token=%s map=%d component=%d strength=%.2f; read-only GPU mask, native snow/lights retained",g_dep[vsDeposit].token,g_dep[vsDeposit].map,g_dep[vsDeposit].component,vsStrength);}
   return true;
@@ -239,6 +264,21 @@ static bool VsInstall(){
  if(!GenerationNumber(setting,0,1,&n)){Logf("sand surface WARN invalid strength (expected 0..1); disabled");return false;}vsStrength=(float)n;
  H->configString(ini,"deposits_plus","sand_surface_token",setting,sizeof(setting),"$TYPE_MINE_SAND");
  for(int i=0;i<g_depCount;++i)if(!_stricmp(g_dep[i].token,setting))vsDeposit=i;
+ // 0.4.1: tile table; an INI without [sand_tile:] sections keeps the classic meadow pair.
+ if(!g_tileCount){
+  static const struct{const char*id,*base,*color,*normal;} classic[]={{"meadow","tiles_normal/grass2.dds","sand_meadow_color.dds","sand_meadow_normal.dds"},{"meadow_autumn","tiles_normal/grass2_fall.dds","sand_meadow_autumn_color.dds","sand_meadow_autumn_normal.dds"}};
+  for(const auto&c:classic){SandTile&t=g_tiles[g_tileCount++];strcpy_s(t.id,c.id);strcpy_s(t.base,c.base);strcpy_s(t.color,c.color);strcpy_s(t.normal,c.normal);}
+  Logf("sand surface tiles: no [sand_tile:] section, classic meadow summer/autumn pair assumed");
+ }
+ int kept=0;
+ for(int t=0;t<g_tileCount;++t){
+  SandTile&x=g_tiles[t];
+  if(!x.base[0]||!x.color[0]||!x.normal[0]||strchr(x.color,'\\')||strchr(x.color,'/')||strchr(x.normal,'\\')||strchr(x.normal,'/')){Logf("sand surface WARN [sand_tile:%s] needs base, color and normal (file names without folders); ignored",x.id);continue;}
+  if(kept!=t)g_tiles[kept]=x;++kept;
+ }
+ g_tileCount=kept;
+ for(int t=0;t<g_tileCount;++t)Logf("sand surface tile %s: base=%s color=%s normal=%s",g_tiles[t].id,g_tiles[t].base,g_tiles[t].color,g_tiles[t].normal);
+ if(!g_tileCount){Logf("sand surface WARN no valid [sand_tile:] entry; disabled");return false;}
  if(vsDeposit<0||g_dep[vsDeposit].map<DEP_MAP_EXTRA||g_dep[vsDeposit].map>=MAX_MAPS){Logf("sand surface WARN token %s has no independent map; disabled",setting);return false;}
  auto*dos=(IMAGE_DOS_HEADER*)g_engine;auto*nt=(IMAGE_NT_HEADERS*)((BYTE*)g_engine+dos->e_lfanew);
  if(nt->FileHeader.TimeDateStamp!=0x6A3E75BCu||nt->OptionalHeader.SizeOfImage!=0x1F2000u){Logf("sand surface WARN unsupported engine build; disabled");return false;}

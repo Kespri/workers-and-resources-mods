@@ -12,6 +12,7 @@ static DG::State g_generationState;
 static std::string g_generationFolder;
 static bool g_generationPending=false,g_generationReady=false,g_generationFault=false;
 static bool g_generationHadState=false,g_generationLegacy=false;
+static bool g_desertMap=false;   // 0.4.1: the world's script.ini carries $TYPE_DESERT
 static unsigned g_generationWait=0;
 static void* g_generationTerrain=NULL;
 static void* g_generationWater=NULL;
@@ -268,6 +269,7 @@ static bool GenerationRun(void* terrain) {
     std::vector<int> recordIndex(g_depCount,-1),generate;
     unsigned resumed=0;
     std::vector<GenerationMap> disk;
+    DG::Bytes desertLand;   // 0.4.1: land mask for desert_fill, computed once when needed
     // Before remapping, validate the native contents against the SAVED layout.
     // A native save that succeeded while the sidecar replacement failed can
     // contain a different channel order. Never guess or restore stale snapshots.
@@ -330,6 +332,19 @@ static bool GenerationRun(void* terrain) {
             r.pixels=GenerationChannel(*target,d.component);
             DG::ObserveExisting(r);
             if(newlyAdded && d.generation.enabled) Logf("generation WARN [%s] shares a vanilla/terrain channel; random placement suppressed (use independent_map=1 for terrain)",d.name);
+        } else if(g_desertMap && d.desertFill && ((newlyAdded && !DG::HasData(r.pixels)) || DG::Pending(r))) {
+            // 0.4.1: desert_fill - on a $TYPE_DESERT map the whole land is this deposit at
+            // full richness instead of random regions; only for a deposit that never held
+            // data, like the first distribution. Water stays clear, so mine placement is
+            // unchanged. Infinite unless the Depletion plugin mines it down.
+            if(r.width!=DG::Side || r.height!=DG::Side) Logf("generation [%s] desert_fill needs a 1024x1024 resource map; left empty",d.name);
+            else {
+                if(desertLand.empty() && !GenerationLand(terrain,size[0],size[1],offset,desertLand)) return false;
+                unsigned filled=0;
+                for(size_t p=0;p<DG::Cells;++p) if(!(desertLand[p]&DG::Water)) { r.pixels[p]=255; ++filled; }
+                r.status=1; r.placed=1;
+                Logf("generation [%s] desert map: %u/%u land cells filled at full richness (desert_fill=1)",d.name,filled,DG::Cells);
+            }
         } else if((newlyAdded && !DG::HasData(r.pixels)) || DG::Pending(r)) {
             const bool priorPending=!newlyAdded;
             r.status=2;
@@ -445,6 +460,20 @@ static int h_GenerationTerrainInit(void* self,void* mp,char* folder,void* lighti
 }
 } // anonymous namespace
 
+// 0.4.1: the map type the world declares in its script.ini ($TYPE_DESERT, $TYPE_JUNGLE,
+// $TYPE_SIBERIA; the meadow maps carry none). Saved games ship the script.ini as well.
+static bool GenerationMapIsDesert(const std::string& folder) {
+    DG::Bytes text; if(!GenerationReadFile(folder+"\\script.ini",text,4u*1024*1024)) return false;
+    std::string s(text.begin(),text.end()); size_t at=0;
+    while(at<s.size()) {
+        size_t end=s.find('\n',at); if(end==std::string::npos) end=s.size();
+        std::string line=s.substr(at,end-at); at=end+1;
+        size_t b=line.find_first_not_of(" \t\r"),e=line.find_last_not_of(" \t\r");
+        if(b==std::string::npos) continue; line=line.substr(b,e-b+1);
+        if(_stricmp(line.c_str(),"$TYPE_DESERT")==0) return true;
+    }
+    return false;
+}
 static void GenerationWorldLoading(const char* folder) {
     GenerationLock lock;
     g_generationReady=false; g_generationFault=false; g_generationPending=false; g_generationWait=0;
@@ -453,6 +482,8 @@ static void GenerationWorldLoading(const char* folder) {
         g_generationFolder=GenerationResolveFolder(folder);
         if(g_generationFolder.empty()) { Logf("generation WARN world folder cannot be resolved: %s",folder); g_generationFault=true; return; }
         g_generationLegacy=GenerationIsSave(g_generationFolder);
+        g_desertMap=GenerationMapIsDesert(g_generationFolder);
+        if(g_desertMap) Logf("generation map type: desert ($TYPE_DESERT in script.ini); desert_fill deposits cover the whole land");
         std::string path=g_generationFolder+"\\tesmio_deposits.bin";
         DWORD attr=GetFileAttributesA(path.c_str());
         if(attr!=INVALID_FILE_ATTRIBUTES) {

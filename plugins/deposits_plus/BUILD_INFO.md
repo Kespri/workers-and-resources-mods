@@ -9,6 +9,25 @@ hash helper (see below). Service name `deposits` and the savegame file `tesmio_d
 deliberately stay identical to the original so consumers such as Depletion keep working.
 User documentation: README_DE.md / README_EN.md. History newest first.
 
+## 0.4.1 (2026-09-10)
+
+- Sand surface tile table: `[sand_tile:<id>]` sections (`base` = terrain base texture on material slot 5
+  with its folder, `color` / `normal` = DDS files in `deposits_plus\assets`) replace the two hard-coded
+  meadow names. `VsTile` matches the engine's texture path from the end as a whole path element, so
+  `dlc2/tiles_siberia/grass2.dds` and `tiles_normal/grass2.dds` are different entries; a base without an
+  entry, or an entry whose files fail to load, stays native. `VsDds` accepts any square power-of-two side
+  from 256 to 4096 with a complete mip chain (file limit 48 MB). An INI without `[sand_tile:]` sections
+  falls back to the classic meadow summer/autumn pair. The shipped INI maps meadow, Siberia (summer and
+  the snow-dusted autumn `grass2snow.dds`) and jungle; Siberia/jungle reuse the meadow files until the
+  user supplies their own. Winter and desert bases have no entry.
+- `desert_fill = 1` per deposit: when the world's `script.ini` (shipped with saves too) says
+  `$TYPE_DESERT`, the first distribution of that deposit fills every non-water cell of its 1024x1024
+  map at full richness (`GenerationRun`, before the random placement branch; record status 1). Only a
+  deposit that never held data is filled; saved data is never touched. Infinite unless Depletion mines
+  it down. Shipped on for `[sand]`.
+- Parser: `[sand_tile:]` sections are not deposits; unknown tile keys are logged and ignored.
+- Version 0.4.1. Backup: `_backups\deposits_plus_0.4.0_before_0.4.1_*`.
+
 ## 0.4.0 (2026-09-07)
 
 Version numbering restarts in beta with the September rework: 0.4.0 supersedes the unreleased
