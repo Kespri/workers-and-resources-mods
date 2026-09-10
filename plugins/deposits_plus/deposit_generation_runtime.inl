@@ -250,6 +250,16 @@ static bool GenerationLand(void* terrain,float sx,float sz,const float* off,DG::
          country,wet,shore,freeLand,DG::Cells,noWater?"disabled":"enabled",level,g_generationShore);
     return true;
 }
+// 0.4.6: terrain height at the centre of every resource cell, for the desert fill's relief.
+static bool GenerationHeights(void* terrain,float sx,float sz,const float* off,std::vector<float>& out) {
+    out.assign(DG::Cells,0.f);
+    for(unsigned y=0;y<DG::Side;++y) for(unsigned x=0;x<DG::Side;++x) {
+        __declspec(align(16)) float p[4]={off[0]+(x+0.5f)*sx/DG::Side,0,off[2]+(y+0.5f)*sz/DG::Side,0};
+        float h=genHeight(terrain,p); if(!std::isfinite(h)) return false;
+        out[y*DG::Side+x]=h;
+    }
+    return true;
+}
 static void GenerationMergeBlocked(DG::Bytes& into,const DG::Bytes& pixels,unsigned w,unsigned h) {
     DG::Bytes mask=DG::Occupancy(pixels,w,h);
     for(size_t i=0;i<into.size();++i) if(mask[i]) into[i]=1;
@@ -333,17 +343,48 @@ static bool GenerationRun(void* terrain) {
             DG::ObserveExisting(r);
             if(newlyAdded && d.generation.enabled) Logf("generation WARN [%s] shares a vanilla/terrain channel; random placement suppressed (use independent_map=1 for terrain)",d.name);
         } else if(g_desertMap && d.desertFill && ((newlyAdded && !DG::HasData(r.pixels)) || DG::Pending(r))) {
-            // 0.4.1: desert_fill - on a $TYPE_DESERT map the whole land is this deposit at
-            // full richness instead of random regions; only for a deposit that never held
-            // data, like the first distribution. Water stays clear, so mine placement is
-            // unchanged. Infinite unless the Depletion plugin mines it down.
+            // 0.4.1: desert_fill - on a $TYPE_DESERT map the whole land is this deposit
+            // instead of random regions; only for a deposit that never held data, like the
+            // first distribution. Water stays clear, so mine placement is unchanged.
+            // Infinite unless the Depletion plugin mines it down.
+            // 0.4.6: organic instead of flat - two octaves of value noise pick a richness
+            // inside the desert_fill_min..max band, and with desert_fill_relief the richness
+            // falls with terrain height: full band on the lowest land (2nd percentile),
+            // nothing on the highest (98th percentile), a little noise on the slope so the
+            // edge is not a contour line.
             if(r.width!=DG::Side || r.height!=DG::Side) Logf("generation [%s] desert_fill needs a 1024x1024 resource map; left empty",d.name);
             else {
                 if(desertLand.empty() && !GenerationLand(terrain,size[0],size[1],offset,desertLand)) return false;
+                std::vector<float> heights; float hLow=0,hHigh=0;
+                if(d.desertFillRelief) {
+                    if(!GenerationHeights(terrain,size[0],size[1],offset,heights)) { Logf("generation WARN [%s] terrain heights unreadable; desert fill left empty",d.name); continue; }
+                    std::vector<float> land; land.reserve(DG::Cells);
+                    for(size_t p=0;p<DG::Cells;++p) if(!(desertLand[p]&DG::Water)) land.push_back(heights[p]);
+                    if(land.size()<16) { Logf("generation [%s] desert map: no land; nothing filled",d.name); continue; }
+                    size_t lo=land.size()*2/100, hi=land.size()*98/100; if(hi>=land.size()) hi=land.size()-1;
+                    std::nth_element(land.begin(),land.begin()+lo,land.end()); hLow=land[lo];
+                    std::nth_element(land.begin(),land.begin()+hi,land.end()); hHigh=land[hi];
+                    if(!(hHigh>hLow+0.5f)) hHigh=hLow+0.5f;
+                }
+                unsigned lowPct=(std::min)(d.desertFillMin,d.desertFillMax), highPct=(std::max)(d.desertFillMin,d.desertFillMax);
+                float lo=lowPct/100.f, hi=highPct/100.f;
+                uint32_t ns=(uint32_t)DG::Hash(d.name,strlen(d.name),candidate.seed);
                 unsigned filled=0;
-                for(size_t p=0;p<DG::Cells;++p) if(!(desertLand[p]&DG::Water)) { r.pixels[p]=255; ++filled; }
+                for(unsigned y=0;y<DG::Side;++y) for(unsigned x=0;x<DG::Side;++x) {
+                    size_t p=(size_t)y*DG::Side+x;
+                    if(desertLand[p]&DG::Water) { r.pixels[p]=0; continue; }
+                    float n=0.65f*DG::Noise(ns,x/110.f,y/110.f)+0.35f*DG::Noise(ns^0x5bd1e995u,x/28.f,y/28.f);
+                    float band=lo+(hi-lo)*n, cover=1.f;
+                    if(d.desertFillRelief) {
+                        float hn=(heights[p]-hLow)/(hHigh-hLow)+0.12f*(DG::Noise(ns^0x27d4eb2fu,x/40.f,y/40.f)-0.5f);
+                        cover=1.f-(std::max)(0.f,(std::min)(1.f,hn));
+                    }
+                    int v=(int)lroundf(255.f*band*cover); if(v<0) v=0; if(v>255) v=255;
+                    r.pixels[p]=(unsigned char)v; filled+=v!=0;
+                }
                 r.status=1; r.placed=1;
-                Logf("generation [%s] desert map: %u/%u land cells filled at full richness (desert_fill=1)",d.name,filled,DG::Cells);
+                if(d.desertFillRelief) Logf("generation [%s] desert map: %u/%u cells hold sand; richness %u..%u%% on the lowest land (%.1f m) falling to 0 at the highest (%.1f m); desert_fill_relief=1",d.name,filled,DG::Cells,lowPct,highPct,hLow,hHigh);
+                else Logf("generation [%s] desert map: %u/%u cells hold sand; richness %u..%u%% over the whole land; desert_fill_relief=0",d.name,filled,DG::Cells,lowPct,highPct);
             }
         } else if((newlyAdded && !DG::HasData(r.pixels)) || DG::Pending(r)) {
             const bool priorPending=!newlyAdded;
@@ -380,8 +421,14 @@ static bool GenerationRun(void* terrain) {
             if(m.id==1) for(int c=0;c<2;++c) merge(3+c,GenerationChannel(m,c),m.w,m.h);
             if(m.id==64) { if(g_generationBlockGravel) merge(5,GenerationChannel(m,2),m.w,m.h); for(int c=0;c<4;++c){DG::Bytes ch=GenerationChannel(m,c);for(unsigned char v:ch) maskNonZero[c]+=v!=0;} }
         }
-        // Removed-resource tombstones also reserve their remaining footprint.
-        for(const auto& r:candidate.records) { DG::Bytes mask=DG::Occupancy(r.pixels,r.width,r.height); for(size_t i=0;i<occupied.size();++i) if(mask[i]){occupied[i]=1;++srcCells[6];} }
+        // Removed-resource tombstones also reserve their remaining footprint. A desert_fill
+        // deposit on a desert map does not: it is everywhere, and the ores must still fit (0.4.6).
+        for(size_t k=0;k<candidate.records.size();++k) {
+            bool fillRecord=false;
+            if(g_desertMap) for(int i=0;i<g_depCount;++i) if(g_dep[i].desertFill && recordIndex[i]==(int)k) fillRecord=true;
+            if(fillRecord) continue;
+            const auto& r=candidate.records[k]; DG::Bytes mask=DG::Occupancy(r.pixels,r.width,r.height); for(size_t i=0;i<occupied.size();++i) if(mask[i]){occupied[i]=1;++srcCells[6];}
+        }
         unsigned unionCells=0; for(unsigned char v:occupied) unionCells+=v!=0;
         const GenerationMap* maskMap=GenerationFindMap(live,64);
         Logf("generation occupancy: resourcemap R=%u G=%u B=%u; resourcemap2 R=%u G=%u; mask B=%u (%s; mask %ux%u non-zero R=%u G=%u B=%u A=%u); tombstones=%u; union=%u cells before the %.0fm gap",

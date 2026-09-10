@@ -136,6 +136,8 @@ struct DepositDef
     unsigned generationFrequency, generationSize;   // presets; 0 = default (3 regions, size class 2)
     bool independentMap;
     bool desertFill;       // 0.4.1: on a $TYPE_DESERT map the whole land is this deposit
+    bool desertFillRelief; // 0.4.6: richness falls with terrain height, 0 at the highest land
+    unsigned desertFillMin, desertFillMax;   // 0.4.6: richness band (percent) at the lowest land
     int legacyTerrainComponent;
 
     // Anything in the section the loader itself has no use for, kept verbatim
@@ -216,6 +218,9 @@ static bool GenerationSetting(DepositDef* d,const char* key,const char* value)
         if(KeyIs(key,"generation")) { valid=GenerationNumber(value,0,1,&n) && n==floor(n); if(valid) d->generation.enabled=n!=0; }
         else if(KeyIs(key,"independent_map")) { valid=GenerationNumber(value,0,1,&n) && n==floor(n); if(valid) d->independentMap=n!=0; }
         else if(KeyIs(key,"desert_fill")) { valid=GenerationNumber(value,0,1,&n) && n==floor(n); if(valid) d->desertFill=n!=0; }
+        else if(KeyIs(key,"desert_fill_relief")) { valid=GenerationNumber(value,0,1,&n) && n==floor(n); if(valid) d->desertFillRelief=n!=0; }
+        else if(KeyIs(key,"desert_fill_min")) { valid=GenerationNumber(value,0,100,&n); if(valid) d->desertFillMin=(unsigned)n; }
+        else if(KeyIs(key,"desert_fill_max")) { valid=GenerationNumber(value,0,100,&n); if(valid) d->desertFillMax=(unsigned)n; }
         else if(KeyIs(key,"generation_frequency")) { valid=GenerationNumber(value,1,6,&n) && n==floor(n); if(valid) d->generationFrequency=(unsigned)n; }
         else if(KeyIs(key,"generation_size")) { valid=GenerationNumber(value,1,3,&n) && n==floor(n); if(valid) d->generationSize=(unsigned)n; }
         else if(KeyIs(key,"generation_richness_min")) { valid=GenerationNumber(value,.001,1,&n); if(valid) d->generation.richnessMin=(float)n; }
@@ -334,6 +339,7 @@ static void LoadDepositRegistry()
             d->map          = DEP_MAP_2;
             d->radiusRva    = 0x90AD50;
             d->wantMinimap  = 1;
+            d->desertFillRelief = true; d->desertFillMin = 60; d->desertFillMax = 100;
             continue;
         }
 
@@ -3354,7 +3360,7 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
 {
     TsmBind(host);
     info->name    = "deposits_plus";
-    info->version = "0.4.5";
+    info->version = "0.4.6";
 
     // deposits_plus is a fork of the upstream deposits plugin: same code sites,
     // same service name, same save file. Both loaded at once would double the

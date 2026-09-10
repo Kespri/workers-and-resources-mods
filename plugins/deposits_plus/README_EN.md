@@ -1,4 +1,4 @@
-# 🏭 Deposits Plus 0.4.5
+# 🏭 Deposits Plus 0.4.6
 
 **Extension of the TesmioLoader plugin deposits**
 
@@ -61,7 +61,7 @@ Fully configurable resource deposits for *Workers & Resources: Soviet Republic* 
 - Strength scales with richness (rich fields show more clearly)
 - Tile table per ground texture: sets Vanilla, Siberia (summer and snow-dusted autumn), Asia - Jungle and Ultimate Vanilla +; your own DDS files in your own folders welcome
 - Purely visual, no gameplay effect
-- Desert maps: `desert_fill` turns the whole land into the sand deposit
+- Desert maps: `desert_fill` turns the whole land into the sand deposit, organically with 60 to 100 % in the lowlands and thinning out with height; the ores still find room
 
 #### 3️⃣ **Working vehicles** (`working_vehicle_skill`)
 - A deposit can borrow the vehicle skill of gravel mining
@@ -216,8 +216,13 @@ map = terrain
 component = 1
 ; 1 allocates a separate resource channel and copies existing sand there
 independent_map = 1
-; 1 = on desert maps ($TYPE_DESERT in script.ini) the whole land is this deposit when its map is first created
+; 1 = on desert maps ($TYPE_DESERT in script.ini) the whole land is this deposit when its map is first created; never blocks the other deposits
 desert_fill = 1
+; 1 = richness falls with height (full band in the lowlands, 0 on the highest land), 0 = the band everywhere
+desert_fill_relief = 1
+; richness band in percent in the lowlands, varied by noise
+desert_fill_min = 60
+desert_fill_max = 100
 ; 7 = mine (default), 92 = water well
 building_type = 7
 ; search radius of the mine: oil, ore, bauxite, gravel, wood, water, watersurface, or a number in metres

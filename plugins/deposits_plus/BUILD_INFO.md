@@ -9,6 +9,20 @@ hash helper (see below). Service name `deposits` and the savegame file `tesmio_d
 deliberately stay identical to the original so consumers such as Depletion keep working.
 User documentation: README_DE.md / README_EN.md. History newest first.
 
+## 0.4.6 (2026-09-10)
+
+- Desert map test by the user: sand at 100% everywhere left no room for copper, clay and gas, because the
+  filled sand record counted as an occupied deposit. A `desert_fill` deposit's record is now skipped in
+  the occupancy mask on desert maps; the ores respect only the vanilla maps and each other.
+- Organic fill: `GenerationHeights` samples the terrain height at every cell centre; the richness is a
+  two-octave value-noise band `desert_fill_min..desert_fill_max` (percent, default 60..100) and, with
+  `desert_fill_relief = 1` (default), falls linearly with height from the 2nd percentile of the land
+  heights to 0 at the 98th, with a little noise on the slope. Seeded from the world seed and the
+  deposit name. `desert_fill_relief = 0` keeps the band over the whole land. Log line names the band
+  and the two heights.
+- Package schema: three new fields under "Desert maps: everywhere"; READMEs updated.
+- Version 0.4.6. Backup: `_backups\deposits_plus_0.4.5_before_0.4.6_*`.
+
 ## 0.4.5 (2026-09-10)
 
 - Minimap: hovering a mod deposit button previews its overlay layer like the vanilla five do; the

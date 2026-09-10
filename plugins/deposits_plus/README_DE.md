@@ -1,4 +1,4 @@
-# 🏭 Deposits Plus 0.4.5
+# 🏭 Deposits Plus 0.4.6
 
 **Erweiterung des TesmioLoader-Plugins deposits**
 
@@ -61,7 +61,7 @@ Vollständig konfigurierbare Rohstoffvorkommen für *Workers & Resources: Soviet
 - Stärke mit Ergiebigkeit skaliert (reiche Felder deutlicher)
 - Kacheltabelle je Bodentextur: Sets Vanilla, Siberia (Sommer und Schneeherbst), Asia - Jungle und Ultimate Vanilla +; eigene DDS-Dateien in eigenen Ordnern möglich
 - Rein optisch, kein Gameplay-Effekt
-- Wüstenkarten: `desert_fill` macht die ganze Landfläche zum Sandvorkommen
+- Wüstenkarten: `desert_fill` macht die ganze Landfläche zum Sandvorkommen, organisch mit 60 bis 100 % im Tiefland und abnehmend mit der Höhe; die Erze finden trotzdem Platz
 
 #### 3️⃣ **Arbeitsfahrzeuge** (`working_vehicle_skill`)
 - Vorkommen können die Fahrzeugfreigabe des Kiesabbaus übernehmen
@@ -216,8 +216,13 @@ map = terrain
 component = 1
 ; 1 legt einen eigenen Ressourcenkanal an und kopiert vorhandenen Sand dorthin
 independent_map = 1
-; 1 = auf Wüstenkarten ($TYPE_DESERT in der script.ini) ist beim ersten Anlegen die ganze Landfläche dieses Vorkommen
+; 1 = auf Wüstenkarten ($TYPE_DESERT in der script.ini) ist beim ersten Anlegen die ganze Landfläche dieses Vorkommen; sperrt die anderen Vorkommen nicht
 desert_fill = 1
+; 1 = Ergiebigkeit nimmt mit der Höhe ab (volles Band im Tiefland, 0 auf den höchsten Erhebungen), 0 = Band überall
+desert_fill_relief = 1
+; Ergiebigkeitsband in Prozent im Tiefland, per Rauschen variiert
+desert_fill_min = 60
+desert_fill_max = 100
 ; 7 = Mine (Standard), 92 = Wasserbrunnen
 building_type = 7
 ; Suchradius der Mine: oil, ore, bauxite, gravel, wood, water, watersurface oder eine Zahl in Metern
