@@ -9,6 +9,21 @@ hash helper (see below). Service name `deposits` and the savegame file `tesmio_d
 deliberately stay identical to the original so consumers such as Depletion keep working.
 User documentation: README_DE.md / README_EN.md. History newest first.
 
+## 0.4.2 (2026-09-10)
+
+- Tile files may live in set folders under `deposits_plus\assets`: `color` / `normal` are paths relative to
+  the assets folder (`Siberia/sand_meadow_siberia_color.dds`); `VsAssetPathOk` refuses `..` elements, drive
+  letters and absolute paths, everything else goes straight into the existing `VsReadFile` join. The
+  `SandTile` fields for both names grew to 128 characters.
+- Shipped assets are sorted into sets: `Vanilla` (meadow summer/autumn), `Siberia` (summer, snow-dusted
+  autumn), `Asia - Jungle` (summer) and `Ultimate Vanilla +` (meadow pair matching that texture pack,
+  not referenced by default). All colour files DXT1, all normal maps DXT5 with height in alpha,
+  1024x1024, 11 mips. The shipped `[sand_tile:]` table points at the set files; Siberia and jungle no
+  longer reuse the meadow pair.
+- Package schema: the two file fields are grouped file lists with a pre-save check (Republic Mod
+  Manager 0.4.48: `picker = files`, `reference = files`, `reference_format = dds_dxt1|dds_dxt5`).
+- Version 0.4.2. Backup: `_backups\deposits_plus_0.4.1_before_0.4.2_*`.
+
 ## 0.4.1 (2026-09-10)
 
 - Sand surface tile table: `[sand_tile:<id>]` sections (`base` = terrain base texture on material slot 5

@@ -1,4 +1,4 @@
-# 🏭 Deposits Plus 0.4.1
+# 🏭 Deposits Plus 0.4.2
 
 **Extension of the TesmioLoader plugin deposits**
 
@@ -59,7 +59,7 @@ Fully configurable resource deposits for *Workers & Resources: Soviet Republic* 
 #### 2️⃣ **Sandy meadow** (`sand_surface`)
 - Visual ground texture on sand deposits
 - Strength scales with richness (rich fields show more clearly)
-- Tile table per ground texture: meadow, Siberia (summer and snow-dusted autumn), jungle; your own DDS files welcome
+- Tile table per ground texture: sets Vanilla, Siberia (summer and snow-dusted autumn), Asia - Jungle and Ultimate Vanilla +; your own DDS files in your own folders welcome
 - Purely visual, no gameplay effect
 - Desert maps: `desert_fill` turns the whole land into the sand deposit
 
@@ -371,29 +371,39 @@ sand_surface_token = $TYPE_MINE_SAND
 
 ### Tile table (since 0.4.1)
 
-One section `[sand_tile:<name>]` per ground texture: `base` is the texture the map's material.mtl names on slot 5, folder included; `color` and `normal` are your DDS files in `deposits_plus\assets`, which the DLL looks for beside itself first (package: `hooks\deposits_plus\assets`) and then under `plugins\deposits_plus\assets`. In Republic Mod Manager the table lives on the Sand tiles tab.
+One section `[sand_tile:<name>]` per ground texture: `base` is the texture the map's material.mtl names on slot 5, folder included; `color` and `normal` are your DDS files under `deposits_plus\assets`, which the DLL looks for beside itself first (package: `hooks\deposits_plus\assets`) and then under `plugins\deposits_plus\assets`. Since 0.4.2 the files may sit in set folders (`Siberia/sand_meadow_siberia_color.dds`); `..` and absolute paths are refused. In Republic Mod Manager the table lives on the Sand tiles tab: the file fields list every DDS file grouped by set folder, and before saving RMM checks that the file exists and has the right format.
 
 ```ini
 [sand_tile:meadow]
 base   = tiles_normal/grass2.dds
-color  = sand_meadow_color.dds
-normal = sand_meadow_normal.dds
+color  = Vanilla/sand_meadow_color.dds
+normal = Vanilla/sand_meadow_normal.dds
 
 [sand_tile:siberia_autumn]
 base   = dlc2/tiles_siberia/grass2snow.dds
-color  = sand_siberia_autumn_color.dds
-normal = sand_siberia_autumn_normal.dds
+color  = Siberia/sand_meadow_autumn_siberia_color.dds
+normal = Siberia/sand_meadow_autumn_siberia_normal.dds
 ```
 
-Shipped: meadow summer/autumn, Siberia summer/autumn and jungle summer; Siberia and jungle point at the meadow files until you drop in your own and change the names. A ground texture without an entry stays native, and so does an entry whose files are missing (log line `sand surface WARN tile`). Known ground textures: `tiles_normal/grass2.dds`, `tiles_normal/grass2_fall.dds`, `dlc2/tiles_siberia/grass2.dds`, `dlc2/tiles_siberia/grass2snow.dds`, `dlc2/tiles_asia/jungle_swamp_dm.dds`.
+Shipped sets: `Vanilla` (meadow summer/autumn), `Siberia` (summer and snow-dusted autumn), `Asia - Jungle` (summer) and `Ultimate Vanilla +` (a meadow pair matching that texture pack, not the default: point the meadow entries at its files when you use the pack). A ground texture without an entry stays native, and so does an entry whose files are missing (log line `sand surface WARN tile`). Known ground textures: `tiles_normal/grass2.dds`, `tiles_normal/grass2_fall.dds`, `dlc2/tiles_siberia/grass2.dds`, `dlc2/tiles_siberia/grass2snow.dds`, `dlc2/tiles_asia/jungle_swamp_dm.dds`.
 
 ### Files
 
 ```
-sand_meadow_color.dds           (meadow summer colour)
-sand_meadow_normal.dds          (meadow summer normal map)
-sand_meadow_autumn_color.dds    (meadow autumn colour)
-sand_meadow_autumn_normal.dds   (meadow autumn normal map)
+Vanilla\sand_meadow_color.dds                          (meadow summer colour)
+Vanilla\sand_meadow_normal.dds                         (meadow summer normal map)
+Vanilla\sand_meadow_autumn_color.dds                   (meadow autumn colour)
+Vanilla\sand_meadow_autumn_normal.dds                  (meadow autumn normal map)
+Siberia\sand_meadow_siberia_color.dds                  (Siberia summer)
+Siberia\sand_meadow_siberia_normal.dds
+Siberia\sand_meadow_autumn_siberia_color.dds           (Siberia snow-dusted autumn)
+Siberia\sand_meadow_autumn_siberia_normal.dds
+Asia - Jungle\sand_meadow_jungle_color.dds             (jungle summer)
+Asia - Jungle\sand_meadow_jungle_normal.dds
+Ultimate Vanilla +\sand_meadow_color_ultimatevanilla.dds          (meadow summer for Ultimate Vanilla+)
+Ultimate Vanilla +\sand_meadow_normal_ultimatevanilla.dds
+Ultimate Vanilla +\sand_meadow_autumn_color_ultimatevanilla.dds   (meadow autumn for Ultimate Vanilla+)
+Ultimate Vanilla +\sand_meadow_autumn_normal_ultimatevanilla.dds
 ```
 
 **Format:** square, power of two from 256 to 4096 (1024 or 2048 recommended), complete mipmap chain
@@ -548,10 +558,10 @@ Search for:
 │   ├── deposits_plus.dll           (plugin)
 │   ├── deposits_plus.ini           (original INI)
 │   └── deposits_plus\assets\       (sandy meadow textures)
-│       ├── sand_meadow_color.dds
-│       ├── sand_meadow_normal.dds
-│       ├── sand_meadow_autumn_color.dds
-│       └── sand_meadow_autumn_normal.dds
+│       ├── Vanilla\                (sand_meadow_*.dds)
+│       ├── Siberia\                (sand_meadow_siberia_*.dds, sand_meadow_autumn_siberia_*.dds)
+│       ├── Asia - Jungle\          (sand_meadow_jungle_*.dds)
+│       └── Ultimate Vanilla +\     (sand_meadow_*_ultimatevanilla.dds)
 ├── config\                         (editor schema for Republic Mod Manager)
 │   ├── deposits_plus.launcher.ini
 │   └── languages\
@@ -572,10 +582,10 @@ tesmioloader\build\
 │   ├── deposits_plus.dll
 │   ├── deposits_plus.ini           (effective INI)
 │   └── deposits_plus\assets\
-│       ├── sand_meadow_color.dds
-│       ├── sand_meadow_normal.dds
-│       ├── sand_meadow_autumn_color.dds
-│       └── sand_meadow_autumn_normal.dds
+│       ├── Vanilla\
+│       ├── Siberia\
+│       ├── Asia - Jungle\
+│       └── Ultimate Vanilla +\
 └── user_config\
     └── deposits_plus.editor.ini    (personal values from Republic Mod Manager)
 ```

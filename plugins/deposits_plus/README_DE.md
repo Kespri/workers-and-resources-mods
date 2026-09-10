@@ -1,4 +1,4 @@
-# 🏭 Deposits Plus 0.4.1
+# 🏭 Deposits Plus 0.4.2
 
 **Erweiterung des TesmioLoader-Plugins deposits**
 
@@ -59,7 +59,7 @@ Vollständig konfigurierbare Rohstoffvorkommen für *Workers & Resources: Soviet
 #### 2️⃣ **Sandige Wiese** (`sand_surface`)
 - Visuelle Bodentextur auf Sandvorkommen
 - Stärke mit Ergiebigkeit skaliert (reiche Felder deutlicher)
-- Kacheltabelle je Bodentextur: Wiese, Siberia (Sommer und Schneeherbst), Dschungel; eigene DDS-Dateien möglich
+- Kacheltabelle je Bodentextur: Sets Vanilla, Siberia (Sommer und Schneeherbst), Asia - Jungle und Ultimate Vanilla +; eigene DDS-Dateien in eigenen Ordnern möglich
 - Rein optisch, kein Gameplay-Effekt
 - Wüstenkarten: `desert_fill` macht die ganze Landfläche zum Sandvorkommen
 
@@ -371,29 +371,39 @@ sand_surface_token = $TYPE_MINE_SAND
 
 ### Kacheltabelle (seit 0.4.1)
 
-Je Bodentextur des Geländes ein Abschnitt `[sand_tile:<name>]`: `base` ist die Textur, die die material.mtl der Karte auf Platz 5 nennt, mit Ordner; `color` und `normal` sind deine DDS-Dateien im Ordner `deposits_plus\assets`, den die DLL zuerst neben sich (Paket: `hooks\deposits_plus\assets`) und dann unter `plugins\deposits_plus\assets` sucht. Im Republic Mod Manager pflegst du die Tabelle auf dem Reiter Sand-Texturen.
+Je Bodentextur des Geländes ein Abschnitt `[sand_tile:<name>]`: `base` ist die Textur, die die material.mtl der Karte auf Platz 5 nennt, mit Ordner; `color` und `normal` sind deine DDS-Dateien unter `deposits_plus\assets`, den die DLL zuerst neben sich (Paket: `hooks\deposits_plus\assets`) und dann unter `plugins\deposits_plus\assets` sucht. Seit 0.4.2 dürfen die Dateien in Set-Ordnern liegen (`Siberia/sand_meadow_siberia_color.dds`); `..` und absolute Pfade sind tabu. Im Republic Mod Manager pflegst du die Tabelle auf dem Reiter Sand-Texturen: Die Dateifelder zeigen alle DDS-Dateien nach Set-Ordner gruppiert, und vor dem Speichern prüft der RMM, ob die Datei existiert und das richtige Format hat.
 
 ```ini
 [sand_tile:meadow]
 base   = tiles_normal/grass2.dds
-color  = sand_meadow_color.dds
-normal = sand_meadow_normal.dds
+color  = Vanilla/sand_meadow_color.dds
+normal = Vanilla/sand_meadow_normal.dds
 
 [sand_tile:siberia_autumn]
 base   = dlc2/tiles_siberia/grass2snow.dds
-color  = sand_siberia_autumn_color.dds
-normal = sand_siberia_autumn_normal.dds
+color  = Siberia/sand_meadow_autumn_siberia_color.dds
+normal = Siberia/sand_meadow_autumn_siberia_normal.dds
 ```
 
-Ausgeliefert sind Wiese Sommer/Herbst, Siberia Sommer/Herbst und Dschungel Sommer; Siberia und Dschungel zeigen anfangs auf die Wiesendateien, bis du eigene Dateien ablegst und die Namen änderst. Eine Bodentextur ohne Eintrag bleibt nativ, ebenso ein Eintrag, dessen Dateien fehlen (Logzeile `sand surface WARN tile`). Bekannte Bodentexturen: `tiles_normal/grass2.dds`, `tiles_normal/grass2_fall.dds`, `dlc2/tiles_siberia/grass2.dds`, `dlc2/tiles_siberia/grass2snow.dds`, `dlc2/tiles_asia/jungle_swamp_dm.dds`.
+Ausgeliefert sind die Sets `Vanilla` (Wiese Sommer/Herbst), `Siberia` (Sommer und Schneeherbst), `Asia - Jungle` (Sommer) und `Ultimate Vanilla +` (Wiesenpaar passend zu diesem Texturpaket, nicht voreingestellt: trag seine Dateien bei den Wieseneinträgen ein, wenn du das Paket nutzt). Eine Bodentextur ohne Eintrag bleibt nativ, ebenso ein Eintrag, dessen Dateien fehlen (Logzeile `sand surface WARN tile`). Bekannte Bodentexturen: `tiles_normal/grass2.dds`, `tiles_normal/grass2_fall.dds`, `dlc2/tiles_siberia/grass2.dds`, `dlc2/tiles_siberia/grass2snow.dds`, `dlc2/tiles_asia/jungle_swamp_dm.dds`.
 
 ### Dateien
 
 ```
-sand_meadow_color.dds           (Wiese Sommerfarbe)
-sand_meadow_normal.dds          (Wiese Sommer-Normalmap)
-sand_meadow_autumn_color.dds    (Wiese Herbstfarbe)
-sand_meadow_autumn_normal.dds   (Wiese Herbst-Normalmap)
+Vanilla\sand_meadow_color.dds                          (Wiese Sommerfarbe)
+Vanilla\sand_meadow_normal.dds                         (Wiese Sommer-Normalmap)
+Vanilla\sand_meadow_autumn_color.dds                   (Wiese Herbstfarbe)
+Vanilla\sand_meadow_autumn_normal.dds                  (Wiese Herbst-Normalmap)
+Siberia\sand_meadow_siberia_color.dds                  (Siberia Sommer)
+Siberia\sand_meadow_siberia_normal.dds
+Siberia\sand_meadow_autumn_siberia_color.dds           (Siberia Schneeherbst)
+Siberia\sand_meadow_autumn_siberia_normal.dds
+Asia - Jungle\sand_meadow_jungle_color.dds             (Dschungel Sommer)
+Asia - Jungle\sand_meadow_jungle_normal.dds
+Ultimate Vanilla +\sand_meadow_color_ultimatevanilla.dds          (Wiese Sommer für Ultimate Vanilla+)
+Ultimate Vanilla +\sand_meadow_normal_ultimatevanilla.dds
+Ultimate Vanilla +\sand_meadow_autumn_color_ultimatevanilla.dds   (Wiese Herbst für Ultimate Vanilla+)
+Ultimate Vanilla +\sand_meadow_autumn_normal_ultimatevanilla.dds
 ```
 
 **Format:** quadratisch, Zweierpotenz 256 bis 4096 (1024 oder 2048 empfohlen), vollständige Mipmap-Kette
@@ -548,10 +558,10 @@ Suche nach:
 │   ├── deposits_plus.dll           (Plugin)
 │   ├── deposits_plus.ini           (Original-INI)
 │   └── deposits_plus\assets\       (Texturen der sandigen Wiese)
-│       ├── sand_meadow_color.dds
-│       ├── sand_meadow_normal.dds
-│       ├── sand_meadow_autumn_color.dds
-│       └── sand_meadow_autumn_normal.dds
+│       ├── Vanilla\                (sand_meadow_*.dds)
+│       ├── Siberia\                (sand_meadow_siberia_*.dds, sand_meadow_autumn_siberia_*.dds)
+│       ├── Asia - Jungle\          (sand_meadow_jungle_*.dds)
+│       └── Ultimate Vanilla +\     (sand_meadow_*_ultimatevanilla.dds)
 ├── config\                         (Editor-Schema für Republic Mod Manager)
 │   ├── deposits_plus.launcher.ini
 │   └── languages\
@@ -572,10 +582,10 @@ tesmioloader\build\
 │   ├── deposits_plus.dll
 │   ├── deposits_plus.ini           (wirksame INI)
 │   └── deposits_plus\assets\
-│       ├── sand_meadow_color.dds
-│       ├── sand_meadow_normal.dds
-│       ├── sand_meadow_autumn_color.dds
-│       └── sand_meadow_autumn_normal.dds
+│       ├── Vanilla\
+│       ├── Siberia\
+│       ├── Asia - Jungle\
+│       └── Ultimate Vanilla +\
 └── user_config\
     └── deposits_plus.editor.ini    (persönliche Werte aus Republic Mod Manager)
 ```

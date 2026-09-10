@@ -170,7 +170,7 @@ static int        g_depCount;
 // which base texture of the terrain (folder included, so tiles_siberia/grass2.dds and
 // tiles_normal/grass2.dds stay apart). Read here, used by deposit_visual_runtime.inl.
 #define MAX_SAND_TILES 16
-struct SandTile { char id[32]; char base[128]; char color[64]; char normal[64]; };
+struct SandTile { char id[32]; char base[128]; char color[128]; char normal[128]; };   // 0.4.2: color/normal may carry a set folder
 static SandTile g_tiles[MAX_SAND_TILES];
 static int      g_tileCount;
 
@@ -3344,7 +3344,7 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
 {
     TsmBind(host);
     info->name    = "deposits_plus";
-    info->version = "0.4.1";
+    info->version = "0.4.2";
 
     // deposits_plus is a fork of the upstream deposits plugin: same code sites,
     // same service name, same save file. Both loaded at once would double the

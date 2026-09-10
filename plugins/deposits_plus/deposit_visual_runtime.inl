@@ -113,6 +113,7 @@ static int h_VsLoad(void*self,const char*path){
  else Logf("sand surface shader preparation: 13/13 verified native programs augmented; PS calls=%u matched=%u linked=%u; disk shaders unchanged",vsPsSeen,vsPsMatched,vsPsLinked);
  return r;
 }
+static bool VsAssetPathOk(const char*p){if(!p[0]||p[0]=='/'||p[0]=='\\'||strchr(p,':'))return false;for(const char*s=p;*s;++s)if(s[0]=='.'&&s[1]=='.'&&(s==p||s[-1]=='/'||s[-1]=='\\')&&(s[2]==0||s[2]=='/'||s[2]=='\\'))return false;return true;}
 static bool VsReadFile(const char*name,VSand::Bytes&bytes){
  // 1.8.0: the assets live beside the DLL first (a Workshop package carries
  // hooks\deposits_plus\assets), then under the loader's plugins folder - the
@@ -273,7 +274,9 @@ static bool VsInstall(){
  int kept=0;
  for(int t=0;t<g_tileCount;++t){
   SandTile&x=g_tiles[t];
-  if(!x.base[0]||!x.color[0]||!x.normal[0]||strchr(x.color,'\\')||strchr(x.color,'/')||strchr(x.normal,'\\')||strchr(x.normal,'/')){Logf("sand surface WARN [sand_tile:%s] needs base, color and normal (file names without folders); ignored",x.id);continue;}
+  // 0.4.2: color/normal are paths relative to the assets folder (set folders like "Siberia/x.dds"
+  // allowed); climbing out, drive letters and absolute paths are refused.
+  if(!x.base[0]||!x.color[0]||!x.normal[0]||!VsAssetPathOk(x.color)||!VsAssetPathOk(x.normal)){Logf("sand surface WARN [sand_tile:%s] needs base, color and normal (files relative to deposits_plus\\assets, no '..', no absolute paths); ignored",x.id);continue;}
   if(kept!=t)g_tiles[kept]=x;++kept;
  }
  g_tileCount=kept;
