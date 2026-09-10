@@ -1,8 +1,10 @@
 # Installs workshop_bridge.dll and workshop_bridge.ini from the loader build
 # into the game's tesmioloader\build\plugins folder, hash-checked, with a
 # backup of whatever was there. Run after build.bat. -Replace allows
-# overwriting an existing copy (the previous files go to the backup).
-param([switch]$Replace)
+# overwriting an existing DLL (the previous files go to the backup). An
+# existing INI is the player's base configuration (workshop_root and friends)
+# and stays untouched unless -ReplaceIni is given as well.
+param([switch]$Replace, [switch]$ReplaceIni)
 $ErrorActionPreference = 'Stop'
 $tree = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 $build = 'C:\Program Files (x86)\Steam\steamapps\common\SovietRepublic\tesmioloader\build'
@@ -22,6 +24,7 @@ foreach ($f in 'tesmioloader.dll', 'tesmiolauncher.exe') { if (-not (Test-Path -
 Stopped
 $targets = @{}; foreach ($f in $files) { $targets[$f] = Join-Path $build ('plugins\' + $f) }
 foreach ($f in $files) { if ((Hash $targets[$f]) -ne 'absent' -and -not $Replace) { throw "Already installed: $($targets[$f]). Use -Replace to overwrite (a backup is kept)." } }
+if ((Hash $targets['workshop_bridge.ini']) -ne 'absent' -and -not $ReplaceIni) { Write-Output "Existing workshop_bridge.ini kept (use -ReplaceIni to overwrite it)."; $files = @('workshop_bridge.dll') }
 
 $backup = Join-Path $tree ('_backups\workshop_bridge_deploy_' + [DateTime]::UtcNow.ToString('yyyyMMdd_HHmmss'))
 New-Item -ItemType Directory -Path $backup | Out-Null

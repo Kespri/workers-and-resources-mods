@@ -24,6 +24,9 @@ inside the Republic Mod Manager package. User documentation: README_DE.md / READ
 - Republic Mod Manager: local schema texts (settings_schemas, de/en) in player style and a card notice
   that the package list is kept through each package's "Plugin active" switch; the overlay header
   written by older versions ("Written by Tesmio Settings") is rewritten on the next change (0.4.52).
+- Installer: `-Replace` overwrites the DLL only; an existing `workshop_bridge.ini` is the player's base
+  configuration and stays unless `-ReplaceIni` is given (the first 0.2.0 deploy reset the test setup's
+  `workshop_root` to `auto`).
 - Backup: `_backups\workshop_bridge_0.1.0-beta_before_0.2.0_*`.
 
 ## 0.1.0-beta (2026-09-05)
