@@ -1,4 +1,4 @@
-# 🔬 Research Expansion 1.9
+# 🔬 Research Expansion 0.4.0
 
 **TesmioLoader-Plugin für neue Forschungen und Änderungen am Forschungsbaum**
 
@@ -48,6 +48,10 @@ Fügt *Workers & Resources: Soviet Republic* 1.1.1.9 eigene Forschungseinträge 
 - ✅ Eigene Icons je Forschung mit Ersatz-Icon
 - ✅ Jeder Fehler weist die ganze Erweiterung ab und lässt die Vanilla-Forschung aktiv; das Log nennt Datei, Regel und Zeile
 - ✅ Originaldateien bleiben unverändert; die erzeugte Datei liegt im VFS des Loaders
+
+### 🆕 Neu in 0.4.0
+- ✅ Neues Versionsschema (0.4.0 folgt auf 1.9); Prüf- und Erzeugungslogik, Befehle und INI-Schlüssel unverändert.
+- ✅ Fertig für Republic Mod Manager: Reiter Neue Forschungen, Localization und Vanilla-Änderungen mit „Forschung wählen…“, „Zeile wählen…“, dem Kasten „Original im Spiel“ und der Prüfung unbekannter Forschungen vor dem Speichern.
 
 ### 🆕 Neu in 1.9
 - ✅ **Kosten ändern ohne Ersetzen-Befehl:** In `[modify:<id>]` reicht `cost = 1800`; das Plugin ersetzt die `$COST`-Zeile des Vanilla-Blocks selbst. Im Republic Mod Manager wählst du die Forschung über „Forschung wählen…“, siehst den Originalblock und baust jede Befehlszeile über „Zeile wählen…“ aus den echten Zeilen.
@@ -234,7 +238,7 @@ move_before = $UNLOCK_RESEARCH uranium_study | $UNLOCK_RESEARCH bauxite_study
 | `add = ZEILE` | unmittelbar vor `$RESEARCH_ADD` einfügen |
 | `insert_before = ANKER \| ZEILE` / `insert_after = …` | vor bzw. hinter einer eindeutigen Ankerzeile einfügen |
 | `move_before = ZEILE \| ANKER` / `move_after = …` | vorhandene Zeile unverändert verschieben |
-| `cost = PUNKTE` | Kosten setzen: ersetzt die `$COST`-Zeile des Blocks (seit 1.9) |
+| `cost = PUNKTE` | Kosten setzen: ersetzt die `$COST`-Zeile des Blocks |
 
 Die Befehle laufen in Dateireihenfolge, nach den automatischen Freischaltungen neuer Blöcke; spätere sehen die Änderungen früherer. `$RESEARCH` und `$RESEARCH_ADD` selbst dürfen nicht angefasst werden. Eine per Befehl ergänzte `+`-Zeile ist wörtlich, ohne automatischen umgekehrten Unlock. `enabled = 0` überspringt den Abschnitt, seine Syntax muss trotzdem stimmen. Der Vergleich verlangt die vollständige Zeile samt Schreibweise; `|` ist als Trenner reserviert.
 
@@ -281,6 +285,7 @@ Forschungen sind Teil des Spielstands: Eine neue Forschung, die ein Spielstand b
 Localization ist Pflicht. Andere Plugins, die `research.ini` ersetzen, werden nicht zusammengeführt.
 
 ### Versionskompatibilität
+- **0.4.0:** Versionsschema; Logik und INI unverändert
 - **1.9:** `cost` in `[modify:]`; sonst unverändert
 - **1.8:** kurze `name`/`desc` in `[research:]`, Standard = Forschungs-ID; sonst unverändert
 - **1.7:** `[research:<id>]`-Abschnitte als INI-Form neuer Forschungen; sonst unverändert
@@ -381,5 +386,5 @@ A: Für neue Forschungsblöcke ja. Änderungen an Vanilla-Forschungen und die Pl
 
 ---
 
-**Letzte Aktualisierung:** Research Expansion 1.9  
+**Letzte Aktualisierung:** Research Expansion 0.4.0  
 **Für:** WRSR 1.1.1.9 | TesmioLoader API 4

@@ -1,4 +1,4 @@
-# 🔬 Research Expansion 1.9
+# 🔬 Research Expansion 0.4.0
 
 **TesmioLoader plugin for new research and changes to the research tree**
 
@@ -48,6 +48,10 @@ Adds your own research entries to *Workers & Resources: Soviet Republic* 1.1.1.9
 - ✅ Own icons per research with a fallback icon
 - ✅ Every error rejects the whole extension and leaves Vanilla research active; the log names file, rule and line
 - ✅ Original files stay untouched; the generated file lives in the loader's VFS
+
+### 🆕 New in 0.4.0
+- ✅ New version scheme (0.4.0 follows 1.9); validation, generation, commands and INI keys unchanged.
+- ✅ Ready for Republic Mod Manager: tabs New research, Localization and Vanilla edits with "Choose research…", "Choose line…", the "Original in the game" box and the check for unknown research before saving.
 
 ### 🆕 New in 1.9
 - ✅ **Change the cost without a replace command:** in `[modify:<id>]` `cost = 1800` is enough; the plugin replaces the Vanilla block's `$COST` line itself. In Republic Mod Manager you pick the research via "Choose research…", see the original block and build every command line via "Choose line…" from the real lines.
@@ -234,7 +238,7 @@ move_before = $UNLOCK_RESEARCH uranium_study | $UNLOCK_RESEARCH bauxite_study
 | `add = LINE` | insert immediately before `$RESEARCH_ADD` |
 | `insert_before = ANCHOR \| LINE` / `insert_after = …` | insert before or after a unique anchor line |
 | `move_before = LINE \| ANCHOR` / `move_after = …` | move an existing line unchanged |
-| `cost = POINTS` | set the cost: replaces the block's `$COST` line (since 1.9) |
+| `cost = POINTS` | set the cost: replaces the block's `$COST` line |
 
 The commands run in file order, after the automatic unlocks of new blocks; later ones see the changes of earlier ones. `$RESEARCH` and `$RESEARCH_ADD` themselves must not be touched. A `+` line added by a command is literal, without an automatic reverse unlock. `enabled = 0` skips the section, its syntax must still be valid. Matching needs the complete line including case; `|` is reserved as the separator.
 
@@ -281,6 +285,7 @@ Research is part of the savegame: a new research a savegame already knows should
 Localization is mandatory. Other plugins that replace `research.ini` are not merged.
 
 ### Version compatibility
+- **0.4.0:** version scheme; logic and INI unchanged
 - **1.9:** `cost` in `[modify:]`; otherwise unchanged
 - **1.8:** short `name`/`desc` in `[research:]`, default = research id; otherwise unchanged
 - **1.7:** `[research:<id>]` sections as the INI form of new research; otherwise unchanged
@@ -381,5 +386,5 @@ A: For new research blocks, yes. Edits of Vanilla research and the plugin settin
 
 ---
 
-**Last update:** Research Expansion 1.9  
+**Last update:** Research Expansion 0.4.0  
 **For:** WRSR 1.1.1.9 | TesmioLoader API 4

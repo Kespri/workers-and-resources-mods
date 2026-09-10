@@ -7,6 +7,14 @@ plugin. Output: a generated `research.ini` plus one `<id>.png` per new research 
 (`<loader>\vfs\media_soviet\research`). User documentation: README_DE.md / README_EN.md.
 History newest first.
 
+## 0.4.0 (2026-09-10)
+
+Declared finished by the user; version string `0.4.0` follows 1.9 (user's numbering, back into beta).
+No runtime change: validation, generation, `[research:]` / `[modify:]` keys and defaults are those of 1.9.
+The package ships with the Republic Mod Manager tabs New research, Localization and Vanilla edits (research
+and line pickers, original block view, reference checks). In-game tests of 1.7 through 1.9 were confirmed by
+the user on 2026-09-10. Backup: `_backups\research_expansion_1.9_before_0.4.0_20260910_164734`.
+
 ## 1.9 (2026-09-10)
 
 - `[modify:<id>]` accepts `cost = <points>` (once, positive integer): `ParseEditOperation` stores it on the
