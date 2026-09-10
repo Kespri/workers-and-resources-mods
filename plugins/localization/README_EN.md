@@ -1,4 +1,4 @@
-# 🌐 Localization 1.3
+# 🌐 Localization 0.4.0
 
 **TesmioLoader plugin for custom texts and translations**
 
@@ -47,6 +47,10 @@ Adds custom names, descriptions and labels to *Workers & Resources: Soviet Repub
 - ✅ Service `localization` for other plugins: key to text ID
 - ✅ Strict validation of encoding, sections, keys, escape sequences and BTF format; a faulty pack is rejected alone
 - ✅ Generated files are removed before every start and when the plugin is switched off; the originals under `media_soviet` are never changed
+
+### 🆕 New in 0.4.0
+- Successor of 1.3 without a runtime change; the version numbering restarts with the rework at 0.4.0.
+- Republic Mod Manager: tabs General (notices, guide, log settings) and Plugin ("Apply extension" with the switch-off order, text packs as a list with a short text and origin).
 
 ### 🆕 New in 1.3
 - ✅ **Local text packs are merged instead of replacing:** a pack folder under `plugins\localization` is laid over the folder of the same name beside the DLL key by key. Your own texts and languages stay, new keys and languages from a Workshop update still arrive; for the same key your local text wins. The local `localization.ini` decides namespace, fallback and missingText.
@@ -258,6 +262,7 @@ Language files are not part of the savegame. Texts of a research or resource a s
 - Other plugins that replace `soviet*.btf` in the VFS are not merged.
 
 ### Version compatibility
+- **0.4.0:** successor of 1.3, no runtime change; Research Expansion now requires `tesmio.localization >= 0.4.0`
 - **1.3:** local pack folders are laid over the package key by key; otherwise unchanged
 - **1.2:** INI and pack folder fallback beside the DLL, two pack folders merged, schema in the package; validation, generation and service unchanged
 - **1.1:** cleanup of old overlays before every initialisation, stable IDs
@@ -359,5 +364,5 @@ A: No. Republic Mod Manager offers the two switches; text packs are folders with
 
 ---
 
-**Last update:** Localization 1.3  
+**Last update:** Localization 0.4.0  
 **For:** WRSR 1.1.1.9 | TesmioLoader API 4

@@ -1,4 +1,4 @@
-# 🌐 Localization 1.3
+# 🌐 Localization 0.4.0
 
 **TesmioLoader-Plugin für eigene Texte und Übersetzungen**
 
@@ -47,6 +47,10 @@ Fügt *Workers & Resources: Soviet Republic* 1.1.1.9 eigene Namen, Beschreibunge
 - ✅ Dienst `localization` für andere Plugins: Schlüssel zu Text-ID
 - ✅ Strenge Prüfung von Kodierung, Abschnitten, Schlüsseln, Escape-Sequenzen und BTF-Format; ein fehlerhaftes Paket wird allein abgewiesen
 - ✅ Erzeugte Dateien werden vor jedem Start und beim Ausschalten wieder entfernt; die Originale unter `media_soviet` werden nie verändert
+
+### 🆕 Neu in 0.4.0
+- Nachfolger von 1.3 ohne Laufzeitänderung; die Versionszählung beginnt mit der Überarbeitung neu bei 0.4.0.
+- Republic Mod Manager: Reiter Allgemein (Hinweise, Anleitung, Log-Einstellungen) und Plugin („Erweiterung anwenden“ mit Abschaltreihenfolge, Textpakete als Liste mit Kurztext und Herkunft).
 
 ### 🆕 Neu in 1.3
 - ✅ **Lokale Textpakete werden zusammengeführt statt zu ersetzen:** Ein Paketordner unter `plugins\localization` legt sich Schlüssel für Schlüssel über den gleichnamigen Ordner neben der DLL. Deine eigenen Texte und Sprachen bleiben, neue Schlüssel und Sprachen aus einem Workshop-Update kommen trotzdem an; bei gleichem Schlüssel gilt dein lokaler Text. Die lokale `localization.ini` bestimmt Namensraum, Fallback und missingText.
@@ -258,6 +262,7 @@ Sprachdateien sind nicht Teil des Spielstands. Texte einer Forschung oder Ressou
 - Andere Plugins, die `soviet*.btf` im VFS ersetzen, werden nicht zusammengeführt.
 
 ### Versionskompatibilität
+- **0.4.0:** Nachfolger von 1.3, keine Laufzeitänderung; Research Expansion verlangt ab jetzt `tesmio.localization >= 0.4.0`
 - **1.3:** lokale Paketordner werden Schlüssel für Schlüssel über das Paket gelegt; sonst unverändert
 - **1.2:** INI- und Paketordner-Fallback neben der DLL, zwei Paketordner zusammengeführt, Schema im Paket; Prüfung, Erzeugung und Dienst unverändert
 - **1.1:** Bereinigung alter Overlays vor jeder Initialisierung, stabile IDs
@@ -359,5 +364,5 @@ A: Nein. Die beiden Schalter bietet Republic Mod Manager an; Textpakete sind Ord
 
 ---
 
-**Letzte Aktualisierung:** Localization 1.3  
+**Letzte Aktualisierung:** Localization 0.4.0  
 **Für:** WRSR 1.1.1.9 | TesmioLoader API 4

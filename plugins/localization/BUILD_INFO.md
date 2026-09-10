@@ -7,6 +7,16 @@ reserved range 2,000,000..2,999,999). Output: extended `soviet<Language>.btf` ov
 loader's VFS (`<loader>\vfs\media_soviet`), removed again on a start with `enabled = 0`.
 User documentation: README_DE.md / README_EN.md. History newest first.
 
+## 0.4.0 (2026-09-10)
+
+- Declared finished by the user; successor of 1.3, DLL logic unchanged. Version numbering restarts in beta
+  with the September rework (0.M.P, see the other plugins): 0.4.0 follows 1.3.
+- Package: Republic Mod Manager schema with the tabs General (notices, guides, log settings) and Plugin
+  ("Apply extension" with the switch-off order, text packs as a folder list with a short text per pack,
+  needs Republic Mod Manager 0.4.56). Dependent package research_expansion now requires
+  `tesmio.localization >= 0.4.0`.
+- Backup: `_backups\localization_1.3_before_0.4.0_*`.
+
 ## 1.3 (2026-09-10)
 
 - Pack folders of the same name are merged instead of shadowed. `LoadPacks` loads the packs

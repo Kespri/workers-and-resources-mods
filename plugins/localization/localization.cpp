@@ -30,7 +30,7 @@ typedef struct TsmLocalizationApi
 #include <string>
 #include <vector>
 
-#define PLUGIN_VERSION "1.3"
+#define PLUGIN_VERSION "0.4.0"
 static const char* const PLUGIN_INI = "plugins\\localization.ini";
 static const char* const PLUGIN_LOG_NAME = "tesmioloader.localization.log";
 static const char* const VFS_MEDIA_REL = "media_soviet";
