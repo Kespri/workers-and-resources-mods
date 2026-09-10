@@ -378,14 +378,14 @@ static bool GenerationRun(void* terrain) {
         for(const auto& m:live) {
             if(m.id==0) for(int c=0;c<3;++c) merge(c,GenerationChannel(m,c),m.w,m.h);
             if(m.id==1) for(int c=0;c<2;++c) merge(3+c,GenerationChannel(m,c),m.w,m.h);
-            if(m.id==64) { merge(5,GenerationChannel(m,2),m.w,m.h); for(int c=0;c<4;++c){DG::Bytes ch=GenerationChannel(m,c);for(unsigned char v:ch) maskNonZero[c]+=v!=0;} }
+            if(m.id==64) { if(g_generationBlockGravel) merge(5,GenerationChannel(m,2),m.w,m.h); for(int c=0;c<4;++c){DG::Bytes ch=GenerationChannel(m,c);for(unsigned char v:ch) maskNonZero[c]+=v!=0;} }
         }
         // Removed-resource tombstones also reserve their remaining footprint.
         for(const auto& r:candidate.records) { DG::Bytes mask=DG::Occupancy(r.pixels,r.width,r.height); for(size_t i=0;i<occupied.size();++i) if(mask[i]){occupied[i]=1;++srcCells[6];} }
         unsigned unionCells=0; for(unsigned char v:occupied) unionCells+=v!=0;
         const GenerationMap* maskMap=GenerationFindMap(live,64);
-        Logf("generation occupancy: resourcemap R=%u G=%u B=%u; resourcemap2 R=%u G=%u; mask B=%u (mask %ux%u non-zero R=%u G=%u B=%u A=%u); tombstones=%u; union=%u cells before the %.0fm gap",
-             srcCells[0],srcCells[1],srcCells[2],srcCells[3],srcCells[4],srcCells[5],maskMap?maskMap->w:0,maskMap?maskMap->h:0,
+        Logf("generation occupancy: resourcemap R=%u G=%u B=%u; resourcemap2 R=%u G=%u; mask B=%u (%s; mask %ux%u non-zero R=%u G=%u B=%u A=%u); tombstones=%u; union=%u cells before the %.0fm gap",
+             srcCells[0],srcCells[1],srcCells[2],srcCells[3],srcCells[4],srcCells[5],g_generationBlockGravel?"gravel blocks new fields":"gravel ignored, generation_block_gravel=0",maskMap?maskMap->w:0,maskMap?maskMap->h:0,
              maskNonZero[0],maskNonZero[1],maskNonZero[2],maskNonZero[3],srcCells[6],unionCells,g_generationGap);
         occupied=DG::Dilate(occupied,(unsigned)ceilf(g_generationGap*DG::Side/size[0]),
                                    (unsigned)ceilf(g_generationGap*DG::Side/size[1]));
@@ -570,6 +570,6 @@ static bool InstallGeneration() {
     }
     if(!PatchIat(g_exe,DLL_ENGINE,init,(void*)h_GenerationTerrainInit,(void**)&o_GenerationTerrainInit,"generation terrain init")) return false;
     if(!PatchIat(g_exe,DLL_ENGINE,render,(void*)h_GenerationRender,(void**)&o_GenerationRender,"generation render")) return false;
-    Logf("generation enabled=%d; first-time resources only, water/country excluded, country-guard=%d gap=%.1fm, first legacy empty initialization=%d",g_generationEnabled,genBorderLayoutReady,g_generationGap,g_generateLegacyEmpty);
+    Logf("generation enabled=%d; first-time resources only, water/country excluded, country-guard=%d gap=%.1fm block_gravel=%d, first legacy empty initialization=%d",g_generationEnabled,genBorderLayoutReady,g_generationGap,g_generationBlockGravel,g_generateLegacyEmpty);
     return true;
 }

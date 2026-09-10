@@ -9,6 +9,19 @@ hash helper (see below). Service name `deposits` and the savegame file `tesmio_d
 deliberately stay identical to the original so consumers such as Depletion keep working.
 User documentation: README_DE.md / README_EN.md. History newest first.
 
+## 0.4.4 (2026-09-10)
+
+- Root cause of the Siberia/Asia failure, confirmed by the 0.4.3 line on terrain_siberia2: the live terrain
+  mask's B channel (the gravel/rock texture layer) reserved 305236 cells, the resource maps 168000; the
+  union of 417754 grew to 724009 with the 40 m gap because the layer is speckled over the mountains.
+  Copper took the last three fitting spots, sand/clay/gas got nothing.
+- New `[deposits_plus] generation_block_gravel` (0/1, default 0): only when set does the mask layer count
+  as an occupied deposit. Vanilla places iron and coal in the mountains itself, so overlapping the gravel
+  zone is harmless; the resource maps (coal, iron, oil, bauxite, uranium) stay respected either way.
+  Logged in the `generation enabled=` line (`block_gravel=`) and in the occupancy line.
+- Package schema: switch "Gravel zone blocks" on the Natural generation card; READMEs updated.
+- Version 0.4.4. Backup: `_backups\deposits_plus_0.4.3_before_0.4.4_*`.
+
 ## 0.4.3 (2026-09-10)
 
 - Diagnostic only: `generation occupancy:` log line before the gap dilation with the reserved cells per

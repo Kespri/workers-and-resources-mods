@@ -1,4 +1,4 @@
-# 🏭 Deposits Plus 0.4.3
+# 🏭 Deposits Plus 0.4.4
 
 **Extension of the TesmioLoader plugin deposits**
 
@@ -188,6 +188,8 @@ generation_gap_m = 40
 generation_shore_m = 40
 ; height the terrain inside a cell must lie above the water level (metres)
 generation_water_clearance_m = 2
+; 1 = the terrain's gravel/rock zone counts as occupied too (mountain maps such as Siberia then leave almost no room)
+generation_block_gravel = 0
 
 ; Sandy meadow (optional)
 ; 1 = on, 0 = off
@@ -258,6 +260,7 @@ The DLL checks these limits. A value outside them switches generation off for th
 | `generation_seed` | 0 to 4294967295, integer | 0 |
 | `generation_gap_m`, `generation_shore_m` | 0 to 500 m | 40 / 40 |
 | `generation_water_clearance_m` | 0 to 50 m | 2 |
+| `generation_block_gravel` | 0 or 1 | 0 |
 | `generation_frequency` | 1 to 6 | 3 |
 | `generation_size` | 1 to 3 | 2 |
 | `generation_richness_min`, `_max` | 0.001 to 1 | 0.45 / 1.00 |
@@ -313,7 +316,7 @@ The DLL checks these limits. A value outside them switches generation off for th
 ❌ **Not allowed:**
 - Placement in water
 - Less distance to the shore than `generation_shore_m`
-- Overlap with other deposits, including the game's oil, iron, coal, uranium, bauxite and gravel
+- Overlap with other deposits, including the game's oil, iron, coal, uranium and bauxite; the gravel/rock zone only with `generation_block_gravel = 1`
 - Leaving the country border (without a border polygon the rectangular building limits apply)
 
 A field counts only if at least 60 % of its area remains after clipping. If there is not enough room, fewer or no fields are created; the log states target, result and the reasons for rejection.

@@ -37,6 +37,9 @@ static bool g_generationEnabled = true;
 static bool g_generationConfigInvalid = false;
 static bool g_generateLegacyEmpty = true;
 static float g_generationGap = 40, g_generationShore = 40, g_generationClearance = 2;
+// 0.4.4: the terrain mask's gravel/rock layer counts as an occupied deposit only on request. Mountain
+// maps (Siberia, Asia) paint it over most of the land, which left no room for anything else.
+static bool g_generationBlockGravel = false;
 static uint64_t g_generationSeed = 0;
 static bool g_generationSaveReady = false;
 static void GenerationWorldLoading(const char* folder);
@@ -206,6 +209,7 @@ static bool GenerationSetting(DepositDef* d,const char* key,const char* value)
         else if(KeyIs(key,"generation_gap_m")) { valid=GenerationNumber(value,0,500,&n); if(valid) g_generationGap=(float)n; }
         else if(KeyIs(key,"generation_shore_m")) { valid=GenerationNumber(value,0,500,&n); if(valid) g_generationShore=(float)n; }
         else if(KeyIs(key,"generation_water_clearance_m")) { valid=GenerationNumber(value,0,50,&n); if(valid) g_generationClearance=(float)n; }
+        else if(KeyIs(key,"generation_block_gravel")) { valid=GenerationNumber(value,0,1,&n) && n==floor(n); if(valid) g_generationBlockGravel=n!=0; }
         else if(KeyIs(key,"generation_seed")) { valid=GenerationNumber(value,0,4294967295.,&n) && n==floor(n); if(valid) g_generationSeed=(uint64_t)n; }
         else known=false;
     } else {
@@ -3344,7 +3348,7 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
 {
     TsmBind(host);
     info->name    = "deposits_plus";
-    info->version = "0.4.3";
+    info->version = "0.4.4";
 
     // deposits_plus is a fork of the upstream deposits plugin: same code sites,
     // same service name, same save file. Both loaded at once would double the

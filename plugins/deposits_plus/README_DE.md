@@ -1,4 +1,4 @@
-# 🏭 Deposits Plus 0.4.3
+# 🏭 Deposits Plus 0.4.4
 
 **Erweiterung des TesmioLoader-Plugins deposits**
 
@@ -188,6 +188,8 @@ generation_gap_m = 40
 generation_shore_m = 40
 ; Höhe, die das Gelände in einer Zelle über dem Wasserspiegel liegen muss (Meter)
 generation_water_clearance_m = 2
+; 1 = auch die Kies-/Felszone des Geländes gilt als belegt (auf Gebirgskarten wie Siberia bleibt dann kaum Platz)
+generation_block_gravel = 0
 
 ; Sandige Wiese (optional)
 ; 1 = an, 0 = aus
@@ -258,6 +260,7 @@ Die DLL prüft diese Grenzen. Ein Wert außerhalb schaltet die Verteilung für d
 | `generation_seed` | 0 bis 4294967295, ganzzahlig | 0 |
 | `generation_gap_m`, `generation_shore_m` | 0 bis 500 m | 40 / 40 |
 | `generation_water_clearance_m` | 0 bis 50 m | 2 |
+| `generation_block_gravel` | 0 oder 1 | 0 |
 | `generation_frequency` | 1 bis 6 | 3 |
 | `generation_size` | 1 bis 3 | 2 |
 | `generation_richness_min`, `_max` | 0.001 bis 1 | 0.45 / 1.00 |
@@ -313,7 +316,7 @@ Die DLL prüft diese Grenzen. Ein Wert außerhalb schaltet die Verteilung für d
 ❌ **Nicht erlaubt:**
 - Platzierung im Wasser
 - Weniger Abstand zum Ufer als `generation_shore_m`
-- Überschneidung mit anderen Vorkommen, auch mit Öl, Eisen, Kohle, Uran, Bauxit und Kies des Spiels
+- Überschneidung mit anderen Vorkommen, auch mit Öl, Eisen, Kohle, Uran und Bauxit des Spiels; die Kies-/Felszone nur mit `generation_block_gravel = 1`
 - Verlassen der Landesgrenze (ohne Grenzpolygon gelten die rechteckigen Baugrenzen)
 
 Ein Feld zählt nur, wenn nach dem Beschneiden mindestens 60 % seiner Fläche übrig bleiben. Reicht die Fläche nicht, entstehen weniger oder keine Felder; das Log nennt Ziel, Ergebnis und Ablehnungsgründe.
