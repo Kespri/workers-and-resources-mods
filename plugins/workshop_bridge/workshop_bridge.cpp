@@ -1,4 +1,4 @@
-// workshop_bridge v0.1.0-beta - loads Workshop hook DLLs without Soviet Mod Loader.
+// workshop_bridge 0.2.0 - loads Workshop hook DLLs without Soviet Mod Loader.
 //
 // TesmioLoader alone loads DLLs out of tesmioloader\plugins\ and nowhere else.
 // A plugin published as a Workshop package (soviet.mod.ini with [hooks] dll)
@@ -21,7 +21,7 @@
 // Which packages are loaded comes from workshop_bridge.ini, read through the
 // same base/overlay rule as every plugin in my_plugins (tesmio_config.h): the
 // base beside the DLL, personal values in user_config\workshop_bridge.ini.
-// Tesmio Settings writes the [packages] list into the overlay; without it the
+// Republic Mod Manager writes the [packages] list into the overlay; without it the
 // [bridge] policy decides.
 //
 // Two phases, as the API demands: every hook's Init runs inside the bridge's
@@ -36,7 +36,7 @@
 #include "../tesmio_config.h"
 
 #define PLUGIN_NAME    "workshop_bridge"
-#define PLUGIN_VERSION "0.1.0-beta"
+#define PLUGIN_VERSION "0.2.0"
 #define WRSR_APP_ID    "784150"
 
 #define MAX_CHILDREN          32

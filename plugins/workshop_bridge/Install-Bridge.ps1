@@ -12,8 +12,8 @@ function Hash([string]$path) {
     return (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
 }
 function Stopped {
-    $running = Get-Process -Name tesmio_autoload,tesmiolauncher,SOVIET64 -ErrorAction SilentlyContinue
-    if ($running) { throw ('Close game, TesmioLauncher and Tesmio Settings first: ' + ($running.ProcessName -join ', ')) }
+    $running = Get-Process -Name rmm,tesmio_autoload,tesmiolauncher,SOVIET64 -ErrorAction SilentlyContinue
+    if ($running) { throw ('Close the game, TesmioLauncher and Republic Mod Manager first: ' + ($running.ProcessName -join ', ')) }
 }
 $files = @('workshop_bridge.dll', 'workshop_bridge.ini')
 $sources = @{}; foreach ($f in $files) { $sources[$f] = Join-Path $tree ('build\plugins\' + $f) }
@@ -32,7 +32,8 @@ foreach ($f in $files) {
     $staged = $targets[$f] + '.' + [Guid]::NewGuid().ToString('N') + '.new'
     Copy-Item -LiteralPath $sources[$f] -Destination $staged
     if ((Hash $staged) -ne $expected[$f]) { throw "Staging mismatch: $f" }
-    if ((Hash $targets[$f]) -eq 'absent') { [IO.File]::Move($staged, $targets[$f]) } else { [IO.File]::Replace($staged, $targets[$f], $null) }
+    # [NullString]::Value, not $null: PowerShell turns $null into "" and File.Replace rejects an empty backup path.
+    if ((Hash $targets[$f]) -eq 'absent') { [IO.File]::Move($staged, $targets[$f]) } else { [IO.File]::Replace($staged, $targets[$f], [NullString]::Value) }
     if ((Hash $targets[$f]) -ne $expected[$f]) { throw "Installed hash mismatch: $f" }
 }
 Write-Output "PASS installed workshop_bridge ($($files.Count) files) into $build\plugins"
