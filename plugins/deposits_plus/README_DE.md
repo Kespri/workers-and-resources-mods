@@ -1,4 +1,4 @@
-# 🏭 Deposits Plus 0.4.2
+# 🏭 Deposits Plus 0.4.3
 
 **Erweiterung des TesmioLoader-Plugins deposits**
 

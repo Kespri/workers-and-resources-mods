@@ -9,6 +9,16 @@ hash helper (see below). Service name `deposits` and the savegame file `tesmio_d
 deliberately stay identical to the original so consumers such as Depletion keep working.
 User documentation: README_DE.md / README_EN.md. History newest first.
 
+## 0.4.3 (2026-09-10)
+
+- Diagnostic only: `generation occupancy:` log line before the gap dilation with the reserved cells per
+  source (resourcemap R/G/B, resourcemap2 R/G, mask B, tombstones), the live mask texture's size and
+  non-zero count per channel, and the union. Reason: on the Siberia and Asia DLC maps the placement
+  reserved 724009 / 624610 cells although the resource maps on disk cover about 157000 / 115000 cells
+  (offline replay incl. a 3-cell gap: 198504 / 147392); sand, clay and gas then found no room while
+  copper still fit. The runtime mask texture is the suspect; the line will tell.
+- Version 0.4.3. Backup: `_backups\deposits_plus_0.4.2_before_0.4.3_*`.
+
 ## 0.4.2 (2026-09-10)
 
 - Tile files may live in set folders under `deposits_plus\assets`: `color` / `normal` are paths relative to

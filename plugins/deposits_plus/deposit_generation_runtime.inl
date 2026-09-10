@@ -371,13 +371,22 @@ static bool GenerationRun(void* terrain) {
         DG::Bytes blocked;
         if(!GenerationLand(terrain,size[0],size[1],offset,blocked)) return false;
         DG::Bytes occupied(DG::Cells,0);
+        // 0.4.3: every source is counted on its own so the log tells which map blocks the land
+        // (Siberia/Asia showed 89% of the land reserved although the resource maps cover 15%).
+        unsigned srcCells[8]={0}; unsigned maskNonZero[4]={0};
+        auto merge=[&](int slot,const DG::Bytes& pixels,unsigned w,unsigned h){DG::Bytes mask=DG::Occupancy(pixels,w,h);unsigned n=0;for(size_t i=0;i<occupied.size();++i) if(mask[i]){occupied[i]=1;++n;} srcCells[slot]=n;};
         for(const auto& m:live) {
-            if(m.id==0) for(int c=0;c<3;++c) GenerationMergeBlocked(occupied,GenerationChannel(m,c),m.w,m.h);
-            if(m.id==1) for(int c=0;c<2;++c) GenerationMergeBlocked(occupied,GenerationChannel(m,c),m.w,m.h);
-            if(m.id==64) GenerationMergeBlocked(occupied,GenerationChannel(m,2),m.w,m.h);
+            if(m.id==0) for(int c=0;c<3;++c) merge(c,GenerationChannel(m,c),m.w,m.h);
+            if(m.id==1) for(int c=0;c<2;++c) merge(3+c,GenerationChannel(m,c),m.w,m.h);
+            if(m.id==64) { merge(5,GenerationChannel(m,2),m.w,m.h); for(int c=0;c<4;++c){DG::Bytes ch=GenerationChannel(m,c);for(unsigned char v:ch) maskNonZero[c]+=v!=0;} }
         }
         // Removed-resource tombstones also reserve their remaining footprint.
-        for(const auto& r:candidate.records) GenerationMergeBlocked(occupied,r.pixels,r.width,r.height);
+        for(const auto& r:candidate.records) { DG::Bytes mask=DG::Occupancy(r.pixels,r.width,r.height); for(size_t i=0;i<occupied.size();++i) if(mask[i]){occupied[i]=1;++srcCells[6];} }
+        unsigned unionCells=0; for(unsigned char v:occupied) unionCells+=v!=0;
+        const GenerationMap* maskMap=GenerationFindMap(live,64);
+        Logf("generation occupancy: resourcemap R=%u G=%u B=%u; resourcemap2 R=%u G=%u; mask B=%u (mask %ux%u non-zero R=%u G=%u B=%u A=%u); tombstones=%u; union=%u cells before the %.0fm gap",
+             srcCells[0],srcCells[1],srcCells[2],srcCells[3],srcCells[4],srcCells[5],maskMap?maskMap->w:0,maskMap?maskMap->h:0,
+             maskNonZero[0],maskNonZero[1],maskNonZero[2],maskNonZero[3],srcCells[6],unionCells,g_generationGap);
         occupied=DG::Dilate(occupied,(unsigned)ceilf(g_generationGap*DG::Side/size[0]),
                                    (unsigned)ceilf(g_generationGap*DG::Side/size[1]));
         unsigned reserved=0,eligible=0;
