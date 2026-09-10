@@ -9,6 +9,14 @@ hash helper (see below). Service name `deposits` and the savegame file `tesmio_d
 deliberately stay identical to the original so consumers such as Depletion keep working.
 User documentation: README_DE.md / README_EN.md. History newest first.
 
+## 0.4.5 (2026-09-10)
+
+- Minimap: hovering a mod deposit button previews its overlay layer like the vanilla five do; the
+  hovered layer wins over the selected one while the mouse rests on the button (`h_MM_DrawOverlay`
+  picks state 1 before state 2; the row hook already tracked state 1). A vanilla layer that is on
+  while a mod button is hovered stays underneath because the vanilla overlay has already been drawn.
+- Version 0.4.5. Backup: `_backups\deposits_plus_0.4.4_before_0.4.5_*`.
+
 ## 0.4.4 (2026-09-10)
 
 - Root cause of the Siberia/Asia failure, confirmed by the 0.4.3 line on terrain_siberia2: the live terrain

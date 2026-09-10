@@ -1,4 +1,4 @@
-# 🏭 Deposits Plus 0.4.4
+# 🏭 Deposits Plus 0.4.5
 
 **Extension of the TesmioLoader plugin deposits**
 
@@ -168,7 +168,7 @@ The original INI lives:
 ; Code and UI patches
 ; 1 splices the new deposit types into the game executable (required for everything else)
 code_patch = 1
-; 1 adds a minimap button and overlay layer per deposit
+; 1 adds a minimap button and overlay layer per deposit (hover previews, click keeps)
 minimap = 1
 ; 1 adds a paint/erase pair per deposit to the terrain editor
 editor = 1
@@ -224,7 +224,7 @@ building_type = 7
 radius = gravel
 ; resource whose icon the minimap button shows (empty = no icon)
 icon = sand
-; 1 = minimap button and layer, 0 = none
+; 1 = minimap button and layer (hover previews it, click keeps it), 0 = none
 minimap = 1
 ; name of the editor brush, at most 7 characters, at most 4 with map = terrain (empty = no brush)
 editor = sand

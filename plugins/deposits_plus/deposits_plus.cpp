@@ -2388,11 +2388,17 @@ static void h_MM_DrawOverlay(void* param_1)
     o_MM_DrawOverlay(param_1);
     if (!g_minimapPatch) return;
 
-    // At most one can be selected - every path that sets a layer to 2 clears
-    // every other - so this draws one pass, not a stack of them.
-    for (int i = 0; i < g_depCount; i++)
+    // 0.4.5: a hovered button previews its layer the way the vanilla five do, and
+    // wins over the selected one for as long as the mouse rests on it; otherwise
+    // the selected layer draws. At most one is selected - every path that sets a
+    // layer to 2 clears every other - so this is one pass, not a stack of them.
+    // A vanilla layer that is on while a mod button is hovered stays underneath;
+    // the vanilla function has already drawn it.
+    int pick = -1;
+    for (int i = 0; i < g_depCount && pick < 0; i++) if (g_dep[i].minimapState == 1) pick = i;
+    for (int i = 0; i < g_depCount && pick < 0; i++) if (g_dep[i].minimapState == 2) pick = i;
+    for (int i = pick; i >= 0 && i < g_depCount; i++)
     {
-        if (g_dep[i].minimapState != 2) continue;
         __try { DrawDepositOverlay((BYTE*)param_1, &g_dep[i]); }
         __except (FaultFilter("minimap deposit overlay", GetExceptionInformation()))
         {
@@ -3348,7 +3354,7 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
 {
     TsmBind(host);
     info->name    = "deposits_plus";
-    info->version = "0.4.4";
+    info->version = "0.4.5";
 
     // deposits_plus is a fork of the upstream deposits plugin: same code sites,
     // same service name, same save file. Both loaded at once would double the

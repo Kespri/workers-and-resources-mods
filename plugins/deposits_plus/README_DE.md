@@ -1,4 +1,4 @@
-# 🏭 Deposits Plus 0.4.4
+# 🏭 Deposits Plus 0.4.5
 
 **Erweiterung des TesmioLoader-Plugins deposits**
 
@@ -168,7 +168,7 @@ Die Original-INI liegt:
 ; Code- und UI-Patches
 ; 1 trägt die neuen Vorkommenstypen in die Spieldatei ein (Pflicht für alles Weitere)
 code_patch = 1
-; 1 fügt je Vorkommen einen Minimap-Knopf und eine Overlay-Ebene hinzu
+; 1 fügt je Vorkommen einen Minimap-Knopf und eine Overlay-Ebene hinzu (Vorschau beim Überfahren, fest per Klick)
 minimap = 1
 ; 1 fügt je Vorkommen ein Mal-/Lösch-Paar im Terrain-Editor hinzu
 editor = 1
@@ -224,7 +224,7 @@ building_type = 7
 radius = gravel
 ; Ressource, deren Symbol der Minimap-Knopf zeigt (leer = kein Symbol)
 icon = sand
-; 1 = Minimap-Knopf und Ebene, 0 = keine
+; 1 = Minimap-Knopf und Ebene (Überfahren zeigt sie kurz, Klick hält sie), 0 = keine
 minimap = 1
 ; Name des Editor-Pinsels, höchstens 7 Zeichen, bei map = terrain höchstens 4 (leer = kein Pinsel)
 editor = sand
