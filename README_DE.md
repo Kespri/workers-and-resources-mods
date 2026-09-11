@@ -1,6 +1,6 @@
 # Workers & Resources: Soviet Republic – Plugins für den TesmioLoader
 
-Deutsch | [English](README_EN.md)
+[English](README.md) | **Deutsch**
 
 Quelltexte der TesmioLoader-Plugins von Kespri für *Workers & Resources: Soviet Republic* 1.1.1.9. Die Plugins werden als Workshop-Pakete verteilt; dieses Repository ist der Quelltext dazu, wie es die GNU GPL v3 verlangt. Fertige DLLs liegen hier nicht.
 
