@@ -3,33 +3,33 @@ Republic Mod Manager - Installation von Hand
 
 Voraussetzung: Der TesmioLoader von MaxLegend ist installiert, also gibt es
 im Spielordner bereits den Ordner tesmioloader\build mit tesmioloader.dll
-und tesmioloader.ini. Ohne ihn laeuft nichts.
+und tesmioloader.ini. Ohne ihn läuft nichts.
 
 1. Spiel, TesmioLauncher und Republic Mod Manager beenden.
 
 2. Den Ordner "tesmioloader" (liegt neben dieser Datei) auf den Spielordner
    ziehen:
       C:\Program Files (x86)\Steam\steamapps\common\SovietRepublic
-   Windows fragt "Ordner zusammenfuehren?" - Ja. Vorhandene Dateien duerfen
-   ueberschrieben werden; deine Einstellungen liegen in user_config und
-   werden nicht angefasst.
+      Windows fragt "Ordner zusammenfuehren?" - Ja. Vorhandene Dateien dürfen
+      überschrieben werden; deine Einstellungen liegen in user_config und
+      werden nicht angefasst.
 
    Danach liegen dort:
-      tesmioloader\build\rmm.exe                 der Manager
-      tesmioloader\build\rmm.ini                 seine Grundeinstellungen
-      tesmioloader\build\rmm.README_DE.md        Anleitung
-      tesmioloader\build\rmm.SCHEMA_DE.md        Beschreibung der Schemas
-      tesmioloader\build\settings_schemas\       Einstellungsseiten der Plugins
+      tesmioloader\build\rmm.exe                       der Manager
+      tesmioloader\build\rmm.ini                       seine Grundeinstellungen
+      tesmioloader\build\rmm.README_DE.md / _EN.md     Anleitung (Deutsch / Englisch)
+      tesmioloader\build\rmm.SCHEMA_DE.md / _EN.md     Referenz für Plugin-Autoren
+      tesmioloader\build\settings_schemas\             Einstellungsseiten der Plugins
       tesmioloader\build\plugins\workshop_bridge.dll   laedt Workshop-Pakete
       tesmioloader\build\plugins\workshop_bridge.ini   ihre Grundeinstellungen
 
-3. Die Datei tesmioloader\build\tesmioloader.ini mit dem Editor oeffnen und
-   im Abschnitt [plugins] diese Zeile ergaenzen (oder auf 1 stellen):
+3. Die Datei tesmioloader\build\tesmioloader.ini mit dem Editor öffnen und
+   im Abschnitt [plugins] diese Zeile ergänzen (oder auf 1 stellen):
       workshop_bridge=1
    Die Datei ohne Formatierung speichern (UTF-8, kein BOM).
 
 4. rmm.exe starten. Fertig.
 
-Entfernen: die oben genannten Dateien loeschen und in tesmioloader.ini
+Entfernen: die oben genannten Dateien löschen und in tesmioloader.ini
 workshop_bridge=0 setzen. Der Ordner user_config mit deinen Einstellungen
 kann bleiben.

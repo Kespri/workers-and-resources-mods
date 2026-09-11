@@ -115,8 +115,8 @@ Die Datei `Manual Installation\WOHIN.txt` wiederholt diese Schritte.
 │   └── tesmioloader\build\         (Zielstruktur, zum Drüberziehen)
 │       ├── rmm.exe
 │       ├── rmm.ini
-│       ├── rmm.README_DE.md
-│       ├── rmm.SCHEMA_DE.md
+│       ├── rmm.README_DE.md, rmm.README_EN.md   (Anleitung)
+│       ├── rmm.SCHEMA_DE.md, rmm.SCHEMA_EN.md   (Referenz für Plugin-Autoren)
 │       ├── settings_schemas\
 │       └── plugins\
 │           ├── workshop_bridge.dll
@@ -133,7 +133,7 @@ Die Datei `Manual Installation\WOHIN.txt` wiederholt diese Schritte.
 SovietRepublic\tesmioloader\
 ├── build\
 │   ├── tesmioloader.dll, tesmiolauncher.exe, tesmioloader.ini   (TesmioLoader, nicht aus diesem Paket)
-│   ├── rmm.exe, rmm.ini, rmm.README_DE.md, rmm.SCHEMA_DE.md
+│   ├── rmm.exe, rmm.ini, rmm.README_DE/EN.md, rmm.SCHEMA_DE/EN.md
 │   ├── settings_schemas\
 │   ├── plugins\
 │   │   ├── workshop_bridge.dll
@@ -157,7 +157,7 @@ SovietRepublic\tesmioloader\
 
 Windows SmartScreen kann `rmm.exe` beim ersten Start als unbekanntes Programm melden, weil es nicht signiert ist. „Weitere Informationen“ und „Trotzdem ausführen“ genügt einmal.
 
-Der Manager selbst hat ein Protokollfenster (Symbol in der Seitenleiste) mit `tesmioloader.log` und den Plugin-Protokollen aus `build\logs\`. Die Anleitung des Managers liegt als `rmm.README_DE.md` neben `rmm.exe`.
+Der Manager selbst hat ein Protokollfenster (Symbol in der Seitenleiste) mit `tesmioloader.log` und den Plugin-Protokollen aus `build\logs\`. Die Anleitung des Managers liegt als `rmm.README_DE.md` (englisch `rmm.README_EN.md`) neben `rmm.exe`.
 
 ---
 

@@ -115,8 +115,8 @@ The file `Manual Installation\WHERE.txt` repeats these steps.
 │   └── tesmioloader\build\         (target structure, to drag over)
 │       ├── rmm.exe
 │       ├── rmm.ini
-│       ├── rmm.README_DE.md
-│       ├── rmm.SCHEMA_DE.md
+│       ├── rmm.README_EN.md, rmm.README_DE.md   (guide)
+│       ├── rmm.SCHEMA_EN.md, rmm.SCHEMA_DE.md   (reference for plugin authors)
 │       ├── settings_schemas\
 │       └── plugins\
 │           ├── workshop_bridge.dll
@@ -133,7 +133,7 @@ The file `Manual Installation\WHERE.txt` repeats these steps.
 SovietRepublic\tesmioloader\
 ├── build\
 │   ├── tesmioloader.dll, tesmiolauncher.exe, tesmioloader.ini   (TesmioLoader, not from this package)
-│   ├── rmm.exe, rmm.ini, rmm.README_DE.md, rmm.SCHEMA_DE.md
+│   ├── rmm.exe, rmm.ini, rmm.README_EN/DE.md, rmm.SCHEMA_EN/DE.md
 │   ├── settings_schemas\
 │   ├── plugins\
 │   │   ├── workshop_bridge.dll
@@ -157,7 +157,7 @@ SovietRepublic\tesmioloader\
 
 Windows SmartScreen may report `rmm.exe` as an unknown program on the first start because it is not signed. "More info" and "Run anyway" once is enough.
 
-The manager has its own log window (icon in the sidebar) with `tesmioloader.log` and the plugin logs from `build\logs\`. The manager's guide lies as `rmm.README_DE.md` (German) beside `rmm.exe`.
+The manager has its own log window (icon in the sidebar) with `tesmioloader.log` and the plugin logs from `build\logs\`. The manager's guide lies as `rmm.README_EN.md` (German: `rmm.README_DE.md`) beside `rmm.exe`.
 
 ---
 

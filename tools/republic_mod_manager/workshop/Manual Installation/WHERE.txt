@@ -13,11 +13,11 @@ Nothing works without it.
    your settings live in user_config and are not touched.
 
    Afterwards you have:
-      tesmioloader\build\rmm.exe                 the manager
-      tesmioloader\build\rmm.ini                 its base settings
-      tesmioloader\build\rmm.README_DE.md        guide (German)
-      tesmioloader\build\rmm.SCHEMA_DE.md        schema reference (German)
-      tesmioloader\build\settings_schemas\       settings pages of the plugins
+      tesmioloader\build\rmm.exe                       the manager
+      tesmioloader\build\rmm.ini                       its base settings
+      tesmioloader\build\rmm.README_EN.md / _DE.md     guide (English / German)
+      tesmioloader\build\rmm.SCHEMA_EN.md / _DE.md     reference for plugin authors
+      tesmioloader\build\settings_schemas\             settings pages of the plugins
       tesmioloader\build\plugins\workshop_bridge.dll   loads Workshop packages
       tesmioloader\build\plugins\workshop_bridge.ini   its base settings
 

@@ -1,29 +1,45 @@
-# Autoload-Format 1 – Paketformat für Republic Mod Manager (RMM)
+# Republic Mod Manager – Paket- und Schema-Referenz
 
-Ein kompatibles Workshop-Paket enthält eine `soviet.mod.ini` und eine x64-DLL.
-Eine Standard-INI neben der DLL und ein deklaratives Launcher-Schema sind
-optional. Weder Manifest noch Schema enthalten ausführbare Befehle.
+[English](SCHEMA_EN.md) | **Deutsch**
 
-## Manifest
+Das ist die Referenz für Plugin-Autoren: was ein Workshop-Paket braucht, damit Republic Mod Manager (RMM) es anzeigt, und wie eine Einstellungsseite beschrieben wird. Weder das Manifest noch ein Schema enthält ausführbare Befehle; alles ist einfacher INI-Text.
 
-Das kleinste gültige Manifest ist das von Soviet Mod Loader:
+---
+
+## Inhalt
+
+1. [Das Manifest (`soviet.mod.ini`)](#1-das-manifest-sovietmodini)
+2. [Einstellungsseite ohne Schema](#2-einstellungsseite-ohne-schema)
+3. [Presentation-Schema (`<name>.launcher.ini`)](#3-presentation-schema)
+4. [Sammlungen](#4-sammlungen)
+5. [Lokale Schemas für installierte Plugins](#5-lokale-schemas-für-installierte-plugins)
+6. [Editor-Schemas: Listen und Abschnitte](#6-editor-schemas)
+7. [Verweisprüfung](#7-verweisprüfung)
+8. [Sprachen](#8-sprachen)
+9. [Symbole und Pfadsicherheit](#9-symbole-und-pfadsicherheit)
+10. [Wie RMM ein Paket bereitstellt](#10-wie-rmm-ein-paket-bereitstellt)
+
+---
+
+## 1. Das Manifest (`soviet.mod.ini`)
+
+Das kleinste gültige Manifest ist das des Soviet Mod Loaders:
 
 ```ini
 [mod]
 id = example.my_plugin
 name = My Plugin
-version = 1.0.0-beta
+version = 1.0.0
 
 [hooks]
 dll = hooks\my_plugin.dll
 ```
 
-Daraus leitet Republic Mod Manager ab: Ziel `my_plugin`, Standard-INI
-`hooks\my_plugin.ini` (falls vorhanden), persönliche Konfiguration
-`my_plugin.ini`, Launcher-Schema `config\my_plugin.launcher.ini` (falls
-vorhanden, sonst aus der INI erzeugt).
+Daraus leitet RMM ab: das Ziel `my_plugin` (der DLL-Dateiname), die Standard-INI `hooks\my_plugin.ini` neben der DLL (falls vorhanden), die persönliche Konfiguration `user_config\my_plugin.ini` und das Schema `config\my_plugin.launcher.ini` (falls vorhanden, sonst aus der INI erzeugt).
 
-Alle weiteren Angaben sind Übersteuerungen:
+Genau eine `dll`-Zeile ist erlaubt. Wiederholte `dll`-Zeilen, Pfadausbrüche, doppelte IDs und ein `target`, das nicht zum DLL-Namen passt, werden mit genauer Ursache abgewiesen.
+
+Optionale Übersteuerungen:
 
 ```ini
 [mod]
@@ -32,112 +48,110 @@ tesmio_api_min = 4
 tesmio_api_max = 4
 
 [configuration]
-defaults = hooks\my_plugin.ini
+defaults = hooks\my_plugin.ini          ; Standard-INI
 launcher_schema = config\my_plugin.launcher.ini
-user_config = my_plugin.ini
-user_overlay = 0
+user_config = my_plugin.ini             ; nur Dateiname, liegt neben der DLL
+user_overlay = 0                        ; 1: die DLL liest user_config\<target>.ini selbst
+local_copy = 0                          ; 1: bietet "Dateien nur lokal" an
+
+[assets]
+dir = hooks\my_plugin                   ; Ordner, der bei "Dateien nur lokal" mit der DLL reist
 
 [autoload]
 format = 1
 kind = plugin
 target = my_plugin
-requires_local = resources|another_dependency
-conflicts_local = old_my_plugin|duplicate_name
+requires_local = resources|other_plugin
+conflicts_local = old_name|duplicate_name
+
+[dependencies]
+other.plugin = >=1.2.0
 ```
 
-`target` bestimmt `build\plugins\<target>.dll` und den Schlüssel in
-`tesmioloader.ini`; wird es angegeben, muss es mit dem DLL-Dateinamen
-übereinstimmen. `user_config` ist ein einfacher INI-Dateiname und muss im Paket
-direkt neben der DLL liegen. `requires_local` und `conflicts_local` sind
-optionale, mit `|` getrennte lokale Plugin-Kennungen. `user_overlay = 1`
-erklärt, dass die DLL `user_config\<target>.ini` selbst über ihre INI legt;
-Republic Mod Manager stellt dann die Original-INI unverändert bereit.
+- `tesmio_api_min` / `tesmio_api_max`: wenn angegeben, muss API 4 im Bereich liegen.
+- `user_overlay = 1`: Die DLL legt `user_config\<target>.ini` selbst über ihre INI. RMM stellt dann die Original-INI unverändert bereit und schreibt persönliche Werte nur nach `user_config`.
+- `local_copy = 1`: Die Karte „Hinweise“ bietet bei Paketen unter der Workshop Bridge den Schalter „Dateien nur lokal“ an. RMM kopiert DLL, INI und den Ordner aus `[assets] dir` nach `plugins\` (den Ordner unter seinem eigenen Namen, `plugins\my_plugin\...`). Im Assets-Ordner sind keine `.dll`- oder `.exe`-Dateien erlaubt, höchstens 512 Dateien zu je 64 MB, keine Reparse-Punkte.
+- `[dependencies]`: `mod.id = <Bedingung>` mit `>=`, `>`, `=`, `<=`, `<`, einer bloßen Version (mindestens) oder `*`. Wird gegen die Pakete im Workshop-Ordner aufgelöst; ein klassisch installiertes Plugin `plugins\<name>.dll` zählt auch, wenn `<name>` der letzte Teil der Kennung ist (Version ungeprüft). Ein Hook-Paket in der Bridge-Liste gilt als erfüllt. Nicht erfüllte Abhängigkeiten verhindern die Bereitstellung.
+- `[content]` ohne `[hooks] dll` ist ein reines Inhaltspaket: wird gelistet, nie bereitgestellt, nur der Soviet Mod Loader wendet es an.
 
-`tesmio_api_min`/`tesmio_api_max` sind optional; wenn vorhanden, muss API 4
-im Bereich liegen. `[dependencies]` (`mod.id = >=1.2.0`) wird gegen die Pakete
-im Workshop-Ordner aufgelöst (seit 0.34.1 genügt auch ein klassisch installiertes
-Plugin `plugins\<name>.dll`, wenn `<name>` der letzte Teil der Kennung ist; die
-Version bleibt dann ungeprüft); Bedingungen sind `>=`, `>`, `=`, `<=`, `<`, eine
-bloße Version (mindestens) oder `*`. `[content]` wird vermerkt; Inhalt wendet
-nur Soviet Mod Loader an. Ein Manifest mit `[content]` und ohne `[hooks] dll`
-ist ein reines Inhaltspaket: es wird gelistet, nicht bereitgestellt.
+---
 
-Format 1 verarbeitet genau eine DLL und eine Konfigurationsdatei. Wiederholte
-`dll`-Direktiven werden mit genauer Ursache abgewiesen.
+## 2. Einstellungsseite ohne Schema
 
-### Dateien nur lokal und Assets (seit 0.21.0)
+Ohne Schema baut RMM eines aus der Standard-INI:
 
-```ini
-[configuration]
-local_copy = 1          ; erlaubt "Dateien nur lokal" (Schalter in der Karte Hinweise)
-
-[assets]
-dir = hooks\deposits_plus   ; Ordner, der mit der DLL reist
-```
-
-`local_copy = 1` bietet bei einem Paket, das über die Workshop Bridge läuft,
-den Schalter „Dateien nur lokal“ an: Republic Mod Manager kopiert DLL, INI und
-den Ordner aus `[assets] dir` nach `plugins\`, den Ordner unter seinem eigenen
-Namen (`plugins\deposits_plus\...`). Der Beleg hält `local_copy = 1` und jede
-kopierte Datei als `asset.N` fest; Ausschalten entfernt genau diese Dateien.
-Im Assets-Ordner sind keine .dll- oder .exe-Dateien erlaubt, höchstens 512
-Dateien zu je 64 MB, keine Reparse-Punkte.
-
-## Schema aus der INI
-
-Ohne Launcher-Schema erzeugt Republic Mod Manager eines aus der Standard-INI:
-
-- jeder INI-Abschnitt wird eine Gruppe auf dem Reiter „Einstellungen“;
-- jeder Schlüssel wird ein Feld mit dem Schlüsselnamen als Beschriftung;
-- der zusammenhängende Kommentarblock direkt über dem Schlüssel und ein
-  Kommentar hinter dem Wert werden zur Beschreibung, Zeilenumbrüche bleiben
-  erhalten;
-- der Typ folgt dem Wert: `0`/`1` wird `boolean`, außer der Schlüsselname
-  nennt eine Menge (`count`, `days`, `frequency`, `size`, `limit`, `level`,
-  `scale`, `mode` und ähnliche) oder der Kommentar nennt andere ganze Zahlen
-  oder einen Bereich (`2-12`, `1..6`, „up to 400“); Versionsangaben wie
-  `v1.6` zählen nicht. Namen wie `enabled`, `debug`, `use_*`, `*_enabled` oder
-  ein Kommentar, der beide Zustände nennt, erzwingen `boolean`. Andere
-  Ganzzahlen `integer`; Dezimalzahlen `decimal`; alles andere `text`;
-- ein Schlüssel `enabled` vom Typ `boolean` wird zum `enabled_field`;
+- jeder INI-Abschnitt wird eine Karte auf dem Reiter „Allgemein“;
+- jeder Schlüssel wird ein Feld, sein Name die Beschriftung;
+- der Kommentarblock direkt über dem Schlüssel und ein Kommentar hinter dem Wert werden zur Beschreibung, Zeilenumbrüche bleiben erhalten;
+- der Typ folgt dem Wert: `0`/`1` wird `boolean`, außer der Schlüsselname nennt eine Menge (`count`, `days`, `frequency`, `size`, `limit`, `level`, `scale`, `mode` und ähnliche) oder der Kommentar nennt andere ganze Zahlen oder einen Bereich (`2-12`, `1..6`, „up to 400“); Versionsangaben wie `v1.6` zählen nicht. Namen wie `enabled`, `debug`, `use_*`, `*_enabled` oder ein Kommentar, der beide Zustände nennt, erzwingen `boolean`. Andere Ganzzahlen werden `integer`, Dezimalzahlen `decimal`, alles andere `text`;
+- ein Schlüssel `enabled` vom Typ `boolean` wird zum Aktivierungsfeld;
 - der Kommentarblock am Dateianfang wird zur Paketbeschreibung.
 
-Die strenge Schlüsselprüfung gilt in diesem Modus nicht: Eine lokale INI darf
-Schlüssel enthalten, die die Paket-INI nicht kennt. Wer sie will, liefert ein
-Schema mit. In Schema-Beschreibungen steht die Zeichenfolge `\n` für einen
-Zeilenumbruch.
+In diesem Modus darf eine lokale INI Schlüssel enthalten, die die Paket-INI nicht kennt; die strenge Schlüsselprüfung gilt nur mit Schema. Ein Kommentar hinter dem Wert wie `130 ; (stock 121)` bleibt in der Datei, bis der Wert geändert wird.
 
-## Launcher und Felder
+---
+
+## 3. Presentation-Schema
+
+`config\<name>.launcher.ini` beschreibt Reiter, Karten, Felder und Texte. Jeder wirksame Schlüssel der INI muss als Feld oder Sammlungselement beschrieben sein.
+
+### 3.1 `[launcher]`
 
 ```ini
 [launcher]
 layout_version = 1
 visible = 1
 id = example.my_plugin
+name = My Plugin
 config = my_plugin.ini
-description = Human readable fallback
+description = Rückfalltext
 description_key = plugin.description
 language_directory = config\languages
 icon = builtin:gear
-enabled_field = general/enabled
+enabled_field = general/enabled        ; optional; boolesches Feld für den Aktivierungsschalter
 default_tab = general
-maximum_value_length = 63
+maximum_value_length = 63              ; Standard 4096
+notice = ...                           ; paketweiter Kasten in der Karte Hinweise des ersten Reiters
+notice_key = plugin.notice
+notice_style = warning                 ; warning (gelb) oder info (blau)
+info = ...                             ; zweiter, immer blauer Kasten unter dem Hinweis
+info_key = plugin.info
+```
 
-[field:enabled]
-section = general
-key = enabled
-label = Enable plugin
-label_key = field.enabled
-description = Restart required.
-description_key = field.enabled.description
-type = boolean
-group = general
+`\n` in jeder Beschreibung, jedem Hinweis und jedem Hilfetext ist ein Zeilenumbruch. Ein Pfad wie `plugins\needs.ini` in so einem Text wird deshalb zerrissen; dort `/` schreiben.
+
+### 3.2 Reiter und Gruppen
+
+```ini
+[tab:general]
+label = Allgemein
+label_key = tab.general
 order = 10
 
+[group:general]
+tab = general
+label = Allgemeine Einstellungen
+label_key = group.general
+description = ...
+description_key = group.general.description
+layout = fields                        ; oder matrix
+order = 10
+```
+
+Es gibt keine feste Reiterzahl. Felder ohne Gruppe landen im gemeinsamen Bereich `settings`, angezeigt als „Allgemein“. Jeder ausdrückliche Reiter- und Gruppenverweis muss existieren. Eine Gruppe ohne sichtbare Felder und ohne Texte wird nicht gezeichnet.
+
+Eine Gruppe mit `layout = matrix` ordnet ihre Felder über `row`, `column`, `row_label`, `column_label`, `unit` und `icon` an; die `_key`-Varianten übersetzen. Doppelte Zellen sind ungültig.
+
+### 3.3 Felder
+
+```ini
 [field:limit]
 section = general
 key = limit
-label = Limit
+label = Grenze
+label_key = field.limit
+description = Was es im Spiel verändert.
+description_key = field.limit.description
 type = integer
 minimum = 0
 maximum = 10000
@@ -146,76 +160,98 @@ group = general
 order = 20
 ```
 
-Jedes `[field:...]` bindet genau einen vorhandenen Wert der Standard-INI. Alle
-wirksamen Schlüssel müssen als Feld oder Sammlungselement beschrieben sein.
-Unterstützte Typen:
+Typen:
 
-- `boolean`: nur `0` oder `1`;
-- `integer`: Ganzzahl innerhalb `minimum`/`maximum`;
-- `decimal`: endliche Dezimalzahl innerhalb der Grenzen;
-- `choice`: exakt ein Wert aus `choices = a|b|c`;
-- `readonly`: wird angezeigt, aber nicht direkt editiert.
+| Typ | Wert |
+|---|---|
+| `boolean` | `0` oder `1`, als Schalter gezeigt |
+| `integer` | Ganzzahl innerhalb `minimum`/`maximum`; `step` ist die Schrittweite der Plus/Minus-Knöpfe (Standard 1) |
+| `decimal` | endliche Dezimalzahl innerhalb der Grenzen; `step` Standard 0.1 |
+| `choice` | genau ein Wert aus `choices = a|b|c` |
+| `text` | freier Text |
+| `readonly` | wird gezeigt, nicht bearbeitet |
 
-`enabled_field` ist optional und muss auf ein boolesches Schemafeld zeigen. Ohne
-die Angabe erscheint kein Aktivierungsschalter. `maximum_value_length` gilt für
-alle Werte und liegt standardmäßig bei 4096.
+Jedes `[field:]` bindet genau einen vorhandenen Wert der Standard-INI. Das Aktivierungsfeld erscheint nicht in einer Karte; es gehört zum Schalter „Plugin aktiv“ im Kopf.
 
-## Reiter, Gruppen und Matrix
+### 3.4 Knöpfe, die Paketdateien öffnen
 
 ```ini
-[tab:general]
-label = General
-label_key = tab.general
-order = 10
-
-[group:general]
+[links]
 tab = general
-label = General settings
-description_key = group.general.description
-layout = fields
+label_key = plugin.links
+root = ..                              ; relativ zum Schema-Ordner
+
+[link:readme_de]
+file = README_DE.md                    ; .md, .txt, .html oder .pdf, kein ..
+label_key = plugin.link.readme
+language = de                          ; optional: nur in dieser Oberflächensprache
 order = 10
 ```
 
-Es gibt keine fest eingebaute Reiterzahl. Ohne eigene Gruppen landen Felder im
-gemeinsamen Bereich `settings`. Jeder explizite Gruppen- und Reiterverweis muss
-existieren.
+### 3.5 Aktionszeile
 
-Eine Gruppe mit `layout = matrix` ordnet Felder zusätzlich über `row`, `column`,
-`row_label`, `column_label`, `unit` und `icon` an. Die gleichnamigen `_key`-
-Angaben liefern Übersetzungen. Doppelte Matrixzellen sind ungültig.
+```ini
+[action:prune]
+group = bridge                         ; Karte, in der die Zeile steht; sortiert mit den Feldern nach order
+label = Bridge-Liste aufräumen
+label_key = bridge.prune
+description = ...
+description_key = bridge.prune.description
+button = Jetzt aufräumen
+button_key = bridge.prune.button
+command = bridge_prune                 ; bisher einziger Befehl
+order = 35
+```
 
-## Dynamische Sammlungen
+`bridge_prune` entfernt Einträge aus der Paketliste der Bridge, deren Paket nicht in der RMM-Liste steht. Der Knopf wird nie gedehnt.
 
-Sammlungen bauen eine benutzerverwaltete Liste und eine Wertematrix aus einem
-lokalen Plugin-Katalog auf:
+### 3.6 Ordnerliste
+
+```ini
+[folder_list:packs]
+group = packs
+paths = package:hooks\localization | build:plugins\localization   ; jeder Unterordner wird eine Zeile
+description_prefix = loc.pack          ; Kurztext je Ordner aus der Sprachdatei: <prefix>.<ordnername>
+note = ...
+note_key = loc.packs.note
+order = 10
+```
+
+Jede Zeile nennt den Ordner, seinen Kurztext und wo er liegt: „im Paket“ (`package:`-Pfad), „lokal“ (`build:`/`vfs:`-Pfad) oder „lokal, überlagert das Paket“ (beides). Pfadpräfixe: `package:` = `[links] root`, `build:` = Loader-Ordner, `vfs:` = VFS-Wurzel des Loaders (neben `build`, sonst `build\vfs`).
+
+---
+
+## 4. Sammlungen
+
+Eine Sammlung baut eine benutzerverwaltete Liste und eine Wertematrix aus einem lokalen Plugin-Katalog auf (Vehicle Materials nutzt das):
 
 ```ini
 [collection:materials]
-source = local-plugin:resources/list
-source_ready_section = resources
+source = local-plugin:resources/list   ; liest nur diesen Abschnitt aus build\plugins\resources.ini
+source_ready_section = resources       ; optionale Bereitschaftsbedingung
 source_ready_key = hook
 source_ready_value = 2
 
-resource_group = resources
-matrix_group = vehicles
-count_section = resources
+resource_group = resources             ; Gruppe mit der Liste
+matrix_group = vehicles                ; Gruppe mit der Matrix
+count_section = resources              ; für diesen Schlüssel muss ein readonly-Feld existieren
 count_key = count
-item_prefix = resource
+item_prefix = resource                 ; resource0, resource1, ...
 item_label = Material
 item_label_key = material_number
-item_description_key = registered_resource_help
+item_description_key = field.resource.description
 
 target_sections = road|rail|ship|airplane
-target_labels = Road vehicles|Rail vehicles|Ships|Airplanes
+target_labels = Straßenfahrzeuge|Schienenfahrzeuge|Schiffe|Flugzeuge
 target_label_keys = row.road|row.rail|row.ship|row.airplane
 target_icons = builtin:truck|builtin:rail|builtin:ship|builtin:plane
-unit = Coefficient
+unit = Koeffizient
 unit_key = unit.coefficient
 coefficient_description_key = coefficient.description
 
-empty_notice = Noch keine Einträge vorhanden. Füge zuerst einen Eintrag hinzu.
+empty_notice = Noch keine Einträge. Füge zuerst einen hinzu.
 empty_notice_key = collection.empty_notice
-empty_notice_style = warning
+empty_notice_style = warning           ; warning oder info; erscheint in matrix_group, solange die Liste leer ist
 
 type = decimal
 minimum = 0
@@ -223,50 +259,18 @@ maximum = 1000000
 step = 0.001
 default = 0
 maximum_items = 32
-ownership = user
-allow_remove_defaults = 1
-require_positive_when_enabled = 1
+ownership = user                       ; eine vorhandene Liste überlebt eine Änderung der Paketstandards
+allow_remove_defaults = 1              ; vom Paket gelieferte Einträge dürfen gelöscht werden
+require_positive_when_enabled = 1      ; mindestens ein positiver Wert, solange das Plugin an ist
 ```
 
-`source` hat die Form `local-plugin:<Plugin>/<Abschnitt>`. Die Anwendung liest
-nur diesen Abschnitt aus `build\plugins\<Plugin>.ini`; die Quelldatei wird nie
-verändert. Die drei `source_ready_*`-Werte sind optional und können eine genaue
-Bereitschaftsbedingung vorgeben.
+Die vier `target_*`-Listen müssen gleich lang sein. Hinzufügen erzeugt lückenlose `item_prefix0`, `item_prefix1`, … plus einen Wert je Zielabschnitt; Entfernen löscht alle Werte und verdichtet die Liste. `require_positive_when_enabled` schaltet das Plugin aus, wenn der letzte positive Eintrag gelöscht wird; die Fehlermeldung nennt den sichtbaren Reiter und die Gruppe.
 
-Die drei Listen `target_sections`, `target_labels`, `target_label_keys` und
-`target_icons` müssen dieselbe Länge besitzen. Leere Beschriftungs-/Symbolwerte
-können durch Weglassen der gesamten optionalen Zeile erreicht werden.
+---
 
-Für `count_section/count_key` muss zusätzlich ein `readonly`-Feld existieren.
+## 5. Lokale Schemas für installierte Plugins
 
-`empty_notice` wird ausschließlich im zugehörigen `matrix_group` angezeigt, solange
-die Sammlung leer ist. Nach dem ersten hinzugefügten Eintrag verschwindet der Hinweis
-automatisch; nach dem Löschen des letzten Eintrags erscheint er wieder. Mit
-`empty_notice_key` kann der Text übersetzt werden. `empty_notice_style` akzeptiert
-`warning` (gelb) oder `info` (blau). Fehlen die Angaben, wird kein Leerhinweis gezeigt.
-
-Beim Hinzufügen entstehen lückenlose `item_prefix0`, `item_prefix1`, … sowie ein
-Wert pro Zielabschnitt. Entfernen löscht alle zugehörigen Werte und verdichtet
-die Liste.
-
-`ownership = user` bedeutet, dass eine bereits bereitgestellte Liste bei einer
-Änderung der Paketstandards als persönliche Auswahl erhalten bleibt. Diese
-Übernahme wird über den Zustandsbeleg genau einmal erkannt. Mit
-`allow_remove_defaults = 1` sind auch ursprünglich vom Paket gelieferte Einträge
-löschbar. `require_positive_when_enabled = 1` verlangt bei eingeschaltetem
-Plugin mindestens einen positiven Sammlungswert und deaktiviert das Plugin beim
-Löschen des letzten positiven Eintrags. Ist diese Bedingung beim Aktivieren nicht
-erfüllt, nennt die Fehlermeldung automatisch den sichtbaren, übersetzten Reiter
-und Gruppentitel. Dafür folgt Republic Mod Manager der Zuordnung
-`collection.resource_group` → `group.tab`; Plugin-Autoren müssen keinen
-festen Meldungstext hinterlegen.
-
-## Lokale Schemas für installierte Plugins
-
-Ein Plugin, das nur als `plugins\<name>.dll` im Loader-Ordner liegt, bekommt
-sein Schema aus `settings_schemas\<name>.launcher.ini` neben der EXE, falls
-diese Datei existiert, sonst aus seiner INI (siehe „Schema aus der INI“). Ein
-solches lokales Schema ist ein gewöhnliches Launcher-Schema:
+Ein Plugin, das nur als `plugins\<name>.dll` im Loader-Ordner liegt, bekommt sein Schema aus `settings_schemas\<name>.launcher.ini` neben `rmm.exe`, falls diese Datei existiert, sonst aus seiner INI (Abschnitt 2). Ein solches lokales Schema ist ein gewöhnliches Presentation-Schema:
 
 ```ini
 [launcher]
@@ -274,91 +278,28 @@ layout_version = 1
 visible = 1
 id = local.walking
 name = Walking Distance
-config = walking.ini
+config = walking.ini                   ; muss <name>.ini sein
 enabled_field = walking/enabled
-language_directory = languages
+language_directory = languages         ; relativ zu settings_schemas
 ```
 
-`config` muss `<name>.ini` sein. `id` und `name` bestimmen Kennung und
-Anzeigename des Eintrags; ohne Schema lauten sie `local.<name>` und `<name>`.
-`language_directory` wird relativ zum Ordner `settings_schemas` aufgelöst.
-Dateien mit `editor_type = keyed_resources` im selben Ordner sind Master-Detail-
-Editoren (nächster Abschnitt) und werden nicht als Plugin-Schema verwendet.
+RMM liefert solche Schemas für accumulator, cities, daynight, depletion, easystart, walking und die Workshop Bridge mit; die deutschen Texte stehen in `settings_schemas\languages\de.ini` unter dem Präfix `<name>.`, die englischen Rückfalltexte im Schema selbst. Ein lokales Schema beschreibt, es verbietet nicht: Werte dürfen einen Kommentar tragen (er bleibt, bis der Wert geändert wird), und Schlüssel, die das Schema nicht kennt, werden in den Hinweisen genannt und unverändert zurückgeschrieben. Freie Werte wie `auto` oder Jahreszahlen mit `off`/`always` verwenden `type = text`.
 
-Seit 0.13.0 liefert Republic Mod Manager solche Schemas für accumulator, cities,
-daynight, depletion, easystart und walking mit; die deutschen Texte stehen in
-`settings_schemas\languages\de.ini` unter den Präfixen `<name>.`. Ein lokales
-Schema ist beschreibend, nicht abschließend: Werte mit Kommentar hinter dem
-Wert werden angenommen (der Kommentar bleibt, bis der Wert geändert wird), und
-Schlüssel der INI, die das Schema nicht kennt, werden nicht abgewiesen, sondern
-in den Hinweisen genannt und beim Speichern unverändert übernommen. Freie
-Werte wie `auto` oder Jahreszahlen mit `off`/`always` verwenden `type = text`.
+Installierte Plugins werden als geschützte Basis geführt: Original unter `user_config\.autoload\<name>.upstream.ini`, wirksame INI in `plugins\`, persönliche Werte in `user_config\<name>.ini`. Eine außerhalb von RMM geänderte `plugins\<name>.ini` wird zum neuen Original.
 
-Die Konfiguration eines installierten Plugins wird als geschützte Basis
-geführt: Original unter `user_config\.autoload\<name>.upstream.ini`, wirksame
-INI in `plugins\`, persönliche Werte in `user_config\<name>.ini`, und ein
-Empfangsbeleg mit `mode = installed`. Eine außerhalb geänderte `plugins\<name>.ini`
-wird als neues Original übernommen.
+---
 
-Der Empfangsbeleg eines Workshop-Pakets trägt `mode = package` (DLL und INI
-von Republic Mod Manager bereitgestellt), `mode = sml` (nur INI, Soviet Mod Loader
-lädt die DLL) oder seit 0.14.0 `mode = bridge` (nur INI, `workshop_bridge`
-lädt die DLL; der Eintrag `[packages] <Workshop-Nummer>` in
-`user_config\workshop_bridge.ini` entscheidet). Für das Plugin `workshop_bridge`
-selbst gilt: `[packages]`-Zeilen in seiner Overlay-Datei überleben jedes
-Speichern und „Original wiederherstellen“.
+## 6. Editor-Schemas
 
-## Lokale Master-Detail-Editoren
+Für INIs, die Listen statt einzelner Werte halten, gibt es drei Editor-Typen. Das Schema liegt in `settings_schemas\` (installierte Plugins) oder im Paket unter `config\<name>.launcher.ini`; im Paket müssen `[editor] plugin` und `config` DLL-Name und INI des Pakets nennen. Die INI des Pakets ist die Originalbasis, persönliche Einträge liegen in `user_config\<name>.editor.ini`, die wirksame Datei ist `plugins\<name>.ini`. DLL, Loader-Eintrag, Bridge-Liste und „Dateien nur lokal“ laufen wie bei jedem Paket.
 
-Lokale Editor-Schemas liegen neben der EXE unter `settings_schemas` und werden
-unabhängig von Workshop-Paketen erkannt. Der Resources-Adapter verwendet:
+| `editor_type` | Aufbau der INI | Beispiel |
+|---|---|---|
+| `keyed_resources` | Listenabschnitt plus ein Abschnitt je Eintrag (`[custom:<id>]`) und Schlüsselwerte | Resources |
+| `keyed_list` | eine Zeile je Eintrag: `<id> = <Spalte 1>, <Spalte 2>, ...` | Needs, Technical Service Storage, UI Layout Fixes |
+| `keyed_sections` | ein Abschnitt je Eintrag | Deposits, Deposits Plus, Research Expansion, Vanilla Buildings |
 
-```ini
-[launcher]
-layout_version = 1
-editor_type = keyed_resources
-id = tesmio.resources.editor
-name = Resources
-language_directory = languages
-
-[editor]
-plugin = resources
-config = resources.ini
-list_section = list
-item_section_prefix = custom:
-maximum_items = 512
-
-[detail:transport]
-scope = custom
-key = transport
-type = text
-
-[detail:pinned_base_price]
-scope = keyed
-section = base_price
-key = value
-type = pair
-minimum = 0
-maximum = 1000000000
-```
-
-`scope = custom` verbindet ein Feld mit
-`[<item_section_prefix><Ressourcenkennung>]`. `scope = keyed` verbindet es mit
-einem Eintrag, dessen Schlüssel die Ressourcenkennung ist. Optionale leere
-Felder erzeugen keinen persönlichen Eintrag. Unterstützte Detailtypen sind
-`text`, `integer`, `decimal`, `choice`, `pair`, `triple` und (für `scope = global`) `boolean`.
-
-Die Originalbasis, persönliche Ebene und wirksame Datei werden getrennt geführt.
-Originale Listeneinträge bleiben gesperrt, während persönliche Einträge entfernt
-werden können. Das Schema bestimmt sämtliche sichtbaren Felder und Übersetzungen;
-der Editor lädt die konfigurierte Plugin-DLL nicht.
-
-### Listen-Editoren (`editor_type = keyed_list`)
-
-Seit 0.18.0 gibt es neben `keyed_resources` den Typ `keyed_list` für INIs, in
-denen jede Zeile eines Abschnitts ein Tupel ist:
-`<Kennung> = <Spalte 1>, <Spalte 2>, ...`. Der Needs-Adapter
-(`settings_schemas\needs.launcher.ini`) verwendet:
+### 6.1 `[editor]`, `[activity]`, `[source]`
 
 ```ini
 [launcher]
@@ -367,313 +308,230 @@ editor_type = keyed_list
 id = tesmio.needs.editor
 name = Needs
 language_directory = languages
+default_tab = needs
+notice = ...                           ; wie im Presentation-Schema
+info = ...
 
 [editor]
 plugin = needs
 config = needs.ini
-list_section = list
+list_section = list                    ; keyed_list / keyed_resources
+item_section_prefix = custom:          ; keyed_resources
+reserved_sections = deposits           ; keyed_sections: Abschnitte, die KEIN Eintrag sind
+section_prefix = modify:               ; keyed_sections: nur Abschnitte mit diesem Präfix sind Einträge
 maximum_items = 8
 
-[activity]
-section = needs
+[activity]                             ; das Ein/Aus-Feld des Plugins; nicht in einer Karte gezeigt,
+section = needs                        ; es gehört zum Schalter "Plugin aktiv"
 key = enabled
 values = 1
 
-[source]
-plugin = resources          ; Kennungen für neue Zeilen kommen aus
-section = list              ; plugins\resources.ini [list]
-ready_section = resources   ; optional: Quelle gilt nur mit
-ready_key = hook            ; [resources] hook = 2
+[source]                               ; Kennungen für den +-Dialog
+plugin = resources                     ; Schlüssel des Abschnitts aus plugins\resources.ini
+section = list
+ready_section = resources              ; optional: Quelle gilt nur mit [resources] hook = 2
+ready_key = hook
 ready_value = 2
+```
 
-[list]
-label_key = needs.list      ; Listentitel, +-Knopf, Hilfetext, Kennungsfeld
-add_label_key = needs.add
-select_help_key = needs.select_help
-id_label_key = needs.resource
-id_help_key = needs.resource.help
+Ohne `[source]` fragt der +-Dialog die Kennung als editierbares Feld ab und schlägt die Grundspiel-Ressourcen plus die Liste des Resources-Plugins vor. `[list] id_suggestions = 0` lässt diese Vorschläge weg (für Text-IDs und Ähnliches). Kennungen folgen den üblichen Regeln: Buchstaben, Ziffern, `_`, `-`, `.`.
 
-[global]
-label_key = group.needs.plugin          ; Karte für scope = global
-description_key = group.needs.plugin.description
+### 6.2 Reiter, Listentexte, Dialogtexte
 
-[column:donor]
-type = choice
-choices = food|meat|clothes|eletronics|alcohol
-required = 1
-label_key = needs.donor
-description_key = needs.donor.description
+```ini
+[tab:general]
+label_key = tab.general
 order = 10
 
-[column:category]
-type = choice
-choices = auto|none|basic|medium|advanced|mediumadvanced|hotel
-allow_other = 1             ; zusätzlich freie Eingabe (Zahl) erlaubt
-default = auto
-order = 30
+[list]
+label_key = needs.list                 ; Listentitel
+add_label_key = needs.add              ; +-Knopf
+select_help_key = needs.select_help    ; Hilfetext, solange nichts gewählt ist
+id_label_key = needs.resource          ; Beschriftung der Kennung
+id_help_key = needs.resource.help      ; Hilfe unter der Kennung im Detailbereich
+add_id_help_key = needs.add_help       ; Hilfe unter der Kennung im +-Dialog (sonst id_help)
+save_warning_key = needs.save_warning  ; gelbe Spielstandwarnung auf der Listenkarte
+note_key = needs.note                  ; kleiner Text links unter der Liste, neben +
+summary = type|map                     ; Schlüssel, die in der Liste unter dem Namen stehen
+id_picker = game_texts                 ; game_texts: Knopf "Text auswählen..."; game_research: "Forschung wählen..."
+id_suggestions = 0
+remove_label_key = re.remove           ; Knopf "nur Eintrag" im Löschdialog von Einträgen mit Anhang
 
-[column:chance]
-type = decimal
+[new]                                  ; +-Dialog bei keyed_sections
+name_label_key = deposits.new_name
+token_key = token                      ; Feld, das der Dialog aus dem Namen vorschlägt
+token_template = $TYPE_MINE_{NAME}
+hint_key = deposits.new_hint           ; Text am Ende des Dialogs
+
+[group:materials]                      ; die Listenkarte
+tab = materials
+label_key = tss.group.materials
+description_key = tss.group.materials.description
+notice_key = tss.group.notice          ; blauer Kasten zwischen Beschreibung und Spielstandwarnung
+id_reference = resources               ; jede eigene Kennung muss existieren (Abschnitt 7)
+
+[global]                               ; Karte für plugin-weite Werte (scope = global)
+tab = general
+label_key = group.needs.plugin
+description_key = ...
+notice_key = ...
+order = 10                             ; sortiert unter die [card:]-Karten des Reiters; 0 = zuerst
+
+[card:log]                             ; weitere Karten für plugin-weite Felder
+tab = general
+label_key = tss.card.log
+notice_key = ...
+notice_style = info                    ; blau statt gelb
+order = 20
+```
+
+Mehrere Listen in einem `keyed_sections`-Schema: Ein `[group:<id>]` mit eigenem `section_prefix` ist eine Zusatzliste; ihre Texte kommen aus `[list:<id>]` und `[new:<id>]`, ihre Felder tragen `group = <id>`. Die Standardliste ist das erste `[group:]` ohne Präfix. Kennungen der Zusatzlisten sind volle Abschnittsnamen (`research:quartz`), angezeigt ohne Präfix.
+
+### 6.3 Spalten (`keyed_list`)
+
+```ini
+[column:donor]
+type = choice                          ; text, integer, decimal, choice
+choices = food|meat|clothes|eletronics|alcohol
+allow_other = 1                        ; Auswahl mit freier Eingabe
+required = 1
+default = auto                         ; füllt fehlende Spalten
 minimum = 0
 maximum = 1
-default = 1.0
-order = 40
-
-[detail:max_demands]
-scope = global              ; ein Wert je Plugin statt je Eintrag
-section = needs
-key = max_demands
-type = integer
-minimum = 1
-maximum = 7
+step = 0.1
+label_key = needs.donor
+description_key = needs.donor.description
+heading_key = ...                      ; Trennlinie mit Titel über dem Feld
+reference = resources                  ; Abschnitt 7
+order = 10
 ```
 
-`[column:<id>]` beschreibt die Spalten in `order`-Reihenfolge; Typen sind
-`text`, `integer`, `decimal` und `choice` (mit `allow_other = 1` als
-editierbare Liste). `required = 1` erzwingt die Spalte, `default` füllt
-fehlende Spalten beim Anzeigen und beim Schreiben einer Zeile, deren spätere
-Spalten belegt sind. Zeilen werden beim Schreiben normalisiert
-(`1.0` wird zu `1`, Auswahlwerte in der Schreibweise des Schemas).
+Zeilen werden beim Schreiben normalisiert (`1.0` wird `1`, Auswahlwerte in der Schreibweise des Schemas).
 
-`[source]` bestimmt, welche Kennungen der `+`-Dialog anbietet: die Schlüssel
-des Abschnitts `section` aus `plugins\<plugin>.ini`, abzüglich der bereits
-vorhandenen oder ausgeblendeten Einträge. Ohne `[source]` (seit 0.34.0) fragt
-der `+`-Dialog die Kennung als Text ab und schlägt die Ressourcennamen des
-Grundspiels und, falls vorhanden, die Liste des Resources-Plugins vor; die
-Kennung folgt den üblichen Regeln (Buchstaben, Ziffern, `_`, `-`, `.`).
-
-Ein lokaler Editor darf seit 0.19.0 mehrere `[tab:<id>]`-Abschnitte haben
-(`label`, `label_key`, `order`). Die Listenkarte liegt auf dem Reiter aus
-`[group:*] tab = <id>`, die Karte der plugin-weiten Werte auf `[global] tab =
-<id>`; `[launcher] default_tab` wählt den beim ersten Öffnen gezeigten Reiter.
-`[global] order` (seit 0.4.7) sortiert die Karte der plugin-weiten Werte unter die `[card:*]`-Karten
-desselben Reiters; ohne Angabe (0) steht sie zuerst.
-Fehlen die Angaben, gibt es wie bisher einen Reiter mit allem. Der Needs-Adapter
-verwendet `general` (Plugin-Einstellungen) und `needs` (Liste), Vorgabe `needs`.
-`[launcher] notice` / `notice_key` / `notice_style` (seit 0.4.3, Presentation-Schemas; seit 0.4.5
-auch Listen- und Abschnittseditoren) zeigt
-einen paketweiten Hinweis in der Karte "Hinweise" des ersten Reiters, neben Abhaengigkeits-
-und Bridge-Hinweisen; `notice_style = warning` macht ihn gelb, sonst blau.
-`[launcher] info` / `info_key` (seit 0.4.10) zeigt darunter einen zweiten, immer blauen Kasten, etwa
-für eine Kurzbeschreibung des Plugins; `\n` bricht um.
-`[group:*] notice` / `notice_key` (seit 0.34.3) zeigt auf der Listenkarte einen
-blauen Hinweiskasten zwischen `description` und der gelben `save_warning`.
-`[list] note` / `note_key` (seit 0.4.8) steht klein und linksbündig unter der Liste, neben dem
-+-Knopf (etwa "Höchstens 32 Materialien."). Der Hinzufügen-Dialog zeigt seit 0.4.8 unter den
-Beschriftungen dieselben Hilfetexte wie der Detailbereich (`id_help`, Spalten-`description`);
-`[list] id_suggestions = 0` (seit 0.4.20) laesst die Vorschlagsliste (eigene und Vanilla-Ressourcen) im Hinzufuegen-Dialog weg, wenn die Kennung keine Ressource ist, etwa eine Text-ID; das Feld bleibt frei beschreibbar.
-`[card:<id>] notice_style = info` (seit 0.4.20) zeichnet den Karten-Hinweis der Listen-/Abschnittseditoren blau statt gelb (Standard bleibt `warning`).
-`[list] id_picker = game_texts` (seit 0.4.21) macht die Kennung zum reinen Textfeld und stellt daneben den Knopf "Text auswaehlen...": ein Fenster mit allen Texten einer Spielsprache aus `media_soviet\soviet<Sprache>.btf` (ID, Zeilen, laengste Zeile, Textanfang), Suche und Mindestlaenge; die Sprache folgt `$TEXT LANGUAGE2` in `media_soviet\config.ini`, bei `auto` der RMM-Sprache, und ist im Fenster umschaltbar. Schnappschuss `--window texts`.
-`[list] add_id_help` / `add_id_help_key` (seit 0.4.22) ist der Hilfetext unter der Kennung im Hinzufuegen-Dialog; ohne ihn gilt dort weiter `id_help` wie im Detailbereich. `\n` ist auch hier ein Zeilenumbruch.
-ohne `[source]` ist die Kennung ein Eingabefeld mit gruppierten Vorschlägen: erst die
-Ressourcen aus `plugins\resources.ini` (wenn das Resources-Plugin scharf ist), dann die des
-Grundspiels.
-`[detail:<id>] heading` / `heading_key` (seit 0.34.4) zeichnet im Detailbereich
-eine Trennlinie mit kleinem Titel über diesem Feld; so zerfällt eine lange
-Feldliste in benannte Blöcke. Ein wörtliches `\n` in `description` (und in den
-Sprachdateien) wird seit 0.34.5 auch bei `[detail:*]`-Feldern zum Zeilenumbruch,
-wie bisher schon bei `[column:*]`; seit 0.4.6 gilt das für alle Beschreibungs-,
-Hinweis- und Hilfetexte der Listen- und Abschnittseditoren (`[launcher] description`,
-`[group:*] description/notice`, `[global] description/notice`, `[card:*]`,
-`save_warning`, `select_help`, `item_id_help`, `new_hint`). Ein Pfad wie
-`plugins\needs.ini` in einem Text wird deshalb zerrissen; dort `/` schreiben.
-
-Das Detailfeld, auf das `[activity]` zeigt (bei Needs `[needs] enabled`), wird
-nicht in der Karte angezeigt: Es gehört zum Kopfschalter „Plugin aktiv“, der
-beim Einschalten den Loader-Eintrag und dieses Feld setzt.
-
-`scope = global` ist ein weiterer Detail-Scope: Das Feld gehört zu
-`[section] key` der Plugin-INI und erscheint in der Karte aus `[global]`.
-Dafür gibt es zusätzlich den Typ `boolean` (Schalter, schreibt `0`/`1`).
-
-Originalzeilen sind auch hier gesperrt, können aber ausgeblendet werden
-(`suppressed = 1` in `user_config\<plugin>.editor.ini`); sie fehlen dann in
-der wirksamen Datei, bleiben in der Originalbasis und lassen sich in der
-Oberfläche wieder anzeigen. Persönliche Zeilen stehen als
-`[item:<Kennung>] owned = 1, list = <Tupel>`, Plugin-Schalter als
-`[global] field.<id> = <Wert>`.
-
-### Abschnitts-Editoren (`editor_type = keyed_sections`)
-
-Seit 0.20.0 gibt es den dritten Typ für INIs, in denen jeder Abschnitt ein
-Eintrag ist (deposits.ini). Der Deposits-Adapter
-(`settings_schemas\deposits.launcher.ini`) verwendet:
+### 6.4 Detailfelder (`keyed_sections`, `keyed_resources`, plugin-weite Werte)
 
 ```ini
-[launcher]
-editor_type = keyed_sections
-default_tab = deposits
-
-[editor]
-plugin = deposits
-config = deposits.ini
-reserved_sections = deposits   ; Abschnitte, die KEIN Eintrag sind
-maximum_items = 118
-
-[source]                        ; Ressourcen für den +-Dialog
-plugin = resources
-section = list
-
-[list]
-summary = type|map              ; Schlüssel unter dem Namen in der Liste
-
-[new]
-name_label_key = deposits.new_name
-token_key = token               ; Feld, das der Dialog aus dem Namen vorschlägt
-token_template = $TYPE_MINE_{NAME}
-hint_key = deposits.new_hint    ; Hinweis am Ende des Dialogs
-
-[global]
-tab = general
-notice_key = deposits.notice    ; gelber Hinweis in der Karte
-
 [detail:type]
-scope = item                    ; Schlüssel im Abschnitt des Eintrags
+scope = item                           ; item: Schlüssel im Abschnitt des Eintrags
+                                       ; global: [section] key der Plugin-INI, gezeigt auf [global] oder einer [card:]
+                                       ; custom / keyed: keyed_resources
+group = research                       ; Zusatzliste (keyed_sections)
+card = log                             ; Karte bei scope = global
+section = deposits                     ; scope = global
 key = type
-type = integer
+type = integer                         ; text, integer, decimal, choice, boolean (global), lines, pair, triple
 minimum = 10
 maximum = 127
-unique = 1                      ; kein Wert doppelt
-auto_increment = 1              ; Dialog schlägt Maximum + 1 vor
-dialog = 1                      ; Teil des +-Dialogs
-
-[detail:icon]
-scope = item
-key = icon
-type = choice
-choices_source = registry       ; Kennungen aus [source] plus Grundspiel
+step = 1
+choices = technical|soviet|medical
+choices_source = registry              ; choice: Kennungen aus [source] plus Grundspiel
 allow_other = 1
-
-[detail:editor]
-scope = item
-key = editor
-type = text
+unique = 1                             ; kein Wert doppelt
+auto_increment = 1                     ; Dialog schlägt Maximum + 1 vor
+dialog = 1                             ; Teil des +-Dialogs
+default = {name}                       ; Vorgabe im Dialog; {name} = Name des neuen Eintrags
 maximum_length = 7
-length_rule = map=terrain:4     ; kürzer, solange map = terrain
-default = {name}                ; Dialog: Name des Eintrags
+length_rule = map=terrain:4            ; kürzer, solange ein anderer Schlüssel diesen Wert hat
+suffix = .name                         ; gesperrtes Kästchen mit dem Suffix hinter dem Feld, Kennung als Platzhalter
+position = above_id                    ; Feld über der Kennungszeile
+heading_key = ...
+label_key = ...
+description_key = ...
+reference = game_research              ; Abschnitt 7
+reference_format = requires
+reference_own = research
+picker = game_buildings                ; lines: Gebäude-Auswahl; game_research: Forschungs-Auswahl;
+                                       ; research_lines: Zeilen des Vanilla-Blocks des Eintrags; files: Dateiliste
+picker_format = line_edit              ; research_lines: line, line_edit, line_anchor, anchor_edit, edit
+picker_folders = package:hooks\x\assets | build:plugins\x\assets   ; files: erster vorhandener Ordner
+picker_pattern = *.dds
+count_label_key = ...                  ; lines: Zählerbeschriftung (Standard "Anzahl Zeilen")
+maximum_lines = 64                     ; lines: Obergrenze, darüber wird der Zähler rot
+order = 20
 ```
 
-`scope = item` verbindet ein Feld mit `[<Eintrag>] key`. Zusätzliche
-Feldangaben: `allow_other` (Auswahl mit Freitext), `unique`, `auto_increment`,
-`dialog`, `default` (`{name}` = Name des neuen Eintrags), `maximum_length`,
-`length_rule = <key>=<wert>:<n>` und `choices_source = registry`. Der Dialog
-zeigt Ressource, Name, das `token_key`-Feld und alle Felder mit `dialog = 1`.
-Originale Abschnitte sind gesperrt, können aber ausgeblendet werden
-(`suppressed = 1`), persönliche stehen als `[item:<Name>] owned = 1` mit
-`field.<id>`-Werten und werden als neuer Abschnitt in Feldreihenfolge
-geschrieben.
+`type = lines` (scope = item) beschreibt einen Schlüssel, den die INI im Abschnitt wiederholt (`target = …`, `add = …`): eine Zeile je Vorkommen, leere Zeilen entfallen, geschrieben als ein Block an der Stelle des ersten Vorkommens, im Override als `field.<id>.0`, `field.<id>.1`, … Zeilenfelder haben eine feste Höhe mit Bildlaufleiste, einen Griff zum Aufziehen und Plus/Minus zum Auf- und Zuklappen. Für `[list] summary` zeigt ein lines-Feld seine erste Zeile mit Zähler `(+n)`.
 
-Seit 0.22.0 darf ein solches Schema auch in einem Workshop-Paket liegen
-(`config\<name>.launcher.ini`); `[editor] plugin` und `config` müssen dann
-DLL-Name und INI des Pakets nennen. Zusätzlich:
+Originaleinträge sind gesperrt, können aber ausgeblendet werden (`suppressed = 1` in `user_config\<plugin>.editor.ini`): Sie fehlen in der wirksamen Datei, bleiben in der Originalbasis und lassen sich wieder anzeigen. Persönliche Einträge stehen als `[item:<id>] owned = 1` mit `field.<id>`-Werten (bei keyed_list `list = <Tupel>`) und werden als neuer Abschnitt in Feldreihenfolge geschrieben; plugin-weite Werte als `[global] field.<id> = <Wert>`. Ein ausgeblendetes Original verliert seinen ganzen Abschnitt in der wirksamen Datei; ein überschriebenes Original behält Abschnitt und Kommentare.
+
+### 6.5 Zeilen auf Karten: Ordner, Datei, Bild, Vanilla-Block
 
 ```ini
-[card:surface]              ; weitere Karte für plugin-weite Felder
-tab = sand
-label_key = dp.card.surface
-notice_key = ...            ; optionaler gelber Hinweis
-
-[detail:sand_surface]
-scope = global
-card = surface              ; Feld auf dieser Karte statt auf [global]
-...
-
-[links]                     ; Knöpfe, die Dateien des Pakets öffnen
-tab = general
-label_key = dp.links
-root = ..                   ; relativ zum Schema-Ordner
-
-[link:readme]
-file = README_DE.md         ; .md, .txt, .html oder .pdf, kein ..
-label_key = dp.link.readme
+[folder:icon_store]                    ; Ordnerzeile auf einer Karte
+card = icons                           ; Karte oder global
+path = vfs:media_soviet\research
+missing_key = re.icon_store.missing    ; gelber Kasten, solange der Ordner fehlt
+create = 1                             ; Knopf "Ordner erstellen", solange er fehlt
+label_key = re.icon_store              ; Zeile mit Pfadfeld, "Öffnen" und "Aktualisieren", sobald er existiert
 order = 10
 
-[folder:icon_store]         ; seit 0.4.28: Ordnerzeile auf einer Karte
-card = icons                ; Karte ([card:icons]) oder global
-path = vfs:media_soviet\research   ; vfs: = VFS-Wurzel des Loaders, build: = Loader-Ordner, package: = [links] root
-missing_key = re.icon_store.missing ; gelber Kasten, solange der Ordner fehlt
-create = 1                  ; Knopf "Ordner erstellen", solange er fehlt
-label_key = re.icon_store   ; Zeile mit Pfadfeld, "Öffnen" und "Aktualisieren", sobald er existiert
-order = 10
-
-[file:noimage]              ; Dateizeile: erster vorhandener Kandidat wird gezeigt
+[file:noimage]                         ; Dateizeile: erster vorhandener Kandidat wird gezeigt
 card = icons
-paths = workshop=package:hooks\x\noimage.png | local=build:plugins\x\noimage.png   ; Kennzeichen workshop oder local
+paths = workshop=package:hooks\x\noimage.png | local=build:plugins\x\noimage.png
 label_key = re.noimage
 order = 20
 
-[group:research]            ; seit 0.4.29: zweite Liste mit eigenem Präfix und Reiter
-tab = research
-section_prefix = research:  ; Einträge sind die Abschnitte [research:<id>]
-label_key = re.group.research
-
-[list:research]             ; Texte dieser Liste (wie [list]), maximum_items optional
-label_key = re.list.research
-summary = type|cost
-
-[new:research]              ; Hinzufügen-Dialog dieser Liste (wie [new])
-name_label_key = re.new.research
-
-[detail:r_type]
-scope = item
-group = research            ; Feld gehört zur zweiten Liste
-key = type
-type = choice
-choices = technical|soviet|medical
-
-[detail:r_requires]
-scope = item
-group = research
-key = requires
-type = lines
-picker = game_research      ; Forschungs-Picker aus der research.ini des Spiels
-
-[detail:r_name]
-scope = item
-group = research
-key = name
-type = text
-suffix = .name              ; seit 0.4.31: gesperrtes Kästchen ".name" hinter dem Feld, Kennung des Eintrags als grauer Platzhalter
-
-[detail:r_enabled]
-scope = item
-group = research
-key = enabled
-type = boolean
-position = above_id         ; seit 0.4.35: Feld steht über der Kennungszeile des Detailbereichs
-
-[detail:r_cost]
-scope = item
-group = research
-key = cost
-type = integer
-minimum = 1
-maximum = 2147483647
-step = 100                  ; seit 0.4.39: Schrittweite der Plus/Minus-Knöpfe (Standard 1 bei integer, 0.1 bei decimal; auch bei [column:])
-
-[picture:icon]              ; seit 0.4.35: Bildvorschau je Eintrag mit "Bild einfügen…" (kopiert ein PNG unter <id>.png in den Ordner)
+[picture:icon]                         ; Bildvorschau je Eintrag mit "Bild einfügen..."
 group = research
 folder = vfs:media_soviet\research
 file = {id}.png
-size = 128                  ; Pflichtgröße in Pixeln, 0 = beliebig
+size = 128                             ; Pflichtgröße in Pixeln, 0 = beliebig
 order = 15
 
-[list:research]
-remove_label_key = re.remove.research   ; seit 0.4.35: Knopf "nur Eintrag löschen" im Löschdialog; "Alles löschen" nimmt Texte und Bild mit
-
-[tab:localization]
-label = Localization         ; bleibt unübersetzt, Bezug zum Plugin
-
-[textpack]                  ; seit 0.4.30: Localization-Textpaket auf einem eigenen Reiter
-tab = localization
-folder = build:plugins\localization\research_expansion   ; lokales Paket, dort schreibt der RMM
-seed = dependency:tesmio.localization|hooks\localization\research_expansion   ; Startbestand aus dem Paket der Abhängigkeit
-namespace = research_expansion   ; für ein neues Paket ohne Startbestand
-keys_from = research        ; Listengruppe, deren Kennungen die Zeilen <id>.name / <id>.desc liefern
-missing_key = re.textpack.missing   ; gelber Kasten mit Knopf "Lokal anlegen", solange der Ordner fehlt
+[research_block:block]                 ; schreibgeschützter Kasten mit dem Block des Eintrags aus media_soviet\research\research.ini
+label_key = re.block
+description_key = re.block.description
+group = modify
+order = 12
 ```
 
-## Sprachen
+Einträge mit Anhang (Texte, Bild) bekommen einen Löschdialog mit drei Knöpfen: „Alles löschen“ entfernt den Eintrag, seine Texte aus allen Sprachdateien und das Bild; der `remove_label`-Knopf nur den Eintrag.
+
+### 6.6 Textpaket-Reiter
+
+```ini
+[tab:localization]
+label = Localization
+
+[textpack]
+tab = localization
+folder = build:plugins\localization\research_expansion   ; lokales Paket, dort schreibt RMM
+seed = dependency:tesmio.localization|hooks\localization\research_expansion   ; Startbestand aus dem Paket der Abhängigkeit
+namespace = research_expansion         ; für ein neues Paket ohne Startbestand
+keys_from = research                   ; Listengruppe, deren Kennungen die Zeilen <id>.name / <id>.desc liefern
+label_key = ...
+description_key = ...
+missing_key = re.textpack.missing      ; gelber Kasten mit "Lokal anlegen", solange der Ordner fehlt
+```
+
+Der Reiter zeigt die Rückfallsprache, die Sprachdateien (mit „+“ aus den Spielsprachen), je eigenem Eintrag Name und Beschreibung sowie weitere Schlüssel mit einem Papierkorb, der einen Schlüssel aus allen Sprachdateien entfernt.
+
+---
+
+## 7. Verweisprüfung
+
+Werte, die etwas benennen müssen, was das Spiel kennt, prüft RMM vor dem Speichern. Ein Treffer macht die Fußzeile rot („Konfiguration ungültig“) mit Eintrag und Feld; Speichern und „Speichern + Starten“ brechen mit derselben Meldung ab. Geprüft werden nur eigene Einträge und persönlich gesetzte Werte. Fehlt der Spielordner neben dem Loader, entfällt die Prüfung.
+
+```ini
+[group:modify]
+id_reference = game_research           ; die Kennung jedes eigenen Eintrags muss eine aktive Vanilla-Forschung sein
+
+[detail:r_requires]
+type = lines
+reference = game_research              ; game_research, game_buildings, game_texts, resources, files
+reference_format = requires            ; id (Standard): ganzer Wert / jede Zeile
+                                       ; requires: "<Vorgänger> | before/after | <Anker>", beide geprüft
+                                       ; directive:$UNLOCK_RESEARCH: nur Zeilenteile mit dieser Direktive
+                                       ; file: Datei relativ zu media_soviet oder zum Workshop-Ordner muss existieren
+                                       ; exists | dds_dxt1 | dds_dxt5: bei reference = files
+reference_own = research               ; eigene, eingeschaltete Einträge dieser Gruppe gelten als bekannt
+```
+
+Mengen: `game_research` = aktive Blöcke der `research.ini`; `game_buildings` = Gebäudedateien des Spiels, der DLCs und der abonnierten Workshop-Objekte; `game_texts` = IDs der `.btf` der Spielsprache; `resources` = die 57 Grundspiel-Namen plus `plugins\resources.ini [list]`, wenn das Resources-Plugin bereit ist; `files` = die Picker-Ordner. Die DDS-Formen prüfen zusätzlich Kompression, quadratische Zweierpotenz 256..4096 und die vollständige Mipmap-Kette.
+
+---
+
+## 8. Sprachen
 
 ```ini
 [language]
@@ -682,132 +540,29 @@ name = Deutsch
 [strings]
 plugin.description = Beschreibung
 field.enabled = Plugin aktivieren
-row.road = Straßenfahrzeuge
-unit.coefficient = Koeffizient
 ```
 
-`language_directory` ist relativ zur Paketwurzel. Fallback-Reihenfolge:
-gewählte Sprache, Englisch, einfacher Text im Schema. Technische Abschnitts-,
-Schlüssel-, Gruppen-, Reiter- und Eintragskennungen werden nie übersetzt.
+`language_directory` ist relativ zur Paketwurzel (Presentation-Schema) oder zu `settings_schemas` (lokales Schema); Dateien heißen `<code>.ini`. Reihenfolge: gewählte Sprache, Englisch, der einfache Text im Schema. Abschnitts-, Schlüssel-, Gruppen-, Reiter- und Eintragskennungen werden nie übersetzt. Sprachdateien werden wörtlich gelesen: Ein Strichpunkt im Text ist kein Kommentar.
 
-## Symbole und Pfadsicherheit
+---
 
-Eingebaute Symbole umfassen unter anderem `builtin:gear`, `builtin:truck`,
-`builtin:rail`, `builtin:ship` und `builtin:plane`. Alternativ ist ein sicherer
-relativer PNG-/ICO-Pfad innerhalb des Pakets möglich. Absolute Pfade, `..`, URLs,
-Reparse Points, übergroße Dateien und ungültige Bildabmessungen werden abgewiesen
-oder als optionales Symbol protokolliert und durch ein Standardsymbol ersetzt.
+## 9. Symbole und Pfadsicherheit
 
-### Feldtyp `lines` (seit 0.31.0, nur `scope = item`)
+Eingebaute Symbole sind unter anderem `builtin:gear`, `builtin:truck`, `builtin:rail`, `builtin:ship` und `builtin:plane`. Alternativ ein sicherer relativer PNG-/ICO-Pfad im Paket. Absolute Pfade, `..`, URLs, Reparse-Punkte, übergroße Dateien und ungültige Bildmaße werden abgewiesen oder als optional protokolliert und durch ein Standardsymbol ersetzt. Asset-Namen dürfen Leerzeichen und `. _ + ( ) & , ' -` enthalten, aber keinen führenden Punkt, keinen Punkt oder Leerzeichen am Ende und kein `..`.
 
-Ein Schlüssel, den die Plugin-INI im Abschnitt wiederholt (`target = …`, `add = …`),
-wird als `type = lines` beschrieben. Der Editor zeigt ein mehrzeiliges Feld, jede Zeile
-ist ein Vorkommen des Schlüssels; leere Zeilen entfallen. Die wirksame INI erhält die
-Zeilen als zusammenhängenden Block an der Stelle des ersten Vorkommens. Im Override
-stehen sie als `field.<id>.0`, `field.<id>.1`, … Für `[list] summary` zeigt ein
-lines-Feld die erste Zeile mit Zähler `(+n)`. `[source]` ist bei `keyed_sections`
-optional: ohne Quelle fragt der Plus-Dialog nur Name und Dialogfelder ab.
+---
 
-### Gebäude-Auswahl an Zeilenfeldern (seit 0.32.0)
+## 10. Wie RMM ein Paket bereitstellt
 
-Ein lines-Feld kann `picker = game_buildings` tragen: Dann steht unter dem Feld der Knopf
-„Gebäude auswählen…“, der die Gebäudedateien des Spiels (`buildings_types`), der DLCs und
-der abonnierten Workshop-Objekte nach Art gruppiert zur Auswahl stellt und die Zielzeilen
-in Plugin-Schreibweise einträgt. `count_label`/`count_label_key` benennen den Zähler unter
-dem Feld (sonst „Anzahl Zeilen“), `maximum_lines` begrenzt die Zeilenzahl; darüber wird der
-Zähler rot und der Wert abgewiesen. Zeilenfelder haben eine feste Höhe mit Scrollbalken,
-lassen sich am Griff darunter aufziehen und mit Plus/Minus ganz auf- und zuklappen.
+Jedes Speichern hinterlässt unter `user_config\.autoload\` einen Beleg mit der Paketversion und den Prüfsummen der bereitgestellten Dateien. Sein `mode` sagt, wer die DLL lädt:
 
-### Abschnittspräfix (seit 0.33.0, `keyed_sections`)
+| `mode` | Bedeutung |
+|---|---|
+| `package` | RMM hat DLL und INI nach `plugins\` kopiert (TesmioLoader klassisch) |
+| `bridge` | nur die INI; die Workshop Bridge lädt die DLL; `[packages] <Ordner> = 1` in `user_config\workshop_bridge.ini` entscheidet |
+| `sml` | nur die INI; der Soviet Mod Loader lädt die DLL |
+| `installed` | Plugin ohne Paket, geschützte Basis |
 
-`[editor] section_prefix = modify:` macht nur Abschnitte zu Einträgen, die so beginnen; die
-Kennung ist der Rest (`[modify:faculty_geology]` → `faculty_geology`). Alle anderen Abschnitte
-und freie Zeilen der INI (etwa Forschungsblöcke) bleiben unverändert stehen. Ohne Präfix gilt
-wie bisher: jeder nicht reservierte Abschnitt ist ein Eintrag.
+Ein geändertes Paket (neue Version, neue DLL oder Standard-INI) zeigt die gelbe Marke „Update“; Speichern übernimmt die neue Fassung und behält persönliche Werte. Unter Bridge oder SML zählt nur die Standard-INI, weil das Spiel die DLL ohnehin aus dem Paket lädt. Vor jedem Speichern hält RMM je Plugin genau einen rollierenden Wiederherstellungspunkt unter `user_config\.autoload\backups\<Paket>\previous`; ein Marker schützt nach einem Absturz vor einem halb geschriebenen Stand.
 
-## Verweisprüfung (seit 0.4.40)
-
-Werte, die etwas benennen müssen, was das Spiel kennt, prüft der RMM vor dem Speichern. Ein Treffer macht die Fußzeile rot („Konfiguration ungültig“) mit Klartext, welcher Eintrag und welches Feld betroffen sind; Speichern und „Speichern + Starten“ brechen mit derselben Meldung ab. Geprüft werden nur eigene Einträge und persönlich gesetzte Werte. Fehlt der Spielordner neben dem Loader, entfällt die Prüfung.
-
-```ini
-[group:modify]
-id_reference = game_research        ; die Kennung jedes eigenen Eintrags muss eine aktive Vanilla-Forschung sein
-
-[detail:r_requires]
-type = lines
-reference = game_research           ; Menge: game_research, game_buildings, game_texts oder resources (seit 0.4.41: Grundspiel plus resources.ini mit hook = 2)
-reference_format = requires         ; "<Vorgänger> | before/after | <Anker>": Vorgänger und Anker werden geprüft
-reference_own = research            ; eigene, eingeschaltete Einträge dieser Gruppe gelten ebenfalls als bekannt
-
-[detail:r_unlock]
-type = lines
-reference = game_research
-reference_format = directive:$UNLOCK_RESEARCH   ; nur Zeilenteile mit dieser Direktive; das Wort dahinter ist die Kennung (auch bei "A | B")
-reference_own = research
-
-[detail:target]
-type = lines
-reference = game_buildings
-reference_format = file             ; Datei relativ zu media_soviet oder zum Workshop-Ordner muss existieren
-```
-
-`reference_format = id` (Standard) prüft den ganzen Wert bzw. jede Zeile. `reference` gilt für `text`, `lines` und `choice` mit `scope = item`; `id_reference` steht an `[group:<id>]` (Zusatzliste) oder an der Standardgruppe, auch bei `keyed_list` (Text-IDs gegen `game_texts`).
-
-## Vanilla-Block und Zeilenauswahl (seit 0.4.42)
-
-Für Editoren, deren Einträge bestehende Forschungen des Spiels bearbeiten (Research Expansion, Reiter Vanilla-Änderungen):
-
-```ini
-[list]
-id_picker = game_research           ; Hinzufügen-Dialog mit „Forschung wählen…“ (Vanilla-Forschungen, benutzte und eigene ausgeblendet); auch an [list:<id>]
-
-[research_block:block]              ; schreibgeschützter Kasten mit dem Forschungsblock aus media_soviet\research\research.ini
-label = Original im Spiel
-description = …
-order = 12                          ; wie Felder und [picture:] nach order eingeordnet; group = <id> für Zusatzlisten
-
-[detail:replace]
-type = lines
-picker = research_lines             ; Knopf „Zeile wählen…“: Zeilen genau dieses Blocks
-picker_format = line_edit           ; line = "<Zeile>", line_edit = "<Zeile> | <bearbeitete Kopie>", line_anchor = "<Zeile> | <Anker>",
-                                    ; anchor_edit = "<Anker> | <neue Zeile>", edit = "<neue Zeile>"; bei neuen Zeilen bietet das Fenster
-                                    ; „Forschung als $UNLOCK_RESEARCH…“ an
-```
-
-Die Liste zeigt bei `id_picker = game_research` den Spielnamen der Forschung unter der Kennung.
-
-## Dateiauswahl aus dem Plugin-Ordner (seit 0.4.48)
-
-```ini
-[detail:t_color]
-type = text
-picker = files                       ; aufklappbare Liste der Dateien: erst der Ordner selbst, dann jeder Unterordner als Gruppe (Titel = Pfad); Tippen bleibt möglich
-picker_folders = package:hooks\deposits_plus\assets | build:plugins\deposits_plus\assets   ; Pfadangaben wie bei [folder:], der erste vorhandene Ordner liefert die Liste
-picker_pattern = *.dds
-reference = files                    ; Prüfung vor dem Speichern: die Datei muss in einem der Ordner liegen (Wert = Pfad relativ zum Ordner, Schrägstriche)
-reference_format = dds_dxt1          ; exists (Standard) | dds_dxt1 | dds_dxt5 - die DDS-Formen prüfen zusätzlich Kompression, quadratische Zweierpotenz 256..4096 und die Mipmap-Kette
-```
-
-## Aktionszeile in Presentation-Schemas (seit 0.4.53)
-
-```ini
-[action:prune]
-group = bridge                      ; Karte, in der die Zeile steht; sortiert mit den Feldern nach order
-label = Tidy the bridge list        ; Titel links (label_key fÃ¼r die Ãbersetzung)
-description = ...                   ; Beschreibung unter dem Titel (description_key)
-button = Tidy up now                ; Knopftext rechts (button_key), Knopf wird nie gedehnt
-command = bridge_prune              ; bisher einziger Befehl: EintrÃ¤ge der Bridge-Paketliste ohne Paket in der RMM-Liste entfernen
-order = 35
-```
-
-## Ordnerliste in Presentation-Schemas (seit 0.4.56)
-
-```ini
-[folder_list:packs]
-group = packs                       ; Karte, unter deren Feldern die Liste steht
-paths = package:hooks\localization | build:plugins\localization   ; Pfadangaben wie bei [folder:]; jeder Unterordner wird eine Zeile
-description_prefix = loc.pack       ; Kurztext je Ordner aus der Sprachdatei: <prefix>.<ordnername>, fehlt er, bleibt die Spalte leer
-note = ...                          ; eine kurze Zeile unter der Liste (note_key)
-order = 10
-```
-Rechts steht je Zeile, wo der Ordner liegt: âim Paketâ (package:-Pfad), âlokalâ (build:/vfs:-Pfad) oder âlokal, Ã¼berlagert das Paketâ (beides).
+Für das Plugin `workshop_bridge` selbst überleben die `[packages]`-Zeilen in seiner Overlay-Datei jedes Speichern und „Original wiederherstellen“.

@@ -3,7 +3,8 @@
 Windows program (C#, WinForms, .NET Framework 4) that lists the subscribed TesmioLoader
 plugin packages, renders their settings from the package schema, switches plugins on and
 off, keeps the Workshop Bridge list and starts the game through the TesmioLauncher.
-The user guide is `README_DE.md` (German), the schema reference `SCHEMA_DE.md`.
+The user guide is `README_EN.md` / `README_DE.md`, the reference for package authors
+`SCHEMA_EN.md` / `SCHEMA_DE.md`.
 Distributed as a Steam Workshop item; the item's installer and guides are in `workshop/`.
 
 ## Layout
@@ -42,8 +43,8 @@ The output folder must not exist yet. Some core tests expect the fixture's DLL b
 
 ## Installing into the game
 
-Copy `bin\rmm.exe`, `settings_schemas\`, `README_DE.md` (as `rmm.README_DE.md`) and
-`SCHEMA_DE.md` (as `rmm.SCHEMA_DE.md`) into `<game>\tesmioloader\build`, or use the Workshop
+Copy `bin\rmm.exe`, `settings_schemas\`, the two guides (as `rmm.README_DE.md` / `rmm.README_EN.md`)
+and the two references (as `rmm.SCHEMA_DE.md` / `rmm.SCHEMA_EN.md`) into `<game>\tesmioloader\build`, or use the Workshop
 item's `Install-RMM.bat`, which also installs the Workshop Bridge from `plugins/workshop_bridge`.
 
 ## Licence

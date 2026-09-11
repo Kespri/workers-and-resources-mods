@@ -1,558 +1,227 @@
-# Republic Mod Manager (RMM) 0.4.26-beta – Plugin-Manager für TesmioLoader
+# Republic Mod Manager – Anleitung
 
-Republic Mod Manager, bis 0.16.0 „Tesmio Settings“ mit der Datei
-`tesmio_autoload.exe`, ist eine eigenständige Einstellungs- und
-Bereitstellungsoberfläche für den unveränderten TesmioLoader. Programmdatei:
-`rmm.exe`, Einstellungen daneben in `rmm.ini` (ein altes `tesmio_autoload.ini`
-wird weiter gelesen, solange kein `rmm.ini` existiert). Die Anwendung durchsucht den Workshop-Ordner
-nach Paketen mit `soviet.mod.ini`. Seit 0.9.0 genügt dafür das gewöhnliche
-Manifest von Soviet Mod Loader: `[mod]` und `[hooks] dll`. Alles, was Autoload
-früher zusätzlich verlangte, wird aus dem DLL-Namen abgeleitet; ein mitgeliefertes
-Launcher-Schema verfeinert die Darstellung, ist aber nicht mehr Voraussetzung.
-Fehlt es, entsteht die Oberfläche aus der INI des Plugins selbst.
+[English](README_EN.md) | **Deutsch**
 
-Der Loader enthält keine Sonderbehandlung und keine eingebetteten Einstellungen
-für Vehicle Materials. Ein zweites Plugin mit einem anderen Namen, einer anderen
-INI und anderen Feldern kann ohne Programmänderung geladen werden.
+Republic Mod Manager (kurz RMM) ist ein Fenster für alle deine TesmioLoader-Plugins. Du siehst, welche Plugins du hast, schaltest sie ein oder aus, stellst ihre Werte mit Beschreibung und Bereichsprüfung ein und startest das Spiel. Der TesmioLoader selbst bleibt unverändert; RMM schreibt nur Einstellungsdateien.
 
-## Bedienung
+---
 
-1. `rmm.exe` öffnen. Workshop-Hauptordner, letztes Paket, Reiter und
-   Sprache werden wiederhergestellt.
-2. Plugin links auswählen. Unvollständige oder inkompatible Pakete bleiben mit
-   einer genauen Ablehnungsursache sichtbar, erhalten aber keinen Editor.
-3. Einstellungen ändern. Reiter, Gruppen, Texte, Symbole, Feldtypen, Grenzen und
-   Aktivierungsschalter stammen aus dem Paket-Schema.
-4. **Speichern** legt einen rollierenden Wiederherstellungspunkt an, schreibt nur
-   persönliche Abweichungen nach `build\user_config` und stellt DLL sowie wirksame
-   INI nach `build\plugins` bereit.
-5. **Speichern + Starten** führt denselben geprüften Vorgang aus, startet danach das
-   Spiel über `tesmiolauncher.exe --nogui` und schließt Republic Mod Manager.
+## 📋 Inhaltsverzeichnis
 
-Workshop-Dateien werden nie verändert. Das bloße Öffnen, Suchen, Wechseln von
-Plugins, Reitern oder Sprachen schreibt keine Plugin-Datei. Zahleneingaben dürfen
-in der Oberfläche ein Dezimalkomma verwenden; gespeichert wird mit Dezimalpunkt.
-Gleichwertige Schreibweisen wie `0.030` und `0.03` gelten nicht als Änderung.
+1. [Voraussetzungen](#-voraussetzungen)
+2. [Das Fenster](#-das-fenster)
+3. [Der Schalter „Plugin aktiv“](#-der-schalter-plugin-aktiv)
+4. [Speichern und Starten](#-speichern-und-starten)
+5. [Die Karte „Hinweise“](#-die-karte-hinweise)
+6. [Wie ein Plugin ins Spiel kommt](#-wie-ein-plugin-ins-spiel-kommt)
+7. [Dateien nur lokal](#-dateien-nur-lokal)
+8. [Das Protokollfenster](#-das-protokollfenster)
+9. [Profile und Wiederherstellung](#-profile-und-wiederherstellung)
+10. [Listen-Editoren: Resources, Needs, Deposits und Paket-Editoren](#-listen-editoren)
+11. [Spielversion und rmm.ini](#-spielversion-und-rmmini)
+12. [Wo deine Dateien liegen](#-wo-deine-dateien-liegen)
+13. [Wenn etwas nicht klappt](#-wenn-etwas-nicht-klappt)
+14. [Für Plugin-Autoren](#-für-plugin-autoren)
 
-## Unterstütztes Paketmodell
+---
 
-Ein Paket braucht in `soviet.mod.ini` nur `[mod]` mit `id` und `name` sowie
-`[hooks] dll` mit genau einer x64-Tesmio-Plugin-DLL. Daraus wird abgeleitet:
+## 🚀 Voraussetzungen
 
-- der lokale Zielname aus dem DLL-Dateinamen (`hooks\walking.dll` → `walking`);
-- die Standard-INI als `<Ziel>.ini` neben der DLL, falls vorhanden;
-- der Name der persönlichen Konfiguration, ebenfalls `<Ziel>.ini`;
-- das Launcher-Schema aus `config\<Ziel>.launcher.ini`, falls vorhanden.
+- *Workers & Resources: Soviet Republic* 1.1.1.9
+- TesmioLoader von MaxLegend im Spielordner (`tesmioloader\build` mit `tesmioloader.dll` und `tesmioloader.ini`)
+- Windows 10 oder 11
 
-`[configuration]` und `[autoload]` bleiben als Übersteuerung gültig: `defaults`,
-`launcher_schema`, `user_config`, `target`, `requires_local`, `conflicts_local`.
-Ein deklariertes `target` muss weiterhin zum DLL-Namen passen. `tesmio_api_min`
-und `tesmio_api_max` sind optional; wenn angegeben, muss API 4 im Bereich liegen.
+RMM liegt als `rmm.exe` im Ordner `tesmioloader\build`. Starte es von dort oder über die Desktop-Verknüpfung. Es findet den Loader, das Spiel und den Steam-Workshop-Ordner von selbst. Nur ein RMM-Fenster ist gleichzeitig offen; ein zweiter Start holt das vorhandene nach vorn.
 
-**Ohne Launcher-Schema** entsteht die Oberfläche aus der INI: Jeder Schlüssel wird
-ein Feld, der Kommentarblock darüber seine Beschreibung, der Wert bestimmt den
-Typ: `0`/`1` wird zum Schalter, außer der Schlüsselname nennt eine Menge
-(`count`, `days`, `frequency`, `size` und ähnliche) oder der Kommentar nennt
-andere ganze Zahlen oder einen Bereich wie `2-12`; dann Ganzzahl. Andere
-Ganzzahlen, Dezimalzahlen, sonst Text. Ein Schlüssel `enabled` wird zum Aktivierungsschalter. Ein
-Kommentar hinter dem Wert wie `130 ; (stock 121)` bleibt in der Datei, bis der
-Wert geändert wird. Weil kein Schema die erlaubten Schlüssel festlegt, werden in
-diesem Modus unbekannte Schlüssel einer lokalen INI nicht abgewiesen. Mit
-mitgeliefertem Schema gilt die strenge Prüfung wie bisher.
+---
 
-Unterstützte Feldtypen sind `boolean`, `integer`, `decimal`, `choice`, `text`
-und `readonly`.
+## 🖥️ Das Fenster
 
-**Overlay-Plugins** kennzeichnen sich mit `[configuration] user_overlay = 1`.
-Ihre DLL liest `user_config\<Ziel>.ini` selbst. Republic Mod Manager stellt dann die
-Original-INI byteidentisch bereit und schreibt persönliche Werte ausschließlich
-nach `user_config`. Ohne Republic Mod Manager läuft das Plugin mit seinen Standardwerten.
+**Links die Liste.** Jede Zeile ist ein Plugin: abonnierte Workshop-Pakete und alles, was als DLL in `tesmioloader\build\plugins` liegt. Das Symbol zeigt die Herkunft: Steam-Symbol für Workshop-Pakete, TesmioLauncher-Symbol für Plugins im plugins-Ordner, Zahnrad für alles andere. Ein grüner Punkt heißt: Dieses Plugin läuft beim nächsten Spielstart. Ein gelbes „Update“ heißt: Das Workshop-Paket ist neuer als das, was du zuletzt gespeichert hast. Ein bernsteinfarbener Punkt heißt: Hier hast du etwas geändert und noch nicht gespeichert.
 
-**Reine SML-Inhaltspakete** (`[content]` ohne `[hooks] dll`, etwa Ressourcen,
-Vorkommen und Gebäude) erscheinen in der Liste als „SML-Inhalt“. Sie haben
-keinen Editor und werden nicht bereitgestellt; das erledigt Soviet Mod Loader.
-Ein Hook-Paket mit zusätzlichem `[content]` wird geladen; den Inhalt wendet nur
-Soviet Mod Loader an. `[dependencies]` werden ausgewertet, siehe „Aktivität,
-Konflikte und Sicherheit“. Eine DLL ohne INI wird ohne Einstellungen bereitgestellt.
+**Oben der Kopf.** Name, Version und Beschreibung des Plugins, rechts der Schalter „Plugin aktiv“ und die Sprache (Deutsch, Englisch oder automatisch nach Windows).
 
-Mehrere `dll`-Einträge unter `[hooks]` werden mit genauer Ursache abgewiesen.
-Pfadausbrüche, doppelte IDs und nicht zur DLL passende Zielnamen ebenfalls.
+**Darunter die Reiter.** Die Reiter kommen vom Plugin. Ein Plugin ohne eigene Einstellungsseite bekommt einen Reiter „Allgemein“, den RMM aus den Kommentaren der INI-Datei baut.
 
-Details und vollständige Beispiele stehen in `SCHEMA_DE.md`.
+**Die Statuszeile** unter den Reitern sagt, wie das Plugin geladen wird (Workshop Bridge, Soviet Mod Loader oder TesmioLoader), wo seine Dateien liegen (Workshop-Paket, lokal in plugins\ oder plugins\) und wann der Loader es zuletzt geladen hat. Fahre mit der Maus über einen Punkt, dann erklärt ein Hinweis, was er bedeutet.
 
-## Installierte Plugins ohne Paket
+**Die Karten** tragen die Einstellungen. Jede Zeile hat einen Titel, einen kurzen Text, was die Einstellung im Spiel verändert, und rechts das Feld:
 
-Seit 0.10.0 erscheint auch jedes Plugin, das nur als `plugins\<name>.dll` mit
-`plugins\<name>.ini` im Loader-Ordner liegt, so wie es ein reiner
-TesmioLoader-Nutzer installiert. Solche Einträge tragen den Status
-„Installiert“; die Version stammt aus dem letzten `tesmioloader.log`. Plugins,
-die ein gelistetes Workshop-Paket oder ein lokaler Editor (Resources) abdeckt,
-werden nicht doppelt gezeigt.
+- Schalter für EIN und AUS.
+- Zahlenfelder mit Plus und Minus. Fahre mit der Maus über das Feld, dann siehst du den erlaubten Bereich. Ein Dezimalkomma darfst du tippen, gespeichert wird mit Punkt.
+- Auswahllisten, Textfelder und mehrzeilige Felder mit Zähler.
+- Ein Zurücksetzen-Knopf erscheint nur, wenn dein Wert vom Standard des Plugins abweicht.
 
-Für diese Plugins gibt es kein Original im Workshop, deshalb gilt die
-**geschützte Basis**:
+Rechtsklick auf einen Text kopiert ihn in die Zwischenablage, praktisch für Fehlerberichte.
 
-- Die vorgefundene INI gilt als Original. Beim ersten Speichern wird sie nach
-  `user_config\.autoload\<name>.upstream.ini` gesichert; erst dann wird die
-  wirksame INI (Original plus persönliche Werte) nach `plugins\` geschrieben.
-- Die DLL wird nie angefasst. Persönliche Werte liegen wie bei Paketen in
-  `user_config\<name>.ini`.
-- Wird `plugins\<name>.ini` später außerhalb von Republic Mod Manager geändert, etwa
-  durch eine neue Plugin-Version, gilt diese Datei als neues Original: Sie wird
-  erneut gesichert, und die persönlichen Werte werden wieder darübergelegt.
-- **Original wiederherstellen** in der Fußzeile schreibt die gesicherte INI
-  byteidentisch zurück und verwirft alle persönlichen Werte des Plugins.
+**Die Fußzeile** zeigt den Zustand: grün „Gespeichert“, bernstein „Ungespeicherte Änderungen“, rot „Konfiguration ungültig“ mit dem Grund. Daneben die Knöpfe Zurücksetzen, Speichern und Speichern + Starten. Speichern ist nur anklickbar, wenn es etwas Gültiges zu speichern gibt.
 
-Das Schema kommt in drei Stufen: aus dem Paket (bei Workshop-Paketen), sonst
-aus `settings_schemas\<name>.launcher.ini` neben der EXE, sonst aus der INI
-selbst. Ein lokales Schema muss `config = <name>.ini` nennen; `id` und `name`
-darin bestimmen Kennung und Anzeigename. Eine DLL ohne INI wird gelistet, hat
-aber nichts einzustellen.
+Das Fenster merkt sich Größe, Sprache, gewähltes Plugin und Reiter. Es braucht mindestens 1560 mal 760 Punkte; bei schmalen Fenstern rutschen die Beschriftungen über die Felder.
 
-Seit 0.13.0 liegen unter `settings_schemas` deutsch/englische Schemas für die
-Upstream-Plugins accumulator, cities, daynight, depletion, easystart und
-walking; deposits und needs (dynamische Abschnitte) behalten die INI-Ableitung,
-resources den eigenen Editor. Ein lokales Schema beschreibt, es verbietet
-nicht: Werte dürfen einen Kommentar hinter sich tragen, und Schlüssel, die eine
-neuere Plugin-Version hinzufügt, werden in den Hinweisen genannt und bleiben in
-der INI selbst editierbar.
+---
 
-## Plugin-Schalter, Hinweise und Spielversion
+## 🔛 Der Schalter „Plugin aktiv“
 
-Seit 0.19.0 zeigt die Kopfzeile nur noch einen Schalter, **„Plugin aktiv“**.
-Er ersetzt die früheren zwei Schalter „Plugin-Funktion“ und „Im Loader laden“,
-denn ein geladenes Plugin mit abgeschalteter INI ergab keinen Sinn. Was der
-Schalter tut, hängt davon ab, wer die DLL lädt:
+Der Schalter im Kopf entscheidet, ob das Plugin beim nächsten Spielstart läuft. Was er genau schreibt, hängt davon ab, wer die DLL lädt (siehe Statuszeile):
 
-- **Installierte Plugins, Workshop-Pakete ohne SML und die lokalen Editoren
-  Resources und Needs:** Der Schalter ist das Kästchen des TesmioLaunchers, also
-  `[plugins] <name>` in `tesmioloader.ini`. Beim Einschalten setzt Republic Mod
-  Manager zusätzlich das `enabled`-Feld der INI auf 1, falls das Schema eines
-  kennt, damit die DLL nicht lädt und sofort ablehnt. Beim Ausschalten bleibt
-  die INI unverändert; nur der Loader-Eintrag wird 0. Der Schalter zeigt „an“
-  nur, wenn beides stimmt, genau wie der grüne Punkt in der Liste.
-  `tesmioloader.ini` wird an Ort und Stelle bearbeitet, Kommentare und die
-  Schalter anderer Plugins bleiben erhalten, ein BOM wird nie geschrieben.
-- **Workshop-Pakete unter der Workshop Bridge:** derselbe Schalter schreibt die
-  Zeile `[packages] <Nummer>` in `user_config\workshop_bridge.ini`.
-- **Workshop-Pakete unter aktivem SML:** Soviet Mod Loader lädt jedes abonnierte
-  Paket, einen Loader-Eintrag gibt es nicht. Hat die INI ein `enabled`-Feld,
-  schaltet der Schalter nur dieses Feld. Hat sie keins, fehlt der Schalter und
-  ein Hinweis sagt, dass nur das Workshop-Abo das Paket abschaltet.
-- Inhaltspakete haben keinen Schalter.
+- **Workshop Bridge:** Der Schalter trägt das Paket in die Liste der Bridge ein (`user_config\workshop_bridge.ini`) oder streicht es dort. Ein Paket, das du nie eingeschaltet hast, lädt die Bridge nicht.
+- **TesmioLoader:** Der Schalter ist das Kästchen des TesmioLaunchers, also der Eintrag `[plugins] <name>` in `tesmioloader.ini`. Beim Einschalten setzt RMM zusätzlich das Feld `enabled` in der INI des Plugins auf 1, falls es eines gibt, damit die DLL nicht sofort wieder ablehnt.
+- **Soviet Mod Loader:** SML lädt jedes abonnierte Paket selbst. Der Schalter setzt dann nur das Feld `enabled` in der INI. Hat die INI kein solches Feld, fehlt der Schalter, und ein Hinweis sagt, dass nur das Abbestellen das Paket abschaltet.
 
-Das `enabled`-Feld selbst erscheint nicht mehr in den Karten; bei Needs fehlt
-darum der Eintrag „Plugin aktiv“ in der Karte „Plugin-Einstellungen“.
+Der Schalter zeigt „an“ nur, wenn alles zusammenpasst, genau wie der grüne Punkt in der Liste. Reine Inhaltspakete für den Soviet Mod Loader (Ressourcen, Gebäude ohne DLL) haben keinen Schalter; die zeigt RMM nur an.
 
-Über den Einstellungen eines Eintrags erscheint eine Karte **„Hinweise“** mit
-allem, was vorher nur im Protokoll stand: Overlay-Modus, INI-Ableitung,
-geschützte Basis, SML-Betrieb, aufgelöste Abhängigkeiten. Nicht erfüllte
-Abhängigkeiten und eine doppelt vorhandene DLL stehen rot darüber.
+---
 
-**Speichern + Starten** ruft seit 0.19.0 `tesmiolauncher.exe --nogui` auf: Das
-Spiel startet sofort mit dem Stand aus `tesmioloader.ini`, das Fenster des
-Launchers erscheint nicht mehr. Wer es wieder sehen will, setzt in `rmm.ini`
-unter `[settings]` den Wert `tesmiolauncher_window = 1`. Die Versionsprüfung
-des Launchers bleibt in beiden Fällen aktiv.
+## 💾 Speichern und Starten
 
-Beim Start liest Republic Mod Manager den Build-Stempel von `SOVIET64.exe` (den
-Pfad aus `tesmioloader.ini`, sonst zwei Ordner über dem Loader). Gehört er zu
-keiner Version, für die die Plugins gemacht sind, erscheint eine Warnung, und
-„Speichern + Starten“ fragt vor dem Start nach. Bekannt ist 1.1.1.9; weitere
-Stempel lassen sich in `settings_schemas\game_versions.ini` unter
-`[supported]` als `<Hex-Stempel> = <Version>` eintragen. `version_check = 0`
-unter `[settings]` in `rmm.ini` schaltet die Prüfung ab. Doppelt
-vorhandene DLLs bei aktivem SML werden ebenfalls beim Start gemeldet.
+**Speichern** schreibt deine Änderungen:
 
-## Workshop Bridge
+- Deine persönlichen Werte landen in `tesmioloader\build\user_config\<name>.ini`. Die INI des Pakets bleibt, wie sie ist. Ein Update des Pakets überschreibt deine Werte deshalb nie.
+- Bei Plugins, die nur als DLL im plugins-Ordner liegen, sichert RMM beim ersten Speichern die vorgefundene INI als Original unter `user_config\.autoload\<name>.upstream.ini` und schreibt dann die fertige INI mit deinen Werten nach `plugins\`. „Original wiederherstellen“ in der Fußzeile holt die gesicherte Datei byteweise zurück.
+- Vor jedem Speichern legt RMM einen Wiederherstellungspunkt an (siehe [Profile und Wiederherstellung](#-profile-und-wiederherstellung)).
+- Muss eine neue DLL nach `plugins\` (nur beim Ladeweg TesmioLoader), zeigt RMM vorher Paket, Quelle, Ziel und die Prüfsumme der Datei und fragt nach.
 
-TesmioLoader allein lädt nur DLLs aus `plugins\`. Ein Workshop-Paket braucht
-deshalb Soviet Mod Loader oder eine Kopie der DLL, die Republic Mod Manager bisher
-beim Speichern anlegte. Seit 0.14.0 gibt es den dritten Weg: das Plugin
-**workshop_bridge** (aus `my_plugins`, als `plugins\workshop_bridge.dll` mit
-`workshop_bridge.ini` installiert) lädt die Hook-DLLs der freigegebenen Pakete
-direkt aus dem Workshop-Ordner und gibt ihnen dieselbe Host-Tabelle wie der
-Loader. Steam hält die Pakete aktuell, nichts wird kopiert.
+Speichern geht nur, wenn Spiel und TesmioLauncher beendet sind und alle Werte im erlaubten Bereich liegen. Nur das Öffnen, Suchen und Wechseln von Plugins oder Reitern schreibt nie eine Datei.
 
-Ist die Bridge installiert, in `tesmioloader.ini` eingeschaltet und Soviet Mod
-Loader nicht aktiv, arbeitet Republic Mod Manager für Workshop-Pakete im
-**Bridge-Modus**:
+**Speichern + Starten** speichert genauso und startet dann das Spiel über `tesmiolauncher.exe` ohne dessen Fenster. RMM schließt sich dabei. Willst du das Launcher-Fenster sehen, setze in `rmm.ini` unter `[settings]` den Wert `tesmiolauncher_window = 1`.
 
-- Der Schalter **„Plugin aktiv“** schreibt die Zeile
-  `[packages] <Workshop-Nummer> = 1` beziehungsweise `0` nach
-  `user_config\workshop_bridge.ini` statt nach `tesmioloader.ini`. Ein Paket,
-  das nie eingeschaltet wurde, lädt die Bridge nicht (Vorgabe `policy = list`).
-- Beim Speichern wird nur die INI nach `plugins\` gestellt, nie die DLL. Der
-  Empfangsbeleg trägt `mode = bridge`.
-- Eine `plugins\<name>.dll`, die Republic Mod Manager selbst früher kopiert hat (der
-  Beleg beweist es), wird beim nächsten Speichern entfernt, damit die
-  Workshop-Kopie gilt; der Wiederherstellungspunkt behält sie. Eine fremde
-  Kopie bleibt: dann lädt der Loader diese, die Bridge überspringt das Paket,
-  und die Hinweise sagen es rot.
-- Die Aktivitätsanzeige folgt der Liste der Bridge und deren eigenem Schalter.
-- Abhängigkeiten, die als Hook-Paket in der Liste der Bridge stehen, gelten
-  als erfüllt.
+Vor dem Start prüft RMM außerdem, ob alle Ressourcen, auf die eingeschaltete Plugins verweisen, im Plugin Resources vorhanden sind. Fehlt eine, nennt die Meldung das Plugin, und der Start wartet.
 
-Die Bridge selbst erscheint als installiertes Plugin mit eigenem Schema
-(Bridge aktiv, `policy`, Workshop-Ordner, Protokoll). Ihre Paketliste bleibt
-bei jedem Speichern dieser Einstellungen und auch bei „Original
-wiederherstellen“ erhalten. Unter aktivem SML bleibt die Bridge untätig und
-Republic Mod Manager verhält sich wie in „SML als Nachbar“ beschrieben.
+---
 
-## Dateien nur lokal
+## 💡 Die Karte „Hinweise“
 
-Ein Workshop-Paket, das über die Workshop Bridge läuft, kann seit 0.21.0 als
-Ganzes nach `plugins` kopiert werden, wenn der Autor das im Manifest erlaubt
-(`[configuration] local_copy = 1`). In der Karte „Hinweise“ erscheint dann der
-Schalter **„Dateien nur lokal“**. Einschalten und Speichern zeigt zuerst ein
-Fenster mit jeder Datei, die kopiert wird, samt SHA-256 der DLL; erst nach
-„OK“ kopiert Republic Mod Manager in derselben Transaktion DLL, INI und den im
-Manifest unter `[assets] dir` genannten Ordner nach `plugins\`. Die Workshop
-Bridge überspringt das Paket danach von selbst, weil die DLL lokal liegt; der
-Loader-Eintrag in tesmioloader.ini übernimmt den Schalter „Plugin aktiv“.
+Auf dem ersten Reiter jedes Plugins steht oben eine Karte „Hinweise“. Dort erscheint alles, was du wissen solltest, bevor du speicherst:
 
-Der Beleg merkt sich die Wahl (`local_copy = 1`) und jede kopierte Datei
-(`asset.N`). Ausschalten und Speichern entfernt genau diese Dateien wieder,
-nach einer Bestätigung mit Liste, und das Paket läuft wieder über die Bridge.
-Fremde Kopien in `plugins` werden nie angefasst. Steam-Updates wirken bei
-lokalen Dateien erst nach erneutem Speichern; die gelbe Marke „Update“ zeigt
-sie an wie bisher.
+- **Blau:** Informationen, etwa ein Hinweis des Plugin-Autors, ein anstehendes Update mit alter und neuer Version, oder dass eine Abhängigkeit aktiv ist.
+- **Gelb:** Warnungen, etwa eine Abhängigkeit, die zwar da, aber nicht eingeschaltet ist. Schalte sie ein, sonst lässt sich das Plugin nicht speichern.
+- **Rot:** Fehler, etwa eine fehlende Abhängigkeit, eine doppelt vorhandene DLL oder ein Workshop-Ordner, der bei RMM und der Workshop Bridge nicht derselbe ist. Ein rotes Feld blockiert das Speichern.
 
-Der Assets-Ordner landet unter `plugins\<Ordnername>\`, bei Deposits Plus also
-`plugins\deposits_plus\assets\...`, genau dort, wo das Plugin ohne Paket sucht.
-Ausführbare Dateien sind im Assets-Ordner nicht erlaubt.
+Bei Paketen, die es erlauben, liegt hier auch der Schalter „Dateien nur lokal“.
 
-## Aktualisierte Pakete
+---
 
-Seit 0.15.0 merkt sich der Empfangsbeleg einer Bereitstellung die Paketversion
-und die Hashes der bereitgestellten Dateien. Hat sich das Workshop-Paket
-seitdem geändert, weil Steam ein Update geholt hat oder der Autor die Dateien
-ausgetauscht hat, zeigt die Liste am Eintrag ein gelbes „Update“, die
-Hinweiskarte nennt alte und neue Version und was sich geändert hat (DLL,
-Standard-INI), und das Protokoll fasst beim Start alle betroffenen Pakete
-zusammen. Nichts davon blockiert: **Speichern** übernimmt die neue Fassung,
-persönliche Werte bleiben erhalten. Unter SML oder der Workshop Bridge zählt
-nur die Standard-INI, weil das Spiel die DLL ohnehin aus dem Paket lädt.
+## 🛤️ Wie ein Plugin ins Spiel kommt
 
-Der Sicherheitsdialog vor dem Schreiben einer DLL erscheint seit 0.15.0 nur
-noch, wenn tatsächlich eine neue oder geänderte DLL nach `plugins\` geschrieben
-würde: nie für installierte Plugins, nie unter SML oder der Bridge, und nicht,
-wenn die Kopie in `plugins\` bereits dieselbe ist.
+Der TesmioLoader allein lädt nur DLLs aus `tesmioloader\build\plugins`. Für Workshop-Pakete gibt es drei Wege, und RMM erkennt von selbst, welcher bei dir gilt:
 
-## Protokolle
+1. **Workshop Bridge** (bei RMM dabei): Das Plugin `workshop_bridge` lädt die DLLs der eingeschalteten Pakete direkt aus dem Steam-Workshop-Ordner. Steam hält sie aktuell, nichts wird kopiert. RMM stellt nur die INI bereit.
+2. **Soviet Mod Loader:** Ist SML installiert und eingeschaltet, lädt er alle abonnierten Pakete. RMM schreibt dann nur INI-Dateien und nie eine DLL. Liegt von einem Paket noch eine DLL in `plugins\`, weigert sich RMM zu speichern, weil das Plugin sonst doppelt laden würde. Die Bridge hält sich unter SML zurück.
+3. **TesmioLoader klassisch:** Ohne Bridge und SML kopiert RMM DLL und INI nach `plugins\` und schaltet das Plugin in `tesmioloader.ini` ein.
 
-Das Protokoll-Symbol in der Seitenleiste öffnet seit 0.16.0 ein Fenster mit
-drei Quellen: dem Journal dieser Tesmio-Settings-Sitzung, `tesmioloader.log`
-aus dem Loader-Ordner und jedem `tesmioloader.<plugin>.log`, das ein Plugin
-im Unterordner `logs\` oder direkt im Loader-Ordner schreibt (Einträge aus
-`logs\` tragen den Ordner im Namen). Die Dateien werden mit geteiltem Zugriff gelesen, das Fenster
-funktioniert also auch, während das Spiel läuft; „Aktualisieren“ liest neu.
-Eine Suche filtert nach Text, „Absender“ nach dem ersten Wort einer Zeile
-(`plugin`, `bridge`, `hook`, ein Plugin-Name, `game.ERROR`), und „Nur Probleme
-und Warnungen“ blendet alles Unauffällige aus. Problemzeilen (error, fatal,
-failed, refused, mismatch, exception) stehen rot, Warnungen (warn, declined,
-skipped, missing, unknown) gelb; die Zusammenfassung „0 warning(s), 0 error(s)“
-eines Plugins und die `hook ok`-Zeilen gelten als unauffällig. Die Fußzeile
-nennt Zeilen, Treffer und die letzte Abschlusszeile des Loaders.
+Die Workshop Bridge erscheint selbst als Plugin in der Liste. Ihre Karte hat den Schalter „Bridge aktiv“, den Workshop-Ordner (normalerweise „auto“ = der Steam-Workshop-Ordner deines Spiels), die Regel, welche Pakete geladen werden, und einen Knopf „Jetzt aufräumen“, der Einträge von Paketen entfernt, die du nicht mehr hast. Die Paketliste selbst pflegst du nie von Hand; das macht der Schalter „Plugin aktiv“ der Pakete.
 
-In der Hinweiskarte eines Plugins steht außerdem, welche Version der Loader
-beim letzten Spielstart geladen hat, auch wenn die Workshop Bridge sie geladen
-hat, oder dass das Plugin im letzten Lauf nicht geladen wurde.
+---
 
-## Profile und Wiederherstellungspunkte
+## 📁 Dateien nur lokal
 
-Das Archiv-Symbol in der Seitenleiste öffnet seit 0.23.0 das Fenster „Profile
-und Wiederherstellung“ mit zwei Reitern. Vorher werden ungespeicherte
-Änderungen wie beim Aktualisieren abgefragt; nach einer Änderung im Fenster
-liest die Plugin-Liste neu.
+Manche Pakete erlauben, ihre Dateien komplett in den plugins-Ordner zu kopieren, etwa weil sie Texturen mitbringen. Dann steht in der Karte „Hinweise“ der Schalter „Dateien nur lokal“. Einschalten und Speichern zeigt zuerst jede Datei, die kopiert wird, samt Prüfsumme der DLL; nach „OK“ kopiert RMM DLL, INI und den Zubehörordner nach `plugins\`. Die Bridge überspringt das Paket danach von selbst, und der Schalter „Plugin aktiv“ arbeitet über `tesmioloader.ini`.
 
-**Profile** (Wunsch 6) sichern den Konfigurationsstand des Loader-Ordners
-unter einem Namen: `tesmioloader.ini`, `plugins\*.ini`, `user_config\*.ini`
-und die Belege und geschützten Originale unter `user_config\.autoload\*.ini`.
-DLLs gehören nie dazu, ebenso wenig die rollierenden Sicherungen. Ein Profil
-liegt als Ordner unter `user_config\.autoload\profiles\<Name>_<Kennung>\` mit
-`profile.ini` (Name, Zeitpunkt, Notiz, Dateiliste mit SHA-256) und `files\`.
-„Aktuellen Stand sichern…“ fragt Name (1–40 Zeichen) und Notiz ab; ein
-bestehender Name wird nach Rückfrage überschrieben. Die Dateiliste rechts
-zeigt je Datei, ob sie unverändert, abweichend, lokal fehlend oder nur lokal
-vorhanden ist. „Profil anwenden“ schreibt die gesicherten Dateien zurück und
-entfernt `user_config`-Dateien, die das Profil nicht kennt; `plugins\*.ini`
-eines später installierten Plugins bleibt. Das geschieht in derselben
-Transaktion wie ein Speichern, geschützt gegen laufendes Spiel und Launcher,
-und hinterlässt den Wiederherstellungspunkt „profile“ mit dem Stand davor.
+Ausschalten und Speichern entfernt genau diese Dateien wieder, nach einer Rückfrage mit Liste. Fremde Dateien in `plugins\` fasst RMM nie an. Steam-Updates wirken bei lokalen Dateien erst, wenn du erneut speicherst; das gelbe „Update“ in der Liste erinnert dich daran.
 
-**Wiederherstellungspunkte** (Wunsch 7) machen sichtbar, was jedes Speichern
-unter `user_config\.autoload\backups\<Paket-ID>\previous` ablegt: den Stand
-aller berührten Dateien von vor dem letzten Speichern dieses Plugins, mit
-Zeitpunkt und je Datei der Angabe, ob sie seither verändert wurde oder damals
-noch nicht vorhanden war. „Auf diesen Punkt zurücksetzen“ schreibt genau diese Dateien zurück
-(damals fehlende werden entfernt, auch eine damals kopierte DLL); der jetzige
-Stand wird dabei zum neuen Punkt desselben Plugins, das Zurücksetzen lässt
-sich also wieder rückgängig machen. Unvollständige Punkte (Dateien fehlen oder
-liegen außerhalb des Loader-Ordners) werden nur angezeigt. Ein Marker
-`pending.txt` einer abgebrochenen Bereitstellung wird in der Fußzeile gemeldet.
+---
 
-Schnappschuss des Fensters: `--ui-snapshot <png> --window profiles|points|buildings|add` (`add` = Hinzufügen-Dialog des gewählten Listeneditors, seit 0.4.8).
+## 📜 Das Protokollfenster
 
-## Resources-Editor: Vorbild, Transportklasse, Materialfamilie
+Das Protokoll-Symbol in der Seitenleiste öffnet ein Fenster mit drei Arten von Quellen: dem Journal dieser RMM-Sitzung, `tesmioloader.log` aus dem Loader-Ordner und jedem Plugin-Protokoll `tesmioloader.<plugin>.log`, egal ob es im Unterordner `logs\` oder direkt im Loader-Ordner liegt. Die Dateien lassen sich auch lesen, während das Spiel läuft; „Aktualisieren“ liest neu, „Ordner öffnen“ zeigt den Loader-Ordner im Explorer.
 
-Seit 0.16.0 sind die drei Felder Auswahllisten. **Vorbildressource** bietet die
-57 Ressourcen des Grundspiels, gruppiert nach Grundlagen, Bau, Rohstoffe,
-Nuklear, Konsum, Industrie, Wasser und Dünger sowie Abfall, jede mit ihrer
-Transportklasse in Klammern, dazu `custom` für einen Datensatz ohne Vorbild.
-Das Plugin akzeptiert nur diese Namen; ein Tippfehler würde still zu `custom`.
-Im Anlegen-Dialog schlägt das gewählte Vorbild seine Klasse vor.
+„Suchen“ filtert nach Text, „Absender“ nach dem ersten Wort einer Zeile (`plugin`, `bridge`, `hook`, ein Plugin-Name), „Nur Probleme und Warnungen“ blendet alles Unauffällige aus. Fehlerzeilen stehen rot, Warnungen gelb. Die Fußzeile nennt Zeilen, Treffer und die letzte Abschlusszeile des Loaders.
 
-**Transportklasse** listet die 18 Klassen in der Reihenfolge des Spiels
-(covered, open, gravel, oil, cement, cooler, livestock, passanger, concrete,
-eletric, vehicles, general, nuclear1, nuclear2, heating, water, sewage, waste).
-Der Name genügt: Das Plugin ergänzt Kapazitätsfaktor und Kennzahlen, die das
-Grundspiel für diese Klasse verwendet. Steht in der INI eine lange Form wie
-`oil, 1, 5, 5, 0`, zeigt die Liste `oil`; wer die Zahlen ändern will, tut das
-in der INI selbst.
+---
 
-**Materialfamilie** bietet die elf Namen (none, gravel, steel, aluminium,
-plastic, bio, food, burnable, toxic, other, ash). Die Nummern 10 bis 19 aus der
-INI werden mit ihrem Namen angezeigt und als Name gespeichert. Die Familie
-bestimmt, wie angeliefertes Material auf Baustellen aussieht, und sehr
-wahrscheinlich, zu welcher Abfallsorte es wird.
+## 🗂️ Profile und Wiederherstellung
 
-## Dynamische Sammlungen
+Das Archiv-Symbol in der Seitenleiste öffnet das Fenster „Profile und Wiederherstellung“ mit zwei Reitern.
 
-Ein Paket kann eine Sammlung aus einem lokalen Plugin-Katalog aufbauen. Das
-Schema beschreibt Quelle, Bereitschaftsbedingung, Zähler, Eintragspräfix,
-Zielabschnitte, Zeilenbeschriftungen, Symbole, Standardwert und Grenzwerte.
-Die Anwendung ergänzt daraus zur Laufzeit die Auswahl, Eintragsliste und Matrix.
+**Profile** sichern den kompletten Einstellungsstand unter einem Namen: `tesmioloader.ini`, alle INIs in `plugins\` und `user_config\` und die gesicherten Originale. DLLs gehören nie dazu. „Aktuellen Stand sichern…“ fragt Name und Notiz ab. Rechts siehst du je Datei, ob sie zum gespeicherten Stand passt. „Profil anwenden“ schreibt alles zurück; INIs von Plugins, die das Profil nicht kennt, bleiben stehen. Profile liegen unter `user_config\.autoload\profiles\`.
 
-Vehicle Materials verwendet diesen allgemeinen Mechanismus. Sein Paketstandard
-ist jetzt:
+**Wiederherstellungspunkte** entstehen bei jedem Speichern: der Stand aller berührten Dateien von vor dem Speichern, je Plugin genau einer. „Auf diesen Punkt zurücksetzen“ schreibt diese Dateien zurück, auch eine damals kopierte DLL; der jetzige Stand wird dabei zum neuen Punkt, du kannst also wieder zurück. Punkte, deren Dateien fehlen, werden nur angezeigt.
 
-```ini
-[general]
-enabled = 0
+Beide Aktionen brauchen ein geschlossenes Spiel und einen geschlossenen TesmioLauncher.
 
-[resources]
-count = 0
+---
+
+## 📝 Listen-Editoren
+
+Einige Plugins verwalten Listen statt einzelner Werte. RMM zeigt sie als Liste links und Felder rechts. Das gilt für die drei Plugins, die mit dem TesmioLoader kommen, und für Workshop-Pakete, die so eine Seite mitbringen (etwa Deposits Plus, Research Expansion, Technical Service Storage, Vanilla Buildings, UI Layout Fixes).
+
+**Gemeinsam für alle:**
+
+- Einträge aus dem Plugin oder Paket tragen ein Schloss. Du kannst sie ändern, aber nicht löschen; über den roten Knopf lassen sie sich ausblenden und unter „Ausgeblendete Originaleinträge“ wieder anzeigen.
+- Eigene Einträge legst du mit „+“ an. Der Dialog fragt nur das Nötige ab und schlägt vor, was er kann; alles Weitere stellst du danach rechts ein. Eigene Einträge lassen sich löschen.
+- Kennungen, die etwas im Spiel benennen müssen (eine Ressource, eine Forschung, eine Gebäudedatei, eine Text-ID), prüft RMM vor dem Speichern. Stimmt eine nicht, wird die Fußzeile rot und nennt Eintrag und Feld.
+- Eine gelbe Warnung erinnert dich, wenn eine Änderung den Spielstand betrifft, etwa neue Ressourcen oder Vorkommen, die ein laufendes Spiel dann braucht.
+
+**Resources:** Liste aller Ressourcen des Plugins. Vorbildressource, Transportklasse und Materialfamilie sind Auswahllisten mit den Namen aus dem Spiel. Es gibt keinen Aus-Schalter, weil das Plugin keinen sicheren kennt.
+
+**Needs:** Liste der Bedürfnisse mit Spender, Faktor, Ladenkategorie, Wahrscheinlichkeit und Unzufriedenheit. Höchstens acht Einträge. Der Reiter „Allgemein“ trägt die Schalter des Plugins.
+
+**Deposits:** Reiter „Allgemein“ mit den Plugin-Schaltern und Reiter „Vorkommen“ mit einem Eintrag je Vorkommen: Kennung, Typnummer, Karte, Platz auf der Karte, Symbol und mehr. Die Typnummer schlägt der Dialog als nächste freie vor; eine doppelte wird abgewiesen.
+
+**Paket-Editoren** bringen ihre eigenen Reiter, Listen und Hilfen mit. Manche haben Knöpfe, die Anleitungen des Pakets öffnen, Auswahlfenster für Gebäude, Forschungen oder Spieltexte, Bildvorschauen oder einen Reiter für Übersetzungen.
+
+---
+
+## 🎮 Spielversion und rmm.ini
+
+Beim Start liest RMM die Kennung von `SOVIET64.exe`. Gehört sie zu keiner Spielversion, für die die Plugins gemacht sind, erscheint eine Warnung, und „Speichern + Starten“ fragt vor dem Start nach. Bekannt ist 1.1.1.9. Eine neue Kennung trägst du in `settings_schemas\game_versions.ini` unter `[supported]` ein.
+
+`rmm.ini` neben `rmm.exe` hat wenige Schalter, alle mit Erklärung in der Datei:
+
+| Schlüssel | Bedeutung |
+|---|---|
+| `[paths] workshop_root` | Ordner mit den Paketen. Leer = Steam-Workshop-Ordner deines Spiels. |
+| `[settings] language` | `auto`, `de` oder `en`. |
+| `[settings] version_check` | 0 schaltet die Warnung zur Spielversion ab. |
+| `[settings] tesmiolauncher_window` | 1 zeigt das Fenster des TesmioLaunchers bei „Speichern + Starten“. |
+
+Was du im Fenster einstellst, hat Vorrang vor der Datei.
+
+---
+
+## 📦 Wo deine Dateien liegen
+
+```
+SovietRepublic\tesmioloader\build\
+├── rmm.exe, rmm.ini                    RMM und seine Grundeinstellungen
+├── settings_schemas\                   Einstellungsseiten für die Loader-Plugins
+├── plugins\                            DLLs und wirksame INIs der Plugins
+│   └── workshop_bridge.dll, .ini       die Workshop Bridge
+├── user_config\
+│   ├── <name>.ini                      deine persönlichen Werte je Plugin
+│   ├── workshop_bridge.ini             Paketliste der Bridge
+│   └── .autoload\
+│       ├── <name>.upstream.ini         gesicherte Originale
+│       ├── backups\<paket>\previous\   Wiederherstellungspunkte
+│       └── profiles\                   deine Profile
+└── logs\                               Protokolle der Plugins
 ```
 
-Es werden weder Glas noch Kabel oder andere feste Anfangsressourcen ausgeliefert.
-Benutzer wählen vorhandene Kennungen aus `plugins\resources.ini` über `+`, tragen
-die vier Koeffizienten ein und können jeden so erzeugten Eintrag über den
-Papierkorb wieder vollständig löschen. Wird der letzte positive Eintrag gelöscht,
-wird das Plugin sicher deaktiviert. `resources.ini` bleibt immer unverändert.
+Fenstergröße, Sprache und Auswahl merkt sich RMM unter `%LOCALAPPDATA%\RepublicModManager`.
 
-`ownership = user` schützt solche Listen bei Paketupdates: Wenn ein älterer
-Paketstandard feste Einträge enthielt und eine neue Version leer startet, übernimmt
-Republic Mod Manager die bereits lokal wirksame Liste einmalig als persönliche Werte.
-Eine anschließend bewusst geleerte Liste bleibt leer.
+---
 
-## Lokaler Resources-Editor
+## 🛠️ Wenn etwas nicht klappt
 
-`settings_schemas\resources.launcher.ini` ergänzt einen schema-gesteuerten
-Master-Detail-Editor für das bereits installierte Resources-Plugin. Links stehen
-alle Kennungen aus `[list]`; rechts erscheinen Vorbild, Anzeigename, optionale
-`[custom:<Kennung>]`-Eigenschaften sowie `[base_price]` und `[price]`.
+| Was du siehst | Was dahintersteckt | Was hilft |
+|---|---|---|
+| Rotes Feld „Abhängigkeit fehlt“ | Ein Paket, das dieses Plugin braucht, ist nicht abonniert oder nicht eingeschaltet | Paket abonnieren und mit „Plugin aktiv“ einschalten |
+| Rotes Feld „Doppelte DLL“ | Die DLL liegt in `plugins\` und wird zusätzlich von SML oder der Bridge geladen | Die Kopie in `plugins\` entfernen oder „Dateien nur lokal“ nutzen |
+| Rotes Feld zum Workshop-Ordner | RMM und Bridge lesen verschiedene Ordner | In der Karte der Workshop Bridge den Ordner auf „auto“ stellen |
+| „Beim letzten Spielstart nicht geladen“ | Das Plugin war beim letzten Start aus, oder das Spiel lief seit dem Einschalten nicht | Speichern und das Spiel einmal starten |
+| Speichern geht nicht | Spiel oder TesmioLauncher läuft, oder ein Wert liegt außerhalb des Bereichs | Programme beenden, roten Hinweis in der Fußzeile lesen |
+| Ein Wert steht nach dem Speichern wieder anders | Das Plugin las eine andere INI als erwartet | Statuszeile prüfen: Wo liegen die Dateien? Protokollfenster öffnen |
 
-Die beim ersten Speichern vorgefundene `plugins\resources.ini` wird als
-Originalbasis nach `user_config\.autoload\resources.upstream.ini` kopiert.
-Persönliche Änderungen liegen getrennt in `user_config\resources.editor.ini`.
-Nur **Speichern** erzeugt daraus wieder die wirksame `plugins\resources.ini`;
-`resources.dll` wird vom Editor weder ersetzt noch geladen. Wird die lokale
-Resources-Datei später außerhalb von Republic Mod Manager aktualisiert, wird sie als
-neue Originalbasis erkannt und die persönliche Ebene erneut darübergelegt.
+Für einen Fehlerbericht: Rechtsklick auf die Meldung, „Text kopieren“, dazu das Protokollfenster mit „Nur Probleme und Warnungen“.
 
-Originale beziehungsweise extern übernommene `[list]`-Einträge tragen in der
-Liste ein Schloss. Sie sind nicht löschbar, können aber ausgewählt, persönlich
-ergänzt oder überschrieben werden. Mit `+` erzeugte Einträge sind löschbar. Beim
-Entfernen bereinigt Republic Mod Manager nach einer ausdrücklichen Bestätigung auch
-Verweise in anderen schema-gesteuerten Sammlungen, beispielsweise Vehicle
-Materials. Weil Anzahl
-und Reihenfolge der Ressourcen Bestandteil des Spielstands sind, weist die
-Oberfläche beim Löschen und vollständigen Zurücksetzen ausdrücklich auf mögliche
-Spielstandinkompatibilität hin. Ein scheinbarer Deaktivierungsschalter wird nicht
-angeboten, da die aktuelle `resources.dll` keinen sicheren inaktiven Slot kennt.
+---
 
-## Lokaler Needs-Editor
+## 🧩 Für Plugin-Autoren
 
-`settings_schemas\needs.launcher.ini` beschreibt seit 0.18.0 einen zweiten
-Master-Detail-Editor, diesmal für das installierte Needs-Plugin. Der Aufbau
-entspricht dem Resources-Editor: links die Bedürfnisliste aus `[list]`, rechts
-die Werte des gewählten Eintrags. Eine Zeile der `needs.ini` lautet
-`<Ressource> = <Spender>, <Faktor>, <Kategorie>, <Wahrscheinlichkeit>, <Unzufriedenheit>`;
-jede dieser fünf Spalten erhält ein eigenes Feld mit Beschreibung, Original-
-und Standardwert und einem Zurücksetzen-Knopf, sobald der Wert vom Original
-abweicht. Spender und Ladenkategorie sind Auswahllisten (`food`, `meat`,
-`clothes`, `eletronics`, `alcohol` beziehungsweise `auto`, `none`, `basic`,
-`medium`, `advanced`, `mediumadvanced`, `hotel`); bei der Kategorie darf
-zusätzlich eine Zahl eingetippt werden, wie es die Original-INI erlaubt. Faktor,
-Wahrscheinlichkeit und Unzufriedenheit sind Dezimalzahlen mit den Grenzen aus der
-Plugin-Beschreibung.
+Wie ein Workshop-Paket aufgebaut sein muss, damit RMM es zeigt, und wie eine Einstellungsseite mit Reitern, Karten, Feldern, Listen und Übersetzungen beschrieben wird, steht in `SCHEMA_DE.md` (englisch: `SCHEMA_EN.md`).
 
-Neue Einträge entstehen mit `+`. Der Dialog bietet als Ressource ausschließlich
-Kennungen an, die in `plugins\resources.ini [list]` registriert und noch nicht
-in der Bedürfnisliste sind; alle fünf Spalten werden im selben Dialog mit
-Vorgaben (Faktor 1.0, Kategorie auto, Wahrscheinlichkeit 1.0, Unzufriedenheit 0)
-ausgefüllt. Höchstens acht Einträge sind erlaubt, wie im Plugin.
+---
 
-Persönliche Einträge lassen sich über den roten Papierkorb entfernen.
-Originaleinträge wie `furniture` und `medicine` werden über denselben Knopf
-nur **ausgeblendet**: Sie verschwinden aus der wirksamen `needs.ini`, bleiben
-aber in der gesicherten Originalbasis und tauchen unter „Ausgeblendete
-Originaleinträge“ mit einem „Wieder anzeigen“-Knopf auf. Beide Aktionen
-warnen, weil jedes Bedürfnis den betroffenen Läden ein Lagerfach hinzufügt, das
-Teil des Spielstands ist.
+**Genosse, Achtung:** Dieses Programm wurde mit Hilfe einer künstlichen Intelligenz geschrieben. Die Fünfjahrespläne dazu hat trotzdem ein Mensch aufgestellt, getestet und beim Abstürzen des Spiels geflucht. Wer keine KI im Code möchte, bleibt einfach beim Grundspiel. Kein Hass, keine Umerziehung.
 
-Im Reiter „Allgemein“ liegt die Karte „Plugin-Einstellungen“ mit den Schaltern des
-Abschnitts `[needs]`: Plugin aktiv, Bedürfnisse vergeben, Läden bestücken,
-Bedürfnisse je Bürger (1 bis 7), Verhalten bei vollem Bürger (`skip`/`replace`),
-Diagnose und Abstand der Fortschrittszeilen. Auch hier zeigt jede Zeile den
-Originalwert und setzt sich per Knopf zurück.
-
-Dateien wie beim Resources-Editor: Originalbasis
-`user_config\.autoload\needs.upstream.ini`, persönliche Ebene
-`user_config\needs.editor.ini` (Format 1, mit `[global]` für die
-Plugin-Schalter und `suppressed = 1` für ausgeblendete Originale), wirksame
-Datei `plugins\needs.ini`; `needs.dll` wird nicht angefasst. Solange das
-Schema vorhanden ist, erscheint Needs nicht mehr als generischer INI-Eintrag.
-
-## Lokaler Deposits-Editor
-
-`settings_schemas\deposits.launcher.ini` beschreibt seit 0.20.0 den dritten
-Master-Detail-Editor, für das installierte Deposits-Plugin. In der deposits.ini
-ist jeder Abschnitt außer `[deposits]` ein Vorkommen und seine Schlüssel sind die
-Einstellungen. Zwei Reiter:
-
-- **Allgemein** mit der Spielstandwarnung und der Karte „Plugin-Einstellungen“
-  für `code_patch`, `minimap` und `editor` aus `[deposits]`.
-- **Vorkommen** mit der Liste links (Name, darunter Typnummer und Karte) und
-  rechts allen Schlüsseln des gewählten Vorkommens: Token, Typnummer, Karte,
-  Komponente, Gebäudetyp, Suchradius, Minimap-Symbol, Minimap-Knopf,
-  Pinselname und Erschöpfung. Jede Zeile hat eine Beschreibung aus den
-  Kommentaren der Original-INI, den Originalwert und einen Zurücksetzen-Knopf.
-  Leer heißt kein Eintrag; die Beschreibung nennt, was das Plugin dann annimmt.
-
-Der Plus-Dialog fragt nur die Standardangaben ab, wie beim Eintrag `clay`: die
-Ressource aus `plugins\resources.ini [list]`, die Namen, Token
-(`$TYPE_MINE_<NAME>`), Symbol und Pinselnamen vorschlägt, dazu Typnummer,
-Karte (Vorgabe auto), Suchradius (Vorgabe ore), Symbol, Minimap-Knopf und
-Pinselname. Die Typnummer ist die höchste vorhandene plus 1; eine bereits
-belegte Nummer weist das Hinzufügen mit einer Meldung ab, auch später in den
-Einstellungen. Ein Hinweis im Dialog verweist auf die übrigen Einstellungen
-rechts. Der Pinselname darf sieben Zeichen haben, bei `map = terrain` vier.
-
-Originale wie copper, sand, clay und gas lassen sich ausblenden, persönliche
-Vorkommen löschen, beides mit Warnung: Typnummer, Kartenkanal und Token sind
-Teil des Spielstands, sobald eine Mine sie verwendet. Dateien wie bei Needs:
-`user_config\.autoload\deposits.upstream.ini`, `user_config\deposits.editor.ini`
-und die wirksame `plugins\deposits.ini`; `deposits.dll` bleibt unangetastet.
-Ein ausgeblendetes Original verliert seinen ganzen Abschnitt in der wirksamen
-Datei, ein persönliches bekommt einen neuen Abschnitt am Ende, ein
-überschriebenes Original behält Abschnitt und Kommentare.
-
-## Editor-Schema im Workshop-Paket
-
-Seit 0.22.0 darf ein Workshop-Paket unter `config\<name>.launcher.ini` statt
-eines gewöhnlichen Schemas ein Editor-Schema mitbringen (`editor_type =
-keyed_sections`, `keyed_list` oder `keyed_resources`). Republic Mod Manager
-zeigt das Paket dann mit dem Master-Detail-Editor, so wie Deposits Plus mit
-den Reitern Allgemein, Sand-Struktur und Vorkommen. Die Originalbasis ist die
-INI des Pakets: Ein Steam-Update ist sofort die neue Basis, persönliche
-Einträge liegen weiter in `user_config\<name>.editor.ini`, die wirksame Datei
-ist `plugins\<name>.ini`. DLL, Loader-Eintrag, Brücken-Liste und "Dateien nur
-lokal" laufen unverändert über das Paket; die Karte Hinweise steht auf dem
-Reiter der Plugin-Einstellungen. Beim Speichern werden zuerst DLL und
-Schalter bereitgestellt, dann die INI geschrieben.
-
-Ein Editor-Schema kann mehrere Karten für plugin-weite Werte haben
-(`[card:<id>]`, ein Feld nennt seine Karte) und Knöpfe, die die Anleitungen
-des Pakets öffnen (`[links]`, `[link:<id>]`; Markdown, Text, HTML und PDF mit
-der Standardanwendung des Systems).
-
-## Symbole in der Plugin-Liste
-
-Seit 0.22.0 zeigt das Symbol links in der Liste, woher ein Eintrag stammt:
-
-- das Steam-Symbol für ein Paket aus einem Workshop-Ordner einer
-  Steam-Bibliothek,
-- das TesmioLauncher-Symbol für alles, was im plugins-Ordner des Loaders
-  liegt, auch Resources, Needs und Deposits,
-- ein Zahnrad, wenn die Herkunft unbekannt ist, etwa ein Paketordner außerhalb
-  von Steam.
-
-Die Symbole werden aus steam.exe und tesmiolauncher.exe gelesen; fehlt eines,
-erscheint ein Ersatzsymbol.
-
-## Aktivität, Konflikte und Sicherheit
-
-Die Lampe in der Pluginliste ist grün, wenn die manifestbestimmte lokale DLL und
-INI vorhanden sind, das Plugin-System sowie die DLL aktiviert sind und das optionale
-`enabled_field` den Wert `1` besitzt. Grau bedeutet, dass mindestens eine dieser
-Voraussetzungen fehlt.
-
-Vor dem Bereitstellen müssen Spiel und TesmioLauncher beendet sein. Deklarierte
-Abhängigkeiten müssen lokal vorhanden und aktiviert sein.
-
-**Soviet Mod Loader als Nachbar** (seit 0.11.0): Ist `soviet_mod_loader.dll` im
-Loader-Ordner vorhanden und in `tesmioloader.ini` eingeschaltet, lädt SML die
-DLLs der Workshop-Pakete selbst. Republic Mod Manager stellt dann nur noch die INI
-bereit, bei Overlay-Plugins die unveränderte Original-INI, und schreibt nie eine
-DLL nach `plugins\`. Liegt dort noch eine DLL eines Workshop-Pakets aus einer
-früheren Bereitstellung, verweigert die Bereitstellung mit dem Hinweis, dass das
-Plugin sonst doppelt laden würde; die lokale DLL ist dann zu entfernen. Die vier
-Fähigkeiten, die SML selbst mitbringt (`resources`, `deposits`, `needs`,
-`buildings`), gelten mit aktivem SML als vorhanden, auch ohne eigene DLL. Die
-Aktivitätslampe eines Pakets braucht mit SML keine lokale DLL mehr. Installierte
-Plugins ohne Paket bleiben unverändert Sache von TesmioLoader.
-
-**`[dependencies]`** aus dem SML-Manifest werden gegen den Workshop-Ordner
-aufgelöst: Jede Kennung muss als Paket vorhanden sein und die Versionsbedingung
-(`>=1.2.0`, `>1`, `=1.0`, `<2`, bloße Version, `*`) erfüllen. Ohne SML muss die
-DLL eines Hook-Pakets, von dem ein Plugin abhängt, bereitgestellt und aktiviert
-sein; ein Inhaltspaket als Abhängigkeit braucht SML. Nicht erfüllte
-Abhängigkeiten stehen als Hinweis am Eintrag und verhindern die Bereitstellung.
-Weitere alte oder doppelte DLL-Namen können paketweise über `conflicts_local`
-gesperrt werden.
-
-Bei jedem Einlesen wird die fertige `plugins\resources.ini` erneut geprüft.
-Neue, außerhalb von Settings eingetragene Ressourcen werden als gesperrte externe
-Basis übernommen. Verschwundene externe Ressourcen werden gemeldet. Vor
-**Speichern + Starten** werden alle installierten, aktiven und per Schema
-erkennbaren Ressourcensammlungen geprüft; fehlende Verweise nennen das betroffene
-Plugin und verhindern den Spielstart.
-
-Bei einer neuen oder geänderten DLL zeigt die Anwendung Paket, Quelle, Ziel und
-SHA-256 und verlangt eine Bestätigung. Ein Hash ist keine digitale Signatur.
-Externe Änderungen an einer bereits verwalteten DLL/INI sowie Paketänderungen
-während der Bearbeitung blockieren den Schreibvorgang.
-
-Pro Plugin bleibt genau ein vollständiger rollierender Wiederherstellungspunkt:
-
-```text
-build\user_config\.autoload\backups\<Paket-ID>\previous
-```
-
-Ein Transaktionsmarker verhindert nach einem Prozessabbruch unkontrolliertes
-Weiterschreiben. Persönliche Ansichtsdaten liegen getrennt unter
-`%LOCALAPPDATA%\TesmioAutoload\profiles`.
-
-## Sprachen und Symbole
-
-Deutsch und Englisch sind in der EXE enthalten. Weitere App-Sprachen können als
-`languages\<code>.ini` neben der EXE ergänzt werden. Plugin-Texte kommen aus dem
-im Schema angegebenen `language_directory`; die Reihenfolge ist gewählte Sprache,
-Englisch, einfacher Schema-Text.
-
-Paket- und Matrixsymbole können eingebaute Kennungen oder sichere relative
-PNG-/ICO-Pfade im Paket verwenden. Das Zahnrad-Lkw-Logo ist als mehrgrößiges
-Windows-Icon in der EXE eingebettet.
-
-## Entwickeln und testen
-
-`build.bat` erzeugt die x64-WinForms-Anwendung sowie Core- und UI-Tests. Die
-Tests prüfen neben Vehicle Materials ein unabhängiges Beispielplugin mit anderem
-Zielnamen und anderer INI sowie den lokalen Resources-Editor einschließlich
-Originalschutz, Update-Übernahme und Spielstandwarnung. `tests\Verify.ps1` baut
-zusätzlich die Plugin-DLL und führt die vollständige Offline-Prüfung aus.
-
-CLI: `--build "..."`, `--workshop "..."`, Kompatibilitätsalias `--package "..."`,
-`--language de|en|auto`, `--ui-snapshot "...png"`.
+**GNU GPL v3.** Quelltext: https://github.com/Kespri/workers-and-resources-mods/tree/main/tools/republic_mod_manager
