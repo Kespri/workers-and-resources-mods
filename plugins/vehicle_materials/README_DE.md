@@ -344,7 +344,7 @@ Suche nach:
 
 **Workshop-Paket** (Steam-Abo, SML, Workshop Bridge)
 ```
-3794994476\
+vehicle_materials\
 ├── hooks\
 │   ├── vehicle_materials.dll       (Plugin)
 │   └── vehicle_materials.ini       (Original-INI, ohne Materialien, enabled = 0)

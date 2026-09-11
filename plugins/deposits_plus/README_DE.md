@@ -561,7 +561,7 @@ Suche nach:
 
 **Workshop-Paket** (Steam-Abo, SML, Workshop Bridge)
 ```
-3796823002\
+deposits_plus\
 ├── hooks\
 │   ├── deposits_plus.dll           (Plugin)
 │   ├── deposits_plus.ini           (Original-INI)

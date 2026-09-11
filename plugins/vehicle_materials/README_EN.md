@@ -344,7 +344,7 @@ Search for:
 
 **Workshop package** (Steam subscription, SML, Workshop Bridge)
 ```
-3794994476\
+vehicle_materials\
 ├── hooks\
 │   ├── vehicle_materials.dll       (plugin)
 │   └── vehicle_materials.ini       (original INI, no materials, enabled = 0)
