@@ -2,47 +2,74 @@
 
 [English](README.md) | **Deutsch**
 
-Native Plugins für *Workers & Resources: Soviet Republic* 1.1.1.9, geladen vom [TesmioLoader](https://github.com/MaxLegend/TesmioLoader) (API 4), vom Soviet Mod Loader oder von der Workshop Bridge. Jedes Plugin wird als Steam-Workshop-Paket mit einem Einstellungsschema für den Republic Mod Manager ausgeliefert. Dieses Repository enthält den Quelltext, wie es die GNU GPL v3 verlangt; fertige DLLs liegen hier nicht.
+## 🤖 Genosse, Achtung: hier hat eine KI mitgebaut
+
+Diese Plugins wurden mit Hilfe einer künstlichen Intelligenz geschrieben. Die Fünfjahrespläne
+dazu hat trotzdem ein Mensch aufgestellt, getestet und beim Abstürzen des Spiels geflucht.
+Wer keine KI im Code möchte, bleibt einfach beim Grundspiel. Kein Hass, keine Umerziehung.
+
+## Worum es geht
+
+Native Plugins für *Workers & Resources: Soviet Republic* 1.1.1.9, geladen vom
+[TesmioLoader](https://github.com/MaxLegend/TesmioLoader) (API 4), vom Soviet Mod Loader
+oder von der Workshop Bridge. Jedes Plugin wird als Steam-Workshop-Paket mit einem
+Einstellungsschema für den Republic Mod Manager ausgeliefert. Dieses Repository enthält den
+Quelltext, wie es die GNU GPL v3 verlangt; fertige DLLs liegen hier nicht.
 
 ## Plugins
 
-| Ordner | Version | Zweck | Herkunft |
-|---|---|---|---|
-| `plugins/deposits_plus` | 0.4.6 | Vorkommenstypen, natürliche Verteilung, sandige Wiese, Arbeitsfahrzeuge | Fork des Plugins `deposits` aus dem TesmioLoader von MaxLegend (Tesmio), GPL v3 |
-| `plugins/depletion` | 1.1.2 | Erschöpfung von Vorkommen, Anzeige im Minenfenster | weiterentwickeltes Plugin `depletion` aus dem TesmioLoader von MaxLegend, GPL v3 |
-| `plugins/localization` | 0.4.0 | Übersetzungsdienst: Textpakete in INI-Dateien werden zu erweiterten Sprachdateien im VFS | eigene Entwicklung; enthält die Textpakete `research_expansion`, `technical_service_storage`, `tesmio_lang` |
-| `plugins/rail_physics_fix` | 1.3.5 | physikalische Zugdynamik: Antrieb, Bremsen, Steigung, Kurven, Bahnhöfe, Zoll, Verbrauch | Fork von [RailPhysics 1.3.0](https://github.com/TheRealMeowMeow00/WRSR_RailPhysics) von Meow Meow (TheRealMeowMeow00), GPL v3; [Original im Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3776784867) |
-| `plugins/research_expansion` | 0.4.0 | neue Forschungen und Änderungen am Forschungsbaum über das VFS | eigene Entwicklung |
-| `plugins/resources_button_fix` | 0.4.0 | kompakte Schaltflächenraster im Geländeeditor | eigene Entwicklung |
-| `plugins/technical_service_storage` | 0.3.3 | Streugutlager, Materialprioritäten und Schneepflugtanks im Technischen Service | eigene Entwicklung |
-| `plugins/ui_layout_fixes` | 0.3.0 | Layoutkorrekturen in Spielfenstern | eigene Entwicklung |
-| `plugins/vanilla_buildings` | 0.4.1 | Patches für Vanilla-, DLC- und Workshop-Gebäude ohne Änderung der Originaldateien | eigene Entwicklung |
-| `plugins/vehicle_materials` | 0.4.0 | Materialbedarf von Fahrzeugen | eigene Entwicklung |
-| `plugins/weather_roads` | 0.3.3 | Straßenschnee, Schmelze und Schutz nach dem Räumen | eigene Entwicklung |
-| `plugins/workshop_bridge` | 0.2.0 | lädt Workshop-Hook-DLLs ohne Soviet Mod Loader | eigene Entwicklung |
+| Plugin | Version | Was es macht |
+|---|---|---|
+| [Deposits Plus](plugins/deposits_plus) | 0.4.6 | Neue Vorkommenstypen, natürliche Verteilung, sandige Wiese, Arbeitsfahrzeuge |
+| [Depletion](plugins/depletion) | 1.1.2 | Vorkommen, die zur Neige gehen, mit Anzeige im Minenfenster |
+| [Localization](plugins/localization) | 0.4.0 | Übersetzungsdienst: Textpakete werden zu erweiterten Sprachdateien |
+| [Rail Physics Fix](plugins/rail_physics_fix) | 1.3.5 | Zugphysik: Antrieb, Bremsen, Steigungen, Kurven- und Bahnhofslimits, Verbrauch |
+| [Research Expansion](plugins/research_expansion) | 0.4.1 | Neue Forschungen und Änderungen am Forschungsbaum |
+| [Resources Button Fix](plugins/resources_button_fix) | 0.4.0 | Kompakte Werkzeugraster im Geländeeditor |
+| [Technical Service Storage](plugins/technical_service_storage) | 0.3.3 | Streugutlager, Materialprioritäten und Schneepflugtanks |
+| [UI Layout Fixes](plugins/ui_layout_fixes) | 0.3.0 | Zeilenabstand im Zollhaus, Textumbruch in Info-Fenstern |
+| [Vanilla Buildings](plugins/vanilla_buildings) | 0.4.1 | Vorübergehende Änderungen an Gebäudedateien, ohne die Originale anzufassen |
+| [Vehicle Materials](plugins/vehicle_materials) | 0.4.0 | Zusätzliche Materialien für die Fahrzeugproduktion |
+| [Weather Roads](plugins/weather_roads) | 0.3.3 | Straßenschnee, Schmelze und Schutz nach dem Räumen |
+| [Workshop Bridge](plugins/workshop_bridge) | 0.2.0 | Lädt Workshop-Pakete ohne den Soviet Mod Loader |
 
-Gemeinsame Dateien: `plugins/grit_spreader_api.h` (Dienst zwischen Technical Service Storage und Weather Roads), `plugins/tesmio_config.h` (INI-Basis und Overlay), `plugins/tests` (Offline-Tests). `src/` enthält die zwei SDK-Header `tesmio_api.h` und `tesmio_plugin.h` aus dem [TesmioLoader b0.3.6](https://github.com/MaxLegend/TesmioLoader) von MaxLegend (GPL v3), damit die Plugins mit ihren relativen Include-Pfaden aus diesem Repository heraus gebaut werden können. `tesmio_plugin.h` trägt eine lokale Änderung: `TsmOpenLog` schreibt die Detail-Protokolle der Plugins nach `tesmioloader\build\logs\`.
+Jeder Plugin-Ordner hat eine eigene Anleitung in zwei Sprachen (`README_DE.md`, `README_EN.md`)
+und englische Build-Notizen (`BUILD_INFO.md`). Gemeinsame Dateien: `plugins/grit_spreader_api.h`
+(Dienst zwischen Technical Service Storage und Weather Roads), `plugins/tesmio_config.h`
+(INI-Basis und persönliches Overlay), `plugins/tests` (Offline-Tests). `src/` enthält die zwei
+SDK-Header `tesmio_api.h` und `tesmio_plugin.h` aus dem TesmioLoader von MaxLegend (GPL v3),
+damit die Plugins mit ihren relativen Include-Pfaden aus diesem Repository heraus gebaut werden
+können. `tesmio_plugin.h` trägt eine lokale Änderung: `TsmOpenLog` schreibt die Detail-Protokolle
+der Plugins nach `tesmioloader\build\logs\`.
 
-**Genosse, Achtung:** Diese Plugins wurden mit Hilfe einer künstlichen Intelligenz geschrieben. Die Fünfjahrespläne dazu hat trotzdem ein Mensch aufgestellt, getestet und beim Abstürzen des Spiels geflucht. Wer keine KI im Code möchte, bleibt einfach beim Grundspiel. Kein Hass, keine Umerziehung.
+## Installation
+
+Workshop-Paket abonnieren und das Plugin im Republic Mod Manager einschalten.
+Die Plugin-Anleitungen beschreiben die vier Wege, ein Plugin zu laden: klassischer TesmioLoader,
+Soviet Mod Loader, Workshop Bridge und Republic Mod Manager.
 
 ## Bauen
 
-Visual Studio 2022 oder neuer mit den x64-C++-Werkzeugen, dann in einer Developer Command Prompt im jeweiligen Plugin-Ordner:
+Visual Studio 2022 oder neuer mit den x64-C++-Werkzeugen, dann in einer Developer Command Prompt
+im jeweiligen Plugin-Ordner:
 
 ```
 cl /nologo /O2 /MT /W3 /EHsc /std:c++17 /LD /Fo"build\\" /Fd"build\\" /Fe"build\<name>.dll" <name>.cpp /link kernel32.lib
 ```
 
-Rail Physics Fix und Deposits Plus bringen ein eigenes `build.bat` mit. Die Exporte `TsmPluginApiVersion`, `TsmPluginInit` und `TsmPluginStart` sind der Plugin-Vertrag des Loaders (API 4). Adressen und Signaturen gelten nur für Spielversion 1.1.1.9 (Build 23935965).
-
-## Installation
-
-Jedes Plugin hat eine eigene Anleitung (`README_DE.md` im Plugin-Ordner) mit vier Wegen: klassischer TesmioLoader, Soviet Mod Loader, Workshop Bridge und Republic Mod Manager. Die Workshop-Pakete enthalten DLL, INI, Anleitung und ein Schema für den Republic Mod Manager.
+Rail Physics Fix und Deposits Plus bringen ein eigenes `build.bat` mit. Die Exporte
+`TsmPluginApiVersion`, `TsmPluginInit` und `TsmPluginStart` sind der Plugin-Vertrag des Loaders
+(API 4). Adressen und Signaturen gelten nur für Spielversion 1.1.1.9 (Steam-Build 23935965).
 
 ## Fehlerberichte
 
-Bei Problemen bitte ein Issue mit Spielversion, Loader-Version, aktiven Plugins und den Protokollen `tesmioloader.log` aus `tesmioloader\build` und `tesmioloader.<plugin>.log` aus `tesmioloader\build\logs` eröffnen.
+Bei Problemen bitte ein Issue mit Spielversion, Loader-Version, aktiven Plugins und den
+Protokollen `tesmioloader.log` aus `tesmioloader\build` und `tesmioloader.<plugin>.log` aus `tesmioloader\build\logs` eröffnen.
 
-## Lizenz
+## Credits und Lizenz
 
-Alle Inhalte dieses Repositories stehen unter der **GNU General Public License v3**, siehe `LICENSE`. Das gilt für die eigenen Plugins ebenso wie für die Forks; die Herkunft steht in der Tabelle oben und in den jeweiligen Anleitungen. Ausnahme: `plugins/deposits_plus/third_party` enthält Code von Microsoft unter der University of Illinois Open Source License (siehe `LICENSE.TXT` dort).
+GNU GPL v3, siehe [LICENSE](LICENSE). Deposits Plus und Depletion führen Plugins aus dem
+TesmioLoader von MaxLegend (Tesmio) weiter. Rail Physics Fix ist eine überarbeitete Fassung von
+[RailPhysics 1.3.0](https://github.com/TheRealMeowMeow00/WRSR_RailPhysics) von Meow Meow
+(TheRealMeowMeow00). `plugins/deposits_plus/third_party` enthält Code von Microsoft unter der
+University of Illinois Open Source License (siehe `LICENSE.TXT` dort).

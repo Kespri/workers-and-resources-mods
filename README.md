@@ -2,6 +2,14 @@
 
 **English** | [Deutsch](README_DE.md)
 
+## 🤖 Attention, comrade: an AI helped build this
+
+These plugins were written with the help of an artificial intelligence. The five-year plans
+behind them were still drawn up, tested and sworn at by a human every time the game crashed.
+If you do not want AI in your code, just stick to the base game. No hard feelings, no re-education.
+
+## About
+
 Native plugins for *Workers & Resources: Soviet Republic* 1.1.1.9, loaded by the
 [TesmioLoader](https://github.com/MaxLegend/TesmioLoader) (API 4), the Soviet Mod Loader
 or the Workshop Bridge. Every plugin ships as a Steam Workshop package with a settings
@@ -64,8 +72,3 @@ TesmioLoader by MaxLegend (Tesmio). Rail Physics Fix is a reworked version of
 [RailPhysics 1.3.0](https://github.com/TheRealMeowMeow00/WRSR_RailPhysics) by Meow Meow
 (TheRealMeowMeow00). `plugins/deposits_plus/third_party` contains Microsoft code under the
 University of Illinois Open Source License (see `LICENSE.TXT` there).
-
-**Attention, comrade:** these plugins were written with the help of an artificial intelligence.
-The five-year plans behind them were still drawn up, tested and sworn at by a human every time
-the game crashed. If you do not want AI in your code, just stick to the base game. No hard
-feelings, no re-education.
