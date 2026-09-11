@@ -16,7 +16,7 @@ Distributed as a Steam Workshop item; the item's installer and guides are in `wo
 | `tests/BuildIcon.cs` | builds `assets/rmm.ico` from `assets/rmm-icon.png` during the build |
 | `languages/de.ini`, `languages/en.ini` | user interface strings, embedded into the executable |
 | `settings_schemas/` | settings pages for the plugins that ship with the TesmioLoader (DE in `languages/de.ini`, EN fallbacks in the `.launcher.ini`) |
-| `packages/3794994476/` | test fixture: a Vehicle Materials package without its DLL |
+| `packages/fixture_vehicle_materials/` | test fixture: a Vehicle Materials package without its DLL |
 | `workshop/` | the Steam Workshop item: `Install-RMM.bat`, `Uninstall-RMM.bat`, `Install-RMM.ps1`, guides, `WOHIN.txt` / `WHERE.txt` and the default `rmm.ini` |
 
 ## Building
@@ -33,12 +33,12 @@ The build uses `/warnaserror+`, so every warning stops it.
 ## Tests
 
 ```
-bin\CoreTests.exe packages\3794994476 tests\runs\core_<stamp>
-bin\UiTests.exe packages\3794994476 tests\runs\ui_<stamp>
+bin\CoreTests.exe packages\fixture_vehicle_materials tests\runs\core_<stamp>
+bin\UiTests.exe packages\fixture_vehicle_materials tests\runs\ui_<stamp>
 ```
 
 The output folder must not exist yet. Some core tests expect the fixture's DLL beside its INI
-(`packages\3794994476\hooks\vehicle_materials.dll`); build the Vehicle Materials plugin from
+(`packages\fixture_vehicle_materials\hooks\vehicle_materials.dll`); build the Vehicle Materials plugin from
 `plugins/vehicle_materials` and copy the DLL there before running them.
 
 ## Installing into the game
