@@ -185,5 +185,5 @@ A: Every plugin is its own Workshop item. Subscribe, switch it on in the manager
 
 ---
 
-**Last update:** Republic Mod Manager 0.4.64 with Workshop Bridge 0.2.0  
+**Last update:** Republic Mod Manager 0.4.65 with Workshop Bridge 0.2.0  
 **For:** WRSR 1.1.1.9 | TesmioLoader API 4

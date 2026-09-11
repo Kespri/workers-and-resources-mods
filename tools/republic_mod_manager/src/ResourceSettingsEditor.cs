@@ -185,7 +185,7 @@ namespace TesmioAutoload
             var grid=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,ColumnCount=2,Margin=new Padding(0,6,0,0)};FluidColumns(grid,46,800);
             var fallback=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Height=Fields.Height,AccessibleName="textpack:fallback"};Fields.Tall(fallback);
             foreach(string lang in textPack.Languages)fallback.Items.Add(lang);if(textPack.Languages.Contains(textPack.Fallback,StringComparer.OrdinalIgnoreCase))fallback.SelectedItem=textPack.Languages.First(x=>x.Equals(textPack.Fallback,StringComparison.OrdinalIgnoreCase));
-            fallback.SelectedIndexChanged+=(s,e)=>{if(!fallback.Focused)return;Run(()=>{textPack.SetFallback((string)fallback.SelectedItem);StageTextPack();});};
+            fallback.SelectedIndexChanged+=(s,e)=>{if(!fallback.Focused)return;string chosen=(string)fallback.SelectedItem;Later(fallback,()=>Run(()=>{textPack.SetFallback(chosen);StageTextPack();}));};
             // The folder is the tooltip, not the origin line: that line cannot wrap and cut the path off (0.4.33).
             tips.SetToolTip(fallback,folder);
             AddLocalRow(grid,LocalLabel(language.T("textpack_fallback"),language.T("textpack_fallback_help")),LocalInput(Fields.Host(fallback),"",null));
@@ -344,6 +344,10 @@ namespace TesmioAutoload
             if(type=="decimal"||type=="integer")help=(help.Length>0?help+"\n":"")+language.T("input_range")+": "+minimum+" – "+maximum;
             if(help.Length>0){tips.SetToolTip(input,help);var inner=Fields.Inner(input);if(inner!=null)tips.SetToolTip(inner,help);}
         }
+        // A ComboBox handler must never tear down its own control while Windows is still inside the
+        // CBN_SELCHANGE message (AccessViolation in comctl32, seen with the template picker of the
+        // Resources editor); the work runs once the message has returned.
+        static void Later(Control control,Action action){Control owner=control.FindForm();if(owner!=null&&owner.IsHandleCreated)owner.BeginInvoke(action);else action();}
         Control ColumnInput(ListColumn column,string value,Action<string> apply)
         {Control input=ColumnInputCore(column,value,apply);RangeTip(input,localSpec.ColumnDescription(language,column),column.Type,column.Minimum,column.Maximum);return input;}
         Control ColumnInputCore(ListColumn column,string value,Action<string> apply)
@@ -352,7 +356,7 @@ namespace TesmioAutoload
             {
                 var combo=new ComboBox{DropDownStyle=column.AllowOther?ComboBoxStyle.DropDown:ComboBoxStyle.DropDownList,Height=Fields.Height,AccessibleName="column:"+column.Id};combo.Items.AddRange(column.Choices);
                 if(value.Length>0&&!combo.Items.Contains(value)){if(column.AllowOther)combo.Text=value;else{combo.Items.Add(value);combo.SelectedItem=value;}}else combo.SelectedItem=value.Length>0?value:null;
-                combo.SelectedIndexChanged+=(s,e)=>{if(combo.Focused)apply(Convert.ToString(combo.SelectedItem));};if(column.AllowOther)combo.Leave+=(s,e)=>apply(combo.Text);return Fields.Host(combo);
+                combo.SelectedIndexChanged+=(s,e)=>{if(!combo.Focused)return;string chosen=Convert.ToString(combo.SelectedItem);Later(combo,()=>apply(chosen));};if(column.AllowOther)combo.Leave+=(s,e)=>apply(combo.Text);return Fields.Host(combo);
             }
             if(column.Type=="integer"||column.Type=="decimal")
             {
@@ -532,7 +536,7 @@ namespace TesmioAutoload
                 var combo=new ComboBox{DropDownStyle=field.AllowOther?ComboBoxStyle.DropDown:ComboBoxStyle.DropDownList,Height=Fields.Height,AccessibleName="item:"+field.Id};if(!field.AllowOther)combo.Items.Add("");combo.Items.AddRange(field.Choices);
                 if(field.ChoicesSource=="registry")foreach(string name in RegistryNames())if(!combo.Items.Contains(name))combo.Items.Add(name);
                 if(value.Length>0&&!combo.Items.Contains(value)){if(field.AllowOther)combo.Text=value;else{combo.Items.Add(value);combo.SelectedItem=value;}}else combo.SelectedItem=value.Length>0?value:(field.AllowOther?null:"");
-                combo.SelectedIndexChanged+=(s,e)=>{if(combo.Focused)apply(Convert.ToString(combo.SelectedItem));};if(field.AllowOther)combo.Leave+=(s,e)=>apply(combo.Text);return Fields.Host(combo);
+                combo.SelectedIndexChanged+=(s,e)=>{if(!combo.Focused)return;string chosen=Convert.ToString(combo.SelectedItem);Later(combo,()=>apply(chosen));};if(field.AllowOther)combo.Leave+=(s,e)=>apply(combo.Text);return Fields.Host(combo);
             }
             if(field.Type=="integer"||field.Type=="decimal")
             {
@@ -815,7 +819,7 @@ namespace TesmioAutoload
             AddRow(shell,titleRow);var origin=Theme.Label(item.Owned?language.T("resource_personal"):language.T("resource_original_locked"),9,false);origin.ForeColor=item.Owned?Color.FromArgb(26,132,61):Theme.Muted;origin.Margin=new Padding(0,0,0,15);AddRow(shell,origin);
             var grid=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,ColumnCount=2,Margin=Padding.Empty};FluidColumns(grid,46,800);grid.Tag=Narrow(panel)?"narrow":null;   // 0.4.36
             var idValue=new Label{Text=item.Id,AutoSize=false,Height=Fields.Height,Font=Fields.Font,BackColor=Theme.Pale,BorderStyle=BorderStyle.FixedSingle,TextAlign=ContentAlignment.MiddleLeft,Padding=new Padding(5,0,5,0)};AddLocalRow(grid,LocalLabel(language.T("resource_identifier"),language.T("resource_identifier_help")),LocalInput(idValue,item.Owned?language.T("personal"):language.T("standard"),null));
-            var template=TemplatePicker(item.Template);template.SelectedIndexChanged+=(s,e)=>{if(template.Focused&&template.Value.Length>0&&!template.Value.Equals(item.Template,StringComparison.OrdinalIgnoreCase))Run(()=>{resourceSession.SetList(item.Id,template.Value,item.Display);BuildLocalResourceEditor();});};AddLocalRow(grid,LocalLabel(language.T("resource_template"),language.T("resource_template_help")),LocalInput(template,item.Owned?language.T("personal"):language.T("resource_inherited"),item.Owned?null:(Action)(()=>{var baseValue=ResourceListValue.Parse(resourceSession.OriginalListValue(item.Id));resourceSession.SetList(item.Id,baseValue.Template,baseValue.Display);BuildLocalResourceEditor();})));
+            var template=TemplatePicker(item.Template);template.SelectedIndexChanged+=(s,e)=>{if(!template.Focused||template.Value.Length==0||template.Value.Equals(item.Template,StringComparison.OrdinalIgnoreCase))return;string chosen=template.Value;Later(template,()=>Run(()=>{resourceSession.SetList(item.Id,chosen,item.Display);BuildLocalResourceEditor();}));};AddLocalRow(grid,LocalLabel(language.T("resource_template"),language.T("resource_template_help")),LocalInput(template,item.Owned?language.T("personal"):language.T("resource_inherited"),item.Owned?null:(Action)(()=>{var baseValue=ResourceListValue.Parse(resourceSession.OriginalListValue(item.Id));resourceSession.SetList(item.Id,baseValue.Template,baseValue.Display);BuildLocalResourceEditor();})));
             var display=new TextBox{Text=item.Display,Height=Fields.Height};display.Leave+=(s,e)=>Run(()=>{resourceSession.SetList(item.Id,item.Template,display.Text);BuildLocalResourceEditor();});AddLocalRow(grid,LocalLabel(language.T("resource_display_name"),language.T("resource_display_help")),LocalInput(Fields.Wrap(display),item.Owned?language.T("personal"):language.T("resource_inherited"),item.Owned?null:(Action)(()=>{var baseValue=ResourceListValue.Parse(resourceSession.OriginalListValue(item.Id));resourceSession.SetList(item.Id,item.Template,baseValue.Display);BuildLocalResourceEditor();})));
             foreach(LocalDetailField field in localSpec.Fields)
             {
@@ -826,7 +830,7 @@ namespace TesmioAutoload
                     // and a family number (13 -> plastic). Choosing writes the name alone.
                     string shown=field.ChoicePrefix?ResourceCatalogData.Head(value):value;if(field.Key.Equals("family",StringComparison.OrdinalIgnoreCase))shown=ResourceCatalogData.FamilyName(shown);
                     var combo=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Height=Fields.Height};Fields.Tall(combo);combo.Items.Add("");combo.Items.AddRange(field.Choices);if(shown.Length>0&&!combo.Items.Contains(shown))combo.Items.Add(shown);combo.SelectedItem=shown;
-                    combo.SelectedIndexChanged+=(s,e)=>{if(combo.Focused)Run(()=>{resourceSession.SetField(item.Id,field,Convert.ToString(combo.SelectedItem));UpdateStatus();});};input=combo;
+                    combo.SelectedIndexChanged+=(s,e)=>{if(!combo.Focused)return;string chosen=Convert.ToString(combo.SelectedItem);Later(combo,()=>Run(()=>{resourceSession.SetField(item.Id,field,chosen);UpdateStatus();}));};input=combo;
                 }
                 else{var text=new TextBox{Text=value,Height=Fields.Height};text.Leave+=(s,e)=>Run(()=>{resourceSession.SetField(item.Id,field,text.Text);UpdateStatus();});input=Fields.Wrap(text);}
                 string source=baselineValue.Length>0?language.T("resource_original_value")+": "+baselineValue:value.Length>0?language.T("personal"):language.T("resource_no_entry");Action reset=()=>{resourceSession.SetField(item.Id,field,"");BuildLocalResourceEditor();};AddLocalRow(grid,LocalLabel(label,help),LocalInput(input,source,reset));
