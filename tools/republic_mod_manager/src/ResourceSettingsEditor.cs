@@ -154,8 +154,8 @@ namespace TesmioAutoload
                 LocalDetailField captured=field;string value=resourceSession.GlobalValue(field),baselineValue=resourceSession.GlobalBaseline(field);Control input;
                 if(field.Type=="boolean"){var toggle=new ToggleSwitch{Checked=value=="1",AccessibleName="global:"+field.Id};toggle.CheckedChanged+=(s,e)=>{if(refreshing)return;Run(()=>{resourceSession.SetGlobal(captured,toggle.Checked?"1":"0");UpdateStatus();});};input=toggle;}
                 else if(field.Type=="choice"){var combo=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Height=Fields.Height,AccessibleName="global:"+field.Id};Fields.Tall(combo);combo.Items.AddRange(field.Choices);if(value.Length>0&&!combo.Items.Contains(value))combo.Items.Add(value);combo.SelectedItem=value.Length>0?value:null;combo.SelectedIndexChanged+=(s,e)=>{if(combo.Focused)Run(()=>{resourceSession.SetGlobal(captured,Convert.ToString(combo.SelectedItem));UpdateStatus();});};input=combo;}
-                else if(field.Type=="integer"||field.Type=="decimal"){var number=new NumberInput(field.Minimum,field.Maximum,field.Step){AccessibleName="global:"+field.Id};number.Input.Text=value;number.Leave+=(s,e)=>Run(()=>{resourceSession.SetGlobal(captured,number.Input.Text);UpdateStatus();});number.Stepped+=(s,e)=>Run(()=>{resourceSession.SetGlobal(captured,number.Input.Text);UpdateStatus();});input=number;}   // 0.4.39
-                else{var text=new TextBox{Text=value,Height=Fields.Height,AccessibleName="global:"+field.Id};text.Leave+=(s,e)=>Run(()=>{resourceSession.SetGlobal(captured,text.Text);UpdateStatus();});input=Fields.Wrap(text);}
+                else if(field.Type=="integer"||field.Type=="decimal"){var number=new NumberInput(field.Minimum,field.Maximum,field.Step){AccessibleName="global:"+field.Id};number.Input.Text=value;number.Input.TextChanged+=(s,e)=>{if(!number.Input.Focused)return;try{resourceSession.SetGlobal(captured,number.Input.Text);UpdateStatus();}catch(Exception){}};number.Leave+=(s,e)=>Run(()=>{resourceSession.SetGlobal(captured,number.Input.Text);UpdateStatus();});number.Stepped+=(s,e)=>Run(()=>{resourceSession.SetGlobal(captured,number.Input.Text);UpdateStatus();});input=number;}   // 0.4.39
+                else{var text=new TextBox{Text=value,Height=Fields.Height,AccessibleName="global:"+field.Id};text.TextChanged+=(s,e)=>{if(!text.Focused)return;try{resourceSession.SetGlobal(captured,text.Text);UpdateStatus();}catch(Exception){}};text.Leave+=(s,e)=>Run(()=>{resourceSession.SetGlobal(captured,text.Text);UpdateStatus();});input=Fields.Wrap(text);}
                 RangeTip(input,localSpec.FieldDescription(language,field),field.Type,field.Minimum,field.Maximum);
                 bool personal=!value.Equals(baselineValue,StringComparison.Ordinal);string source=baselineValue.Length>0?language.T("list_original_value")+": "+baselineValue:language.T("list_default_value");if(personal)source=language.T("personal")+"  ·  "+source;
                 Action reset=personal?(Action)(()=>{resourceSession.SetGlobal(captured,"");BuildLocalResourceEditor();}):null;AddLocalRow(grid,LocalLabel(localSpec.FieldLabel(language,field),localSpec.FieldDescription(language,field)),LocalInput(input,source,reset));
@@ -350,9 +350,12 @@ namespace TesmioAutoload
         // After a deferred rebuild the page gets one more layout pass, because a rebuild that starts from a
         // posted message has been seen to leave the content area collapsed until the window was resized.
         void Later(Control control,Action action){Control owner=control.FindForm();if(owner!=null&&owner.IsHandleCreated){owner.BeginInvoke(action);owner.BeginInvoke(new Action(()=>{if(content.IsDisposed)return;content.PerformLayout();ResizeCards();content.Invalidate(true);}));}else action();}
-        Control ColumnInput(ListColumn column,string value,Action<string> apply)
-        {Control input=ColumnInputCore(column,value,apply);RangeTip(input,localSpec.ColumnDescription(language,column),column.Type,column.Minimum,column.Maximum);return input;}
-        Control ColumnInputCore(ListColumn column,string value,Action<string> apply)
+        // apply: the final value when the field is left (may rebuild the editor); stage: every typed
+        // change while the field has focus (session and footer only, never a rebuild), so a typed value
+        // counts as a change right away instead of only after clicking elsewhere.
+        Control ColumnInput(ListColumn column,string value,Action<string> apply,Action<string> stage=null)
+        {Control input=ColumnInputCore(column,value,apply,stage);RangeTip(input,localSpec.ColumnDescription(language,column),column.Type,column.Minimum,column.Maximum);return input;}
+        Control ColumnInputCore(ListColumn column,string value,Action<string> apply,Action<string> stage)
         {
             if(column.Type=="choice")
             {
@@ -363,9 +366,9 @@ namespace TesmioAutoload
             if(column.Type=="integer"||column.Type=="decimal")
             {
                 // +/- buttons like the presentation schemas (0.4.39); the value applies when the field is left.
-                var number=new NumberInput(column.Minimum,column.Maximum,column.Step){AccessibleName="column:"+column.Id};number.Input.Text=value;number.Leave+=(s,e)=>apply(number.Input.Text);number.Stepped+=(s,e)=>apply(number.Input.Text);return number;
+                var number=new NumberInput(column.Minimum,column.Maximum,column.Step){AccessibleName="column:"+column.Id};number.Input.Text=value;if(stage!=null)number.Input.TextChanged+=(s,e)=>{if(number.Input.Focused)stage(number.Input.Text);};number.Leave+=(s,e)=>apply(number.Input.Text);number.Stepped+=(s,e)=>apply(number.Input.Text);return number;
             }
-            var text=new TextBox{Text=value,Height=Fields.Height,AccessibleName="column:"+column.Id};text.Leave+=(s,e)=>apply(text.Text);return Fields.Wrap(text);
+            var text=new TextBox{Text=value,Height=Fields.Height,AccessibleName="column:"+column.Id};if(stage!=null)text.TextChanged+=(s,e)=>{if(text.Focused)stage(text.Text);};text.Leave+=(s,e)=>apply(text.Text);return Fields.Wrap(text);
         }
         void BuildLocalListDetails(Panel panel,ListBox list,LocalResourceItem item)
         {
@@ -381,7 +384,8 @@ namespace TesmioAutoload
             {
                 int index=i;ListColumn column=localSpec.Columns[i];
                 Action<string> apply=value=>Run(()=>{string[] parts=localSpec.TupleColumns(resourceSession.Items().First(x=>x.Id.Equals(item.Id,StringComparison.OrdinalIgnoreCase)).ListValue);if((value??"").Trim()==parts[index]||column.Normalize(value??"")==parts[index])return;parts[index]=value;resourceSession.SetListRaw(item.Id,ListTuple.Render(parts));BuildLocalResourceEditor();});
-                Control input=ColumnInput(column,current[i],apply);
+                Action<string> stage=value=>{try{string[] parts=localSpec.TupleColumns(resourceSession.Items().First(x=>x.Id.Equals(item.Id,StringComparison.OrdinalIgnoreCase)).ListValue);if((value??"").Trim()==parts[index])return;parts[index]=value;resourceSession.SetListRaw(item.Id,ListTuple.Render(parts));UpdateStatus();}catch(Exception){}};
+                Control input=ColumnInput(column,current[i],apply,stage);
                 string heading=localSpec.ColumnHeading(language,column);if(heading.Length>0)AddLocalHeading(grid,heading);
                 string source;Action reset=null;
                 if(item.Owned)source=language.T("personal");
@@ -500,9 +504,9 @@ namespace TesmioAutoload
             }
             return groups;
         }
-        Control ItemFieldInput(LocalDetailField field,string value,Action<string> apply,string itemId=null)
-        {Control input=ItemFieldInputCore(field,value,apply,itemId);RangeTip(input,localSpec.FieldDescription(language,field),field.Type,field.Minimum,field.Maximum);return input;}
-        Control ItemFieldInputCore(LocalDetailField field,string value,Action<string> apply,string itemId=null)
+        Control ItemFieldInput(LocalDetailField field,string value,Action<string> apply,string itemId=null,Action<string> stage=null)
+        {Control input=ItemFieldInputCore(field,value,apply,itemId,stage);RangeTip(input,localSpec.FieldDescription(language,field),field.Type,field.Minimum,field.Maximum);return input;}
+        Control ItemFieldInputCore(LocalDetailField field,string value,Action<string> apply,string itemId=null,Action<string> stage=null)
         {
             if(field.Type=="lines")
             {
@@ -549,7 +553,7 @@ namespace TesmioAutoload
             if(field.Type=="integer"||field.Type=="decimal")
             {
                 // +/- buttons like the presentation schemas (0.4.39); the value applies when the field is left.
-                var number=new NumberInput(field.Minimum,field.Maximum,field.Step){AccessibleName="item:"+field.Id};number.Input.Text=value;number.Leave+=(s,e)=>apply(number.Input.Text);number.Stepped+=(s,e)=>apply(number.Input.Text);return number;
+                var number=new NumberInput(field.Minimum,field.Maximum,field.Step){AccessibleName="item:"+field.Id};number.Input.Text=value;if(stage!=null)number.Input.TextChanged+=(s,e)=>{if(number.Input.Focused)stage(number.Input.Text);};number.Leave+=(s,e)=>apply(number.Input.Text);number.Stepped+=(s,e)=>apply(number.Input.Text);return number;
             }
             if(field.Picker=="files")
             {
@@ -562,7 +566,7 @@ namespace TesmioAutoload
                 picker.Text=value;picker.Leave+=(s,e)=>apply(picker.Text);picker.SelectedIndexChanged+=(s,e)=>{if(!picker.Focused||picker.Value.Length==0)return;string chosen=picker.Value;Control owner=picker.FindForm();if(owner!=null&&owner.IsHandleCreated)owner.BeginInvoke(new Action(()=>apply(chosen)));else apply(chosen);};
                 return Fields.Host(picker);
             }
-            var text=new TextBox{Text=value,Height=Fields.Height,AccessibleName="item:"+field.Id};text.Leave+=(s,e)=>apply(text.Text);
+            var text=new TextBox{Text=value,Height=Fields.Height,AccessibleName="item:"+field.Id};if(stage!=null)text.TextChanged+=(s,e)=>{if(text.Focused)stage(text.Text);};text.Leave+=(s,e)=>apply(text.Text);
             if(field.Suffix.Length==0)return Fields.Wrap(text);
             // suffix = .name (0.4.31): the fixed tail of a key in a locked box, the item id as placeholder
             // - "[quartz_smasher].[name]" - so only the middle part is ever typed.
@@ -645,7 +649,8 @@ namespace TesmioAutoload
             // Compare the normalised text: a lines box hands back CRLF while the store keeps LF, so a
             // plain comparison rebuilt the editor on every focus change of a multi-line field (0.4.26).
             Action<string> apply=v=>Run(()=>{if(captured.Normalize(v??"")==resourceSession.Value(item.Id,captured))return;resourceSession.SetField(item.Id,captured,v);BuildLocalResourceEditor();});
-            Control input=ItemFieldInput(field,value,apply,item.Id);
+            Action<string> stage=v=>{try{if(captured.Normalize(v??"")==resourceSession.Value(item.Id,captured))return;resourceSession.SetField(item.Id,captured,v);UpdateStatus();}catch(Exception){}};
+            Control input=ItemFieldInput(field,value,apply,item.Id,stage);
             string heading=localSpec.FieldHeading(language,field);if(heading.Length>0)AddLocalHeading(grid,heading);
             bool personal=item.Owned?value.Length>0:!value.Equals(baselineValue,StringComparison.Ordinal);
             string source=baselineValue.Length>0?language.T("list_original_value")+": "+baselineValue:language.T("resource_no_entry");if(personal)source=language.T("personal")+"  ·  "+source;
@@ -841,7 +846,7 @@ namespace TesmioAutoload
             var grid=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,ColumnCount=2,Margin=Padding.Empty};FluidColumns(grid,46,800);grid.Tag=Narrow(panel)?"narrow":null;   // 0.4.36
             var idValue=new Label{Text=item.Id,AutoSize=false,Height=Fields.Height,Font=Fields.Font,BackColor=Theme.Pale,BorderStyle=BorderStyle.FixedSingle,TextAlign=ContentAlignment.MiddleLeft,Padding=new Padding(5,0,5,0)};AddLocalRow(grid,LocalLabel(language.T("resource_identifier"),language.T("resource_identifier_help")),LocalInput(idValue,item.Owned?language.T("personal"):language.T("standard"),null));
             var template=TemplatePicker(item.Template);template.SelectedIndexChanged+=(s,e)=>{if(!template.Focused||template.Value.Length==0||template.Value.Equals(item.Template,StringComparison.OrdinalIgnoreCase))return;string chosen=template.Value;Later(template,()=>Run(()=>{resourceSession.SetList(item.Id,chosen,item.Display);RefreshLocalResourceDetails(panel,list,item.Id);}));};AddLocalRow(grid,LocalLabel(language.T("resource_template"),language.T("resource_template_help")),LocalInput(template,item.Owned?language.T("personal"):language.T("resource_inherited"),item.Owned?null:(Action)(()=>{var baseValue=ResourceListValue.Parse(resourceSession.OriginalListValue(item.Id));resourceSession.SetList(item.Id,baseValue.Template,baseValue.Display);BuildLocalResourceEditor();})));
-            var display=new TextBox{Text=item.Display,Height=Fields.Height};display.Leave+=(s,e)=>Run(()=>{if(display.Text==item.Display)return;resourceSession.SetList(item.Id,item.Template,display.Text);RefreshLocalResourceDetails(panel,list,item.Id);});AddLocalRow(grid,LocalLabel(language.T("resource_display_name"),language.T("resource_display_help")),LocalInput(Fields.Wrap(display),item.Owned?language.T("personal"):language.T("resource_inherited"),item.Owned?null:(Action)(()=>{var baseValue=ResourceListValue.Parse(resourceSession.OriginalListValue(item.Id));resourceSession.SetList(item.Id,item.Template,baseValue.Display);BuildLocalResourceEditor();})));
+            var display=new TextBox{Text=item.Display,Height=Fields.Height};display.TextChanged+=(s,e)=>{if(!display.Focused)return;try{resourceSession.SetList(item.Id,item.Template,display.Text);UpdateStatus();}catch(Exception){}};display.Leave+=(s,e)=>Run(()=>{if(display.Text==item.Display)return;resourceSession.SetList(item.Id,item.Template,display.Text);RefreshLocalResourceDetails(panel,list,item.Id);});AddLocalRow(grid,LocalLabel(language.T("resource_display_name"),language.T("resource_display_help")),LocalInput(Fields.Wrap(display),item.Owned?language.T("personal"):language.T("resource_inherited"),item.Owned?null:(Action)(()=>{var baseValue=ResourceListValue.Parse(resourceSession.OriginalListValue(item.Id));resourceSession.SetList(item.Id,item.Template,baseValue.Display);BuildLocalResourceEditor();})));
             foreach(LocalDetailField field in localSpec.Fields)
             {
                 string value=resourceSession.Value(item.Id,field),baselineValue=resourceSession.BaselineValue(item.Id,field),label=localSpec.FieldLabel(language,field),help=localSpec.FieldDescription(language,field);Control input;
@@ -853,7 +858,7 @@ namespace TesmioAutoload
                     var combo=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Height=Fields.Height};Fields.Tall(combo);combo.Items.Add("");combo.Items.AddRange(field.Choices);if(shown.Length>0&&!combo.Items.Contains(shown))combo.Items.Add(shown);combo.SelectedItem=shown;
                     combo.SelectedIndexChanged+=(s,e)=>{if(!combo.Focused)return;string chosen=Convert.ToString(combo.SelectedItem);Later(combo,()=>Run(()=>{resourceSession.SetField(item.Id,field,chosen);UpdateStatus();}));};input=combo;
                 }
-                else{var text=new TextBox{Text=value,Height=Fields.Height};text.Leave+=(s,e)=>Run(()=>{resourceSession.SetField(item.Id,field,text.Text);UpdateStatus();});input=Fields.Wrap(text);}
+                else{var text=new TextBox{Text=value,Height=Fields.Height};text.TextChanged+=(s,e)=>{if(!text.Focused)return;try{resourceSession.SetField(item.Id,field,text.Text);UpdateStatus();}catch(Exception){}};text.Leave+=(s,e)=>Run(()=>{resourceSession.SetField(item.Id,field,text.Text);UpdateStatus();});input=Fields.Wrap(text);}
                 string source=baselineValue.Length>0?language.T("resource_original_value")+": "+baselineValue:value.Length>0?language.T("personal"):language.T("resource_no_entry");Action reset=()=>{resourceSession.SetField(item.Id,field,"");BuildLocalResourceEditor();};AddLocalRow(grid,LocalLabel(label,help),LocalInput(input,source,reset));
             }
             AddRow(shell,grid);list.Refresh();
