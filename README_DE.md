@@ -2,7 +2,7 @@
 
 [English](README.md) | **Deutsch**
 
-Quelltexte der TesmioLoader-Plugins von Kespri für *Workers & Resources: Soviet Republic* 1.1.1.9. Die Plugins werden als Workshop-Pakete verteilt; dieses Repository ist der Quelltext dazu, wie es die GNU GPL v3 verlangt. Fertige DLLs liegen hier nicht.
+Native Plugins für *Workers & Resources: Soviet Republic* 1.1.1.9, geladen vom [TesmioLoader](https://github.com/MaxLegend/TesmioLoader) (API 4), vom Soviet Mod Loader oder von der Workshop Bridge. Jedes Plugin wird als Steam-Workshop-Paket mit einem Einstellungsschema für den Republic Mod Manager ausgeliefert. Dieses Repository enthält den Quelltext, wie es die GNU GPL v3 verlangt; fertige DLLs liegen hier nicht.
 
 ## Plugins
 
