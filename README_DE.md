@@ -46,7 +46,7 @@ der Plugins nach `tesmioloader\build\logs\`.
 
 | Werkzeug | Version | Was es macht |
 |---|---|---|
-| [Republic Mod Manager](tools/republic_mod_manager) | 0.4.65 | Windows-Programm: Einstellungen, Ein- und Ausschalten und Laden der Plugins; sein Workshop-Objekt bringt den Installer und die Workshop Bridge mit |
+| [Republic Mod Manager](tools/republic_mod_manager) | 0.4.66 | Windows-Programm: Einstellungen, Ein- und Ausschalten und Laden der Plugins; sein Workshop-Objekt bringt den Installer und die Workshop Bridge mit |
 
 ## Installation
 

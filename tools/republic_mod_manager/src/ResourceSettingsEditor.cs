@@ -96,7 +96,7 @@ namespace TesmioAutoload
             var add=new VectorButton{Symbol="plus",Primary=true,BackColor=Theme.Blue,ForeColor=Color.White,Size=new Size(40,38),GlyphScale=2.5f,Anchor=AnchorStyles.Top|AnchorStyles.Right,AccessibleName=addLabel.Length>0?addLabel:language.T("resource_create")};add.Click+=(s,e)=>Run(()=>{if(isSections)OpenLocalSectionDialog(group);else if(isList)OpenLocalListDialog();else OpenLocalResourceDialog();});tips.SetToolTip(add,add.AccessibleName);addBar.Controls.Add(add,1,0);left.Controls.Add(addBar,0,2);split.Panel1.Controls.Add(left);
             var details=new Panel{Dock=DockStyle.Fill,AutoScroll=true};detailsPanel=details;split.Panel2.Controls.Add(details);narrowDetails=false;
             Action<LocalResourceItem> show=item=>{if(isSections)BuildLocalSectionDetails(details,list,item);else if(isList)BuildLocalListDetails(details,list,item);else BuildLocalResourceDetails(details,list,item);};
-            list.SelectedIndexChanged+=(s,e)=>{var item=list.SelectedItem as LocalResourceItem;if(item==null)return;selectedLocalResource=item.Id;show(item);};
+            list.SelectedIndexChanged+=(s,e)=>{if(refreshingListItem)return;var item=list.SelectedItem as LocalResourceItem;if(item==null)return;selectedLocalResource=item.Id;show(item);};
             // Crossing the narrow threshold re-lays the details out (0.4.36).
             details.SizeChanged+=(s,e)=>{bool now=Narrow(details);if(now==narrowDetails)return;narrowDetails=now;var item=list.SelectedItem as LocalResourceItem;if(item!=null)show(item);};
             LocalResourceItem selected=items.FirstOrDefault(x=>x.Id.Equals(selectedLocalResource,StringComparison.OrdinalIgnoreCase))??items.FirstOrDefault();if(selected!=null)list.SelectedItem=selected;else BuildLocalResourceEmpty(details,group);
@@ -347,7 +347,9 @@ namespace TesmioAutoload
         // A ComboBox handler must never tear down its own control while Windows is still inside the
         // CBN_SELCHANGE message (AccessViolation in comctl32, seen with the template picker of the
         // Resources editor); the work runs once the message has returned.
-        static void Later(Control control,Action action){Control owner=control.FindForm();if(owner!=null&&owner.IsHandleCreated)owner.BeginInvoke(action);else action();}
+        // After a deferred rebuild the page gets one more layout pass, because a rebuild that starts from a
+        // posted message has been seen to leave the content area collapsed until the window was resized.
+        void Later(Control control,Action action){Control owner=control.FindForm();if(owner!=null&&owner.IsHandleCreated){owner.BeginInvoke(action);owner.BeginInvoke(new Action(()=>{if(content.IsDisposed)return;content.PerformLayout();ResizeCards();content.Invalidate(true);}));}else action();}
         Control ColumnInput(ListColumn column,string value,Action<string> apply)
         {Control input=ColumnInputCore(column,value,apply);RangeTip(input,localSpec.ColumnDescription(language,column),column.Type,column.Minimum,column.Maximum);return input;}
         Control ColumnInputCore(ListColumn column,string value,Action<string> apply)
@@ -392,6 +394,12 @@ namespace TesmioAutoload
         // prefilled with the column defaults.
         // Snapshot hook (--window add): opens the add dialog of the current list editor.
         // Presentation packages open the add dialog of their first collection (0.4.43).
+        // Test hooks: rebuild the editor the deferred way a dropdown does, and read the card widths afterwards.
+        public void TestDeferredRebuild(){Control combo=FirstCombo(content);if(combo!=null&&combo.CanFocus)combo.Focus();Later(content,()=>Run(BuildLocalResourceEditor));}
+        static Control FirstCombo(Control root){foreach(Control c in root.Controls){if(c is ComboBox)return c;Control d=FirstCombo(c);if(d!=null)return d;}return null;}
+        public string TestContentSize{get{return content.ClientSize.Width+"x"+content.ClientSize.Height+" scroll "+content.AutoScrollPosition;}}
+        public int[] TestCardWidths(){return content.Controls.Cast<Control>().Where(c=>c.Tag is CardLayout).Select(c=>c.Width).ToArray();}
+        public int TestContentWidth{get{return content.ClientSize.Width;}}
         public void TestOpenAddDialog(){if(localSpec==null){CollectionSpec first=presentation==null?null:presentation.Collections.FirstOrDefault();if(first!=null)OpenResourceDialog(first);return;}if(localSpec.IsSections)OpenLocalSectionDialog(null);else if(localSpec.IsList)OpenLocalListDialog();else OpenLocalResourceDialog();}
         void OpenLocalListDialog()
         {
@@ -811,6 +819,19 @@ namespace TesmioAutoload
             var combo=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Height=Fields.Height};Fields.Tall(combo);if(optional)combo.Items.Add("");combo.Items.AddRange(ResourceCatalogData.TransportClasses);
             string head=ResourceCatalogData.Head(current);if(head.Length>0&&!combo.Items.Contains(head))combo.Items.Add(head);combo.SelectedItem=head.Length>0?head:(optional?"":null);return combo;
         }
+        // Template or display name changed: only the detail area and the list entry are redrawn, the
+        // rest of the editor stays (a full rebuild flickered and, from a dropdown, collapsed the page).
+        void RefreshLocalResourceDetails(Panel panel,ListBox list,string id)
+        {
+            if(panel==null||panel.IsDisposed)return;
+            LocalResourceItem fresh=resourceSession.Items().FirstOrDefault(x=>x.Id.Equals(id,StringComparison.OrdinalIgnoreCase));
+            if(fresh==null){BuildLocalResourceEditor();return;}
+            refreshingListItem=true;
+            try{for(int i=0;i<list.Items.Count;i++){var entry=list.Items[i] as LocalResourceItem;if(entry!=null&&entry.Id.Equals(id,StringComparison.OrdinalIgnoreCase)){list.Items[i]=fresh;list.SelectedIndex=i;break;}}}
+            finally{refreshingListItem=false;}
+            BuildLocalResourceDetails(panel,list,fresh);UpdateStatus();
+        }
+        bool refreshingListItem;
         void BuildLocalResourceDetails(Panel panel,ListBox list,LocalResourceItem item)
         {
             Theme.DisposeChildren(panel);var shell=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,ColumnCount=1,Padding=new Padding(0,0,8,18),Margin=Padding.Empty};shell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));panel.Controls.Add(shell);
@@ -819,8 +840,8 @@ namespace TesmioAutoload
             AddRow(shell,titleRow);var origin=Theme.Label(item.Owned?language.T("resource_personal"):language.T("resource_original_locked"),9,false);origin.ForeColor=item.Owned?Color.FromArgb(26,132,61):Theme.Muted;origin.Margin=new Padding(0,0,0,15);AddRow(shell,origin);
             var grid=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,ColumnCount=2,Margin=Padding.Empty};FluidColumns(grid,46,800);grid.Tag=Narrow(panel)?"narrow":null;   // 0.4.36
             var idValue=new Label{Text=item.Id,AutoSize=false,Height=Fields.Height,Font=Fields.Font,BackColor=Theme.Pale,BorderStyle=BorderStyle.FixedSingle,TextAlign=ContentAlignment.MiddleLeft,Padding=new Padding(5,0,5,0)};AddLocalRow(grid,LocalLabel(language.T("resource_identifier"),language.T("resource_identifier_help")),LocalInput(idValue,item.Owned?language.T("personal"):language.T("standard"),null));
-            var template=TemplatePicker(item.Template);template.SelectedIndexChanged+=(s,e)=>{if(!template.Focused||template.Value.Length==0||template.Value.Equals(item.Template,StringComparison.OrdinalIgnoreCase))return;string chosen=template.Value;Later(template,()=>Run(()=>{resourceSession.SetList(item.Id,chosen,item.Display);BuildLocalResourceEditor();}));};AddLocalRow(grid,LocalLabel(language.T("resource_template"),language.T("resource_template_help")),LocalInput(template,item.Owned?language.T("personal"):language.T("resource_inherited"),item.Owned?null:(Action)(()=>{var baseValue=ResourceListValue.Parse(resourceSession.OriginalListValue(item.Id));resourceSession.SetList(item.Id,baseValue.Template,baseValue.Display);BuildLocalResourceEditor();})));
-            var display=new TextBox{Text=item.Display,Height=Fields.Height};display.Leave+=(s,e)=>Run(()=>{resourceSession.SetList(item.Id,item.Template,display.Text);BuildLocalResourceEditor();});AddLocalRow(grid,LocalLabel(language.T("resource_display_name"),language.T("resource_display_help")),LocalInput(Fields.Wrap(display),item.Owned?language.T("personal"):language.T("resource_inherited"),item.Owned?null:(Action)(()=>{var baseValue=ResourceListValue.Parse(resourceSession.OriginalListValue(item.Id));resourceSession.SetList(item.Id,item.Template,baseValue.Display);BuildLocalResourceEditor();})));
+            var template=TemplatePicker(item.Template);template.SelectedIndexChanged+=(s,e)=>{if(!template.Focused||template.Value.Length==0||template.Value.Equals(item.Template,StringComparison.OrdinalIgnoreCase))return;string chosen=template.Value;Later(template,()=>Run(()=>{resourceSession.SetList(item.Id,chosen,item.Display);RefreshLocalResourceDetails(panel,list,item.Id);}));};AddLocalRow(grid,LocalLabel(language.T("resource_template"),language.T("resource_template_help")),LocalInput(template,item.Owned?language.T("personal"):language.T("resource_inherited"),item.Owned?null:(Action)(()=>{var baseValue=ResourceListValue.Parse(resourceSession.OriginalListValue(item.Id));resourceSession.SetList(item.Id,baseValue.Template,baseValue.Display);BuildLocalResourceEditor();})));
+            var display=new TextBox{Text=item.Display,Height=Fields.Height};display.Leave+=(s,e)=>Run(()=>{if(display.Text==item.Display)return;resourceSession.SetList(item.Id,item.Template,display.Text);RefreshLocalResourceDetails(panel,list,item.Id);});AddLocalRow(grid,LocalLabel(language.T("resource_display_name"),language.T("resource_display_help")),LocalInput(Fields.Wrap(display),item.Owned?language.T("personal"):language.T("resource_inherited"),item.Owned?null:(Action)(()=>{var baseValue=ResourceListValue.Parse(resourceSession.OriginalListValue(item.Id));resourceSession.SetList(item.Id,item.Template,baseValue.Display);BuildLocalResourceEditor();})));
             foreach(LocalDetailField field in localSpec.Fields)
             {
                 string value=resourceSession.Value(item.Id,field),baselineValue=resourceSession.BaselineValue(item.Id,field),label=localSpec.FieldLabel(language,field),help=localSpec.FieldDescription(language,field);Control input;
