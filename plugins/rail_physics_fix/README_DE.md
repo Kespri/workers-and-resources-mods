@@ -36,7 +36,7 @@ Erweitert in *Workers & Resources: Soviet Republic* 1.1.1.9 die Zugphysik: Antri
 ### In drei Schritten
 1. **Eine Installationsmethode wählen** (siehe unten) und das Plugin aktivieren; eine alte `railphysics.dll` vorher abschalten.
 2. **Werte prüfen:** Die mitgelieferte INI ist eine abgestimmte Konfiguration (unter anderem Leistung 1.5, Betriebsbremse 1.6 m/s², Bahnhofslimit 60 km/h, Netzmultiplikator 2.0). Für den ersten Test unverändert lassen und **eine Kopie des Spielstands** verwenden.
-3. **Spiel vollständig neu starten.** `tesmioloader.rail_physics_fix.log` nennt Version, Konfigurationsdatei, Vorprüfung und `9 subsystem(s) patched` bei allen gelieferten Funktionen.
+3. **Spiel vollständig neu starten.** `logs\tesmioloader.rail_physics_fix.log` nennt Version, Konfigurationsdatei, Vorprüfung und `9 subsystem(s) patched` bei allen gelieferten Funktionen.
 
 ---
 
@@ -261,7 +261,7 @@ Kein eigenes Spielstandformat. Bereits beeinflusste Positionen, Geschwindigkeite
 
 ### Logging
 
-Meldungen stehen in `tesmioloader.log` und im Detail-Log `tesmioloader.rail_physics_fix.log` (Zeitstempel, Schweregrad, Bereich, Regelkennung). Das Detail-Log wird bei aktiviertem Plugin neu geöffnet und überschrieben. Wiederholte Laufzeitwarnungen sind je Regel auf eine Ausgabe alle 30 Sekunden begrenzt.
+Meldungen stehen in `tesmioloader.log` und im Detail-Log `logs\tesmioloader.rail_physics_fix.log` (Zeitstempel, Schweregrad, Bereich, Regelkennung). Das Detail-Log wird bei aktiviertem Plugin neu geöffnet und überschrieben. Wiederholte Laufzeitwarnungen sind je Regel auf eine Ausgabe alle 30 Sekunden begrenzt.
 - In **Republic Mod Manager** öffnet das Symbol mit dem Dokument unten in der Plugin-Leiste die Protokollansicht mit Filter und Absender.
 
 Suche nach:
@@ -298,8 +298,9 @@ tesmioloader\build\
 ├── plugins\
 │   ├── rail_physics_fix.dll
 │   └── rail_physics_fix.ini        (wirksame INI)
-├── tesmioloader.log
-└── tesmioloader.rail_physics_fix.log
+├── logs\
+│   └── tesmioloader.rail_physics_fix.log
+└── tesmioloader.log
 ```
 
 ---

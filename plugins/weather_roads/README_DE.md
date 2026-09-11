@@ -36,7 +36,7 @@ Steuert in *Workers & Resources: Soviet Republic* 1.1.1.9, wie schnell sich Schn
 ### In drei Schritten
 1. **Eine Installationsmethode wählen** (siehe unten) und das Plugin aktivieren.
 2. **Werte prüfen:** Die mitgelieferten Einstellungen sind abgestimmt (Schnee 30 %, Schmelze 45 %, Schutzphase 240 Spielminuten, Salzphase 24 Spielstunden). Overlay und Detailprotokoll bleiben für den normalen Betrieb aus.
-3. **Spiel vollständig neu starten.** `weather_roads.log` nennt Version, Konfigurationspfad, Signaturprüfung, aktive Teilfunktionen und den Status des Streugut-Dienstes.
+3. **Spiel vollständig neu starten.** `logs\tesmioloader.weather_roads.log` nennt Version, Konfigurationspfad, Signaturprüfung, aktive Teilfunktionen und den Status des Streugut-Dienstes.
 
 ---
 
@@ -288,7 +288,7 @@ Ohne das Plugin lädt der Spielstand normal; die Zusatzdatei wird dann nicht ang
 
 ### Logging
 
-Meldungen stehen in `tesmioloader.log` (gespiegelte Status-, Warn- und Fehlermeldungen) und in `weather_roads.log` (Plugin-Protokoll, mit `detailed_events = 1` auch EVENT-Meldungen). Nach der Fehlersuche die Details wieder ausschalten.
+Meldungen stehen in `tesmioloader.log` (gespiegelte Status-, Warn- und Fehlermeldungen) und in `logs\tesmioloader.weather_roads.log` (Plugin-Protokoll, mit `detailed_events = 1` auch EVENT-Meldungen). Nach der Fehlersuche die Details wieder ausschalten.
 - In **Republic Mod Manager** öffnet das Symbol mit dem Dokument unten in der Plugin-Leiste die Protokollansicht mit Filter und Absender.
 
 Suche nach:
@@ -324,8 +324,9 @@ tesmioloader\build\
 ├── plugins\
 │   ├── weather_roads.dll
 │   └── weather_roads.ini           (wirksame INI)
-├── tesmioloader.log
-└── weather_roads.log
+├── logs\
+│   └── tesmioloader.weather_roads.log
+└── tesmioloader.log
 ```
 
 ---
@@ -348,7 +349,7 @@ A: Die INI fehlt oder hat keinen Schlüssel `[overlay] enabled`; der eingebaute 
 A: Nein. Alter und Reststärke werden aus der Zusatzdatei übernommen.
 
 **F: Woran erkenne ich, dass das Plugin läuft?**
-A: An `weather_roads.log`: Version, `configuration file`, Signaturprüfung und die Liste der aktiven Teilfunktionen.
+A: An `logs\tesmioloader.weather_roads.log`: Version, `configuration file`, Signaturprüfung und die Liste der aktiven Teilfunktionen.
 
 **F: Kann ich die INI von Hand bearbeiten?**
 A: Ja, mit den Regeln aus [Konfiguration](#-konfiguration). Republic Mod Manager bietet dieselben Werte mit Beschreibung und Bereichsprüfung.

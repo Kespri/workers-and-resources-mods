@@ -34,7 +34,7 @@ Adds custom names, descriptions and labels to *Workers & Resources: Soviet Repub
 ### In three steps
 1. **Choose one installation method** (see below) and enable the plugin.
 2. **Check the text packs:** the included packs need no setting. Own packs go as folders to `plugins\localization\<packname>` with `localization.ini` and at least the fallback language file.
-3. **Restart the game completely.** `tesmioloader.localization.log` names the configuration file, the pack folders, the loaded packs and the generated language files under `tesmioloader\vfs\media_soviet`.
+3. **Restart the game completely.** `logs\tesmioloader.localization.log` names the configuration file, the pack folders, the loaded packs and the generated language files under `tesmioloader\vfs\media_soviet`.
 
 ---
 
@@ -279,7 +279,7 @@ Language files are not part of the savegame. Texts of a research or resource a s
 
 ### Logging
 
-All messages go to `tesmioloader.log` and the detail log `tesmioloader.localization.log` with file, line, rule and reason.
+All messages go to `tesmioloader.log` and the detail log `logs\tesmioloader.localization.log` with file, line, rule and reason.
 - In **Republic Mod Manager** the document icon at the bottom of the plugin bar opens the log view with filter and sender.
 
 Search for:
@@ -321,8 +321,9 @@ tesmioloader\
 │   │   ├── localization.dll
 │   │   ├── localization.ini        (effective INI)
 │   │   └── localization\           (text packs, own and included)
-│   ├── tesmioloader.log
-│   └── tesmioloader.localization.log
+│   ├── logs\
+│   │   └── tesmioloader.localization.log
+│   └── tesmioloader.log
 └── vfs\media_soviet\               (generated soviet*.btf)
 ```
 

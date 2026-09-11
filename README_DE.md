@@ -21,7 +21,7 @@ Quelltexte der TesmioLoader-Plugins von Kespri für *Workers & Resources: Soviet
 | `plugins/weather_roads` | 0.3.3 | Straßenschnee, Schmelze und Schutz nach dem Räumen | eigene Entwicklung |
 | `plugins/workshop_bridge` | 0.2.0 | lädt Workshop-Hook-DLLs ohne Soviet Mod Loader | eigene Entwicklung |
 
-Gemeinsame Dateien: `plugins/grit_spreader_api.h` (Dienst zwischen Technical Service Storage und Weather Roads), `plugins/tesmio_config.h` (INI-Basis und Overlay), `plugins/tests` (Offline-Tests). `src/` enthält die zwei SDK-Header `tesmio_api.h` und `tesmio_plugin.h` aus dem [TesmioLoader b0.3.6](https://github.com/MaxLegend/TesmioLoader) von MaxLegend (GPL v3), damit die Plugins mit ihren relativen Include-Pfaden aus diesem Repository heraus gebaut werden können.
+Gemeinsame Dateien: `plugins/grit_spreader_api.h` (Dienst zwischen Technical Service Storage und Weather Roads), `plugins/tesmio_config.h` (INI-Basis und Overlay), `plugins/tests` (Offline-Tests). `src/` enthält die zwei SDK-Header `tesmio_api.h` und `tesmio_plugin.h` aus dem [TesmioLoader b0.3.6](https://github.com/MaxLegend/TesmioLoader) von MaxLegend (GPL v3), damit die Plugins mit ihren relativen Include-Pfaden aus diesem Repository heraus gebaut werden können. `tesmio_plugin.h` trägt eine lokale Änderung: `TsmOpenLog` schreibt die Detail-Protokolle der Plugins nach `tesmioloader\build\logs\`.
 
 Die Plugins wurden mit Unterstützung künstlicher Intelligenz entwickelt.
 
@@ -41,7 +41,7 @@ Jedes Plugin hat eine eigene Anleitung (`README_DE.md` im Plugin-Ordner) mit vie
 
 ## Fehlerberichte
 
-Bei Problemen bitte ein Issue mit Spielversion, Loader-Version, aktiven Plugins und den Protokollen `tesmioloader.log` und `tesmioloader.<plugin>.log` aus `tesmioloader\build` eröffnen.
+Bei Problemen bitte ein Issue mit Spielversion, Loader-Version, aktiven Plugins und den Protokollen `tesmioloader.log` aus `tesmioloader\build` und `tesmioloader.<plugin>.log` aus `tesmioloader\build\logs` eröffnen.
 
 ## Lizenz
 

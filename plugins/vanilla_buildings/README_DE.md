@@ -270,7 +270,7 @@ Andere Plugins, die dieselbe Gebäudedatei ersetzen, werden nicht mit diesen Än
 
 ### Logging
 
-Alle Meldungen stehen in `tesmioloader.log` und im Detail-Log `tesmioloader.vanilla_buildings.log`, mit Stufe (INFO, DEBUG, WARN, ERROR, FATAL) und Prüfungsname. Jedes abgewiesene Ziel bekommt auch ohne Debug eine `WARN [target-rejected]`-Meldung mit Abschnitt, Ziel, Ursache und bei Befehlsfehlern der INI-Zeile.
+Alle Meldungen stehen in `tesmioloader.log` und im Detail-Log `logs\tesmioloader.vanilla_buildings.log`, mit Stufe (INFO, DEBUG, WARN, ERROR, FATAL) und Prüfungsname. Jedes abgewiesene Ziel bekommt auch ohne Debug eine `WARN [target-rejected]`-Meldung mit Abschnitt, Ziel, Ursache und bei Befehlsfehlern der INI-Zeile.
 - In **Republic Mod Manager** öffnet das Symbol mit dem Dokument unten in der Plugin-Leiste die Protokollansicht mit Filter und Absender.
 
 Suche nach:

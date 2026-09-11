@@ -270,7 +270,7 @@ Other plugins that replace the same building file are not merged with these chan
 
 ### Logging
 
-All messages go to `tesmioloader.log` and the detail log `tesmioloader.vanilla_buildings.log`, with level (INFO, DEBUG, WARN, ERROR, FATAL) and rule name. Every rejected target gets a `WARN [target-rejected]` message even without debug, with section, target, cause and, for command errors, the INI line.
+All messages go to `tesmioloader.log` and the detail log `logs\tesmioloader.vanilla_buildings.log`, with level (INFO, DEBUG, WARN, ERROR, FATAL) and rule name. Every rejected target gets a `WARN [target-rejected]` message even without debug, with section, target, cause and, for command errors, the INI line.
 - In **Republic Mod Manager** the document icon at the bottom of the plugin bar opens the log view with filter and sender.
 
 Look for:

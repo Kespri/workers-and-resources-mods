@@ -34,7 +34,7 @@ Fügt *Workers & Resources: Soviet Republic* 1.1.1.9 eigene Namen, Beschreibunge
 ### In drei Schritten
 1. **Eine Installationsmethode wählen** (siehe unten) und das Plugin aktivieren.
 2. **Textpakete prüfen:** Die mitgelieferten Pakete brauchen keine Einstellung. Eigene Pakete kommen als Ordner nach `plugins\localization\<paketname>` mit `localization.ini` und mindestens der Fallback-Sprachdatei.
-3. **Spiel vollständig neu starten.** `tesmioloader.localization.log` nennt Konfigurationsdatei, Paketordner, geladene Pakete und die erzeugten Sprachdateien unter `tesmioloader\vfs\media_soviet`.
+3. **Spiel vollständig neu starten.** `logs\tesmioloader.localization.log` nennt Konfigurationsdatei, Paketordner, geladene Pakete und die erzeugten Sprachdateien unter `tesmioloader\vfs\media_soviet`.
 
 ---
 
@@ -279,7 +279,7 @@ Sprachdateien sind nicht Teil des Spielstands. Texte einer Forschung oder Ressou
 
 ### Logging
 
-Alle Meldungen stehen in `tesmioloader.log` und im Detail-Log `tesmioloader.localization.log` mit Datei, Zeile, Regel und Begründung.
+Alle Meldungen stehen in `tesmioloader.log` und im Detail-Log `logs\tesmioloader.localization.log` mit Datei, Zeile, Regel und Begründung.
 - In **Republic Mod Manager** öffnet das Symbol mit dem Dokument unten in der Plugin-Leiste die Protokollansicht mit Filter und Absender.
 
 Suche nach:
@@ -321,8 +321,9 @@ tesmioloader\
 │   │   ├── localization.dll
 │   │   ├── localization.ini        (wirksame INI)
 │   │   └── localization\           (Textpakete, eigene und mitgelieferte)
-│   ├── tesmioloader.log
-│   └── tesmioloader.localization.log
+│   ├── logs\
+│   │   └── tesmioloader.localization.log
+│   └── tesmioloader.log
 └── vfs\media_soviet\               (erzeugte soviet*.btf)
 ```
 

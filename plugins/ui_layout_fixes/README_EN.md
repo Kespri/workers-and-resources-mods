@@ -243,7 +243,7 @@ The plugin changes neither game files nor savegames.
 
 ### Logging
 
-Messages go to `tesmioloader.log` (warnings, errors, phase summaries) and the detail log `tesmioloader.ui_layout_fixes.log` (complete structured log with module, rule and Windows error code).
+Messages go to `tesmioloader.log` (warnings, errors, phase summaries) and the detail log `logs\tesmioloader.ui_layout_fixes.log` (complete structured log with module, rule and Windows error code).
 - In **Republic Mod Manager** the document icon at the bottom of the plugin bar opens the log view with filter and sender.
 
 Expected on a successful start:
@@ -277,7 +277,8 @@ ui_layout_fixes\
 **Loader folder** (method 1 by hand or "Files local only")
 ```
 tesmioloader\build\
-├── tesmioloader.ui_layout_fixes.log
+├── logs\
+│   └── tesmioloader.ui_layout_fixes.log
 ├── plugins\
 │   ├── ui_layout_fixes.dll
 │   └── ui_layout_fixes.ini         (original INI)

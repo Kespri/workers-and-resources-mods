@@ -39,7 +39,7 @@ Extends the Technical Services window of *Workers & Resources: Soviet Republic* 
 ### In three steps
 1. **Choose one installation method** (see below) and enable the plugin.
 2. **Check the materials:** adapt the supplied list (`sand`, `gravel`) in Republic Mod Manager or in `technical_service_storage.ini` to the resources and depot storages you have. **Back up a savegame.**
-3. **Restart the game completely.** The depot window shows the grit storages with priorities; the log `tesmioloader.technical_service_storage.log` names the configuration path, the material list and the service status.
+3. **Restart the game completely.** The depot window shows the grit storages with priorities; the log `logs\tesmioloader.technical_service_storage.log` names the configuration path, the material list and the service status.
 
 ---
 
@@ -356,7 +356,7 @@ Added storages can become part of the native savegame. Priorities and tanks live
 
 ### Logging
 
-All messages go to `tesmioloader.log` and the detail log `tesmioloader.technical_service_storage.log`, with area, rule id and context. `debug = 0` suppresses routine details only; warnings, errors and start/save messages remain. `debug = 1` adds details and the read-only Ctrl+F8 lifecycle snapshot.
+All messages go to `tesmioloader.log` and the detail log `logs\tesmioloader.technical_service_storage.log`, with area, rule id and context. `debug = 0` suppresses routine details only; warnings, errors and start/save messages remain. `debug = 1` adds details and the read-only Ctrl+F8 lifecycle snapshot.
 - In **Republic Mod Manager** the document icon at the bottom of the plugin bar opens the log view with filter and sender.
 
 Search for:
@@ -396,8 +396,9 @@ tesmioloader\build\
 │   └── localization\technical_service_storage\   (text pack, from the Localization package)
 ├── user_config\
 │   └── technical_service_storage.editor.ini (personal materials from Republic Mod Manager)
-├── tesmioloader.log
-└── tesmioloader.technical_service_storage.log
+├── logs\
+│   └── tesmioloader.technical_service_storage.log
+└── tesmioloader.log
 ```
 
 ---

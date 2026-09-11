@@ -36,7 +36,7 @@ Extends the train physics of *Workers & Resources: Soviet Republic* 1.1.1.9: tra
 ### In three steps
 1. **Choose one installation method** (see below) and enable the plugin; switch an old `railphysics.dll` off first.
 2. **Check the values:** the supplied INI is a tuned configuration (among others power 1.5, service brake 1.6 m/s², station limit 60 km/h, grid multiplier 2.0). Leave it unchanged for the first test and use **a copy of your savegame**.
-3. **Restart the game completely.** `tesmioloader.rail_physics_fix.log` names version, configuration file, preflight and `9 subsystem(s) patched` with all supplied features.
+3. **Restart the game completely.** `logs\tesmioloader.rail_physics_fix.log` names version, configuration file, preflight and `9 subsystem(s) patched` with all supplied features.
 
 ---
 
@@ -261,7 +261,7 @@ No separate save format. Positions, speeds and consumption already affected stay
 
 ### Logging
 
-Messages go to `tesmioloader.log` and the detail log `tesmioloader.rail_physics_fix.log` (timestamp, severity, area, rule id). The detail log is reopened and overwritten when the plugin is enabled. Repeated runtime warnings are limited to one output per rule every 30 seconds.
+Messages go to `tesmioloader.log` and the detail log `logs\tesmioloader.rail_physics_fix.log` (timestamp, severity, area, rule id). The detail log is reopened and overwritten when the plugin is enabled. Repeated runtime warnings are limited to one output per rule every 30 seconds.
 - In **Republic Mod Manager** the document icon at the bottom of the plugin bar opens the log view with filter and sender.
 
 Search for:
@@ -298,8 +298,9 @@ tesmioloader\build\
 ├── plugins\
 │   ├── rail_physics_fix.dll
 │   └── rail_physics_fix.ini        (effective INI)
-├── tesmioloader.log
-└── tesmioloader.rail_physics_fix.log
+├── logs\
+│   └── tesmioloader.rail_physics_fix.log
+└── tesmioloader.log
 ```
 
 ---

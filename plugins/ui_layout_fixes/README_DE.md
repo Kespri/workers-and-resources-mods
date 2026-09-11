@@ -243,7 +243,7 @@ Das Plugin verändert weder Spieldateien noch Spielstände.
 
 ### Logging
 
-Meldungen stehen in `tesmioloader.log` (Warnungen, Fehler, Phasenzusammenfassungen) und im Detail-Log `tesmioloader.ui_layout_fixes.log` (vollständiges strukturiertes Protokoll mit Modul, Prüfregel und Windows-Fehlercode).
+Meldungen stehen in `tesmioloader.log` (Warnungen, Fehler, Phasenzusammenfassungen) und im Detail-Log `logs\tesmioloader.ui_layout_fixes.log` (vollständiges strukturiertes Protokoll mit Modul, Prüfregel und Windows-Fehlercode).
 - In **Republic Mod Manager** öffnet das Symbol mit dem Dokument unten in der Plugin-Leiste die Protokollansicht mit Filter und Absender.
 
 Erwartet bei erfolgreichem Start:
@@ -277,7 +277,8 @@ ui_layout_fixes\
 **Loader-Ordner** (Methode 1 von Hand oder „Dateien nur lokal“)
 ```
 tesmioloader\build\
-├── tesmioloader.ui_layout_fixes.log
+├── logs\
+│   └── tesmioloader.ui_layout_fixes.log
 ├── plugins\
 │   ├── ui_layout_fixes.dll
 │   └── ui_layout_fixes.ini         (Original-INI)

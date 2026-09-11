@@ -19,7 +19,7 @@
 #define PLUGIN_NAME       "weather_roads"
 #define PLUGIN_VERSION    "0.3.3"
 #define PLUGIN_INI        "plugins\\weather_roads.ini"
-#define PLUGIN_LOG        "weather_roads.log"
+#define PLUGIN_LOG        "tesmioloader.weather_roads.log"
 
 #define SYM_EDIT_MASK     "?EditMask@C3D_TERRAIN@@QEAAXVC3DVECTOR3@@HMMHH_N@Z"
 #define SYM_MASK_TEXTURE_OPEN "?MaskTextureOpen@C3D_TERRAIN@@QEAAXXZ"

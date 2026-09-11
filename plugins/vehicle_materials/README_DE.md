@@ -320,7 +320,7 @@ Das Plugin verändert keine Spieldateien und speichert nichts im Spielstand. Mat
 
 ### Logging
 
-Alle Meldungen stehen in `tesmioloader.log`, mit `debug = 1` zusätzlich in `tesmioloader.vehicle_materials.log`.
+Alle Meldungen stehen in `tesmioloader.log`, mit `debug = 1` zusätzlich in `logs\tesmioloader.vehicle_materials.log`.
 - In **Republic Mod Manager** öffnet das Symbol mit dem Dokument unten in der Plugin-Leiste die Protokollansicht mit Filter und Absender.
 
 Erwartet bei erfolgreichem Start:

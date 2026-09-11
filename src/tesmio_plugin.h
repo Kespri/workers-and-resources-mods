@@ -138,12 +138,18 @@ static bool SafeReadStr(const void* p, char* out, size_t n)
     return i > 0;
 }
 
-// A log file of the plugin's own, next to the loader's. The game holds these
-// open, so reading one while it runs needs FileShare.ReadWrite.
+// A log file of the plugin's own, in the logs\ folder next to the loader's own
+// log (the folder is created on first use; if that fails the file lands next
+// to tesmioloader.log as before). The game holds these open, so reading one
+// while it runs needs FileShare.ReadWrite.
 static HANDLE TsmOpenLog(const char* name)
 {
+    char dir[MAX_PATH];
+    _snprintf_s(dir, sizeof(dir), _TRUNCATE, "%s\\logs", g_baseDir);
+    if (!CreateDirectoryA(dir, NULL) && GetLastError() != ERROR_ALREADY_EXISTS)
+        _snprintf_s(dir, sizeof(dir), _TRUNCATE, "%s", g_baseDir);
     char p[MAX_PATH];
-    _snprintf_s(p, sizeof(p), _TRUNCATE, "%s\\%s", g_baseDir, name);
+    _snprintf_s(p, sizeof(p), _TRUNCATE, "%s\\%s", dir, name);
     return CreateFileA(p, GENERIC_WRITE,
                        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                        NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);

@@ -298,7 +298,7 @@ Localization ist Pflicht. Andere Plugins, die `research.ini` ersetzen, werden ni
 
 ### Logging
 
-Alle Meldungen stehen in `tesmioloader.log` und im Detail-Log `tesmioloader.research_expansion.log`, mit Regelnamen wie `placement-target`, `modify-match`, `research-cycle`.
+Alle Meldungen stehen in `tesmioloader.log` und im Detail-Log `logs\tesmioloader.research_expansion.log`, mit Regelnamen wie `placement-target`, `modify-match`, `research-cycle`.
 - In **Republic Mod Manager** öffnet das Symbol mit dem Dokument unten in der Plugin-Leiste die Protokollansicht mit Filter und Absender.
 
 Suche nach:

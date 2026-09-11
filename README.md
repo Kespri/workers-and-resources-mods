@@ -30,7 +30,8 @@ and English build notes (`BUILD_INFO.md`). Shared files: `plugins/grit_spreader_
 (service between Technical Service Storage and Weather Roads), `plugins/tesmio_config.h`
 (INI base and personal overlay), `plugins/tests` (offline tests). `src/` holds the two SDK
 headers `tesmio_api.h` and `tesmio_plugin.h` from the TesmioLoader by MaxLegend (GPL v3), so
-the plugins build from this repository with their relative include paths.
+the plugins build from this repository with their relative include paths. `tesmio_plugin.h`
+carries one local change: `TsmOpenLog` writes the plugin detail logs into `tesmioloader\build\logs\`.
 
 ## Installing
 
@@ -54,7 +55,7 @@ Rail Physics Fix and Deposits Plus bring their own `build.bat`. The exports
 ## Bug reports
 
 Please open an issue with the game version, the loader version, the active plugins and the
-logs `tesmioloader.log` and `tesmioloader.<plugin>.log` from `tesmioloader\build`.
+logs `tesmioloader.log` from `tesmioloader\build` and `tesmioloader.<plugin>.log` from `tesmioloader\build\logs`.
 
 ## Credits and licence
 

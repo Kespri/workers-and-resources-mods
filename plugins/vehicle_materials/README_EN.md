@@ -320,7 +320,7 @@ The plugin changes no game file and stores nothing in the saved game. Materials 
 
 ### Logging
 
-Every message is in `tesmioloader.log`, with `debug = 1` additionally in `tesmioloader.vehicle_materials.log`.
+Every message is in `tesmioloader.log`, with `debug = 1` additionally in `logs\tesmioloader.vehicle_materials.log`.
 - In **Republic Mod Manager** the document icon at the bottom of the plugin bar opens the log view with filter and sender.
 
 Expected on a successful start:

@@ -284,7 +284,7 @@ The plugin changes neither game files nor savegames; it only arranges buttons in
 
 ### Logging
 
-All messages go to `tesmioloader.log` and the detail log `tesmioloader.resources_button_fix.log`. Every message names level, source and rule; initialisation and start end with a summary.
+All messages go to `tesmioloader.log` and the detail log `logs\tesmioloader.resources_button_fix.log`. Every message names level, source and rule; initialisation and start end with a summary.
 - In **Republic Mod Manager** the document icon at the bottom of the plugin bar opens the log view with filter and sender.
 
 Look for:

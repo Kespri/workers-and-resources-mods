@@ -284,7 +284,7 @@ Das Plugin verändert weder Spieldateien noch Spielstände; es ordnet nur Schalt
 
 ### Logging
 
-Alle Meldungen stehen in `tesmioloader.log` und im Detail-Log `tesmioloader.resources_button_fix.log`. Jede Meldung nennt Stufe, Quelle und Regelname; Initialisierung und Start enden mit einer Zusammenfassung.
+Alle Meldungen stehen in `tesmioloader.log` und im Detail-Log `logs\tesmioloader.resources_button_fix.log`. Jede Meldung nennt Stufe, Quelle und Regelname; Initialisierung und Start enden mit einer Zusammenfassung.
 - In **Republic Mod Manager** öffnet das Symbol mit dem Dokument unten in der Plugin-Leiste die Protokollansicht mit Filter und Absender.
 
 Suche nach:
