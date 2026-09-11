@@ -383,15 +383,15 @@ namespace TesmioAutoload
             for(int i=0;i<localSpec.Columns.Count;i++)
             {
                 int index=i;ListColumn column=localSpec.Columns[i];
-                string shown=current[i];
-                Action<string> apply=value=>{bool same=false;try{same=(value??"").Trim()==shown||column.Normalize(value??"")==column.Normalize(shown);}catch(FormatException){}if(same)return;Later(content,()=>Run(()=>{string[] parts=localSpec.TupleColumns(resourceSession.Items().First(x=>x.Id.Equals(item.Id,StringComparison.OrdinalIgnoreCase)).ListValue);parts[index]=value;resourceSession.SetListRaw(item.Id,ListTuple.Render(parts));RefreshLocalDetails(item.Id);}));};
+                string shown=current[i];Panel row=null;string back=original==null?null:original[index];
+                Func<string,string> describe=v=>item.Owned?language.T("personal"):((!Same(column,v,back)?language.T("personal")+"  ·  ":"")+language.T("list_original_value")+": "+(back.Length>0?back:column.Default));
+                Action<string> apply=value=>{bool same=false;try{same=(value??"").Trim()==shown||column.Normalize(value??"")==column.Normalize(shown);}catch(FormatException){}if(same)return;Later(content,()=>Run(()=>{string[] parts=localSpec.TupleColumns(resourceSession.Items().First(x=>x.Id.Equals(item.Id,StringComparison.OrdinalIgnoreCase)).ListValue);parts[index]=value;resourceSession.SetListRaw(item.Id,ListTuple.Render(parts));shown=value;UpdateRow(row,describe(value),!item.Owned&&!Same(column,value,back));if(detailsList!=null&&!detailsList.IsDisposed)detailsList.Refresh();UpdateStatus();}));};
                 Action<string> stage=value=>{try{string[] parts=localSpec.TupleColumns(resourceSession.Items().First(x=>x.Id.Equals(item.Id,StringComparison.OrdinalIgnoreCase)).ListValue);if((value??"").Trim()==parts[index])return;parts[index]=value;resourceSession.SetListRaw(item.Id,ListTuple.Render(parts));}catch(Exception){}UpdateStatus();};
                 Control input=ColumnInput(column,current[i],apply,stage);
                 string heading=localSpec.ColumnHeading(language,column);if(heading.Length>0)AddLocalHeading(grid,heading);
-                string source;Action reset=null;
-                if(item.Owned)source=language.T("personal");
-                else{bool changed=!Same(column,current[i],original[i]);source=(changed?language.T("personal")+"  ·  ":"")+language.T("list_original_value")+": "+(original[i].Length>0?original[i]:column.Default);if(changed){string back=original[i];reset=()=>apply(back);}}
-                AddLocalRow(grid,LocalLabel(localSpec.ColumnLabel(language,column),localSpec.ColumnDescription(language,column)),LocalInput(input,source,reset));
+                Action reset=item.Owned?null:(Action)(()=>{string[] parts=localSpec.TupleColumns(resourceSession.Items().First(x=>x.Id.Equals(item.Id,StringComparison.OrdinalIgnoreCase)).ListValue);parts[index]=back;resourceSession.SetListRaw(item.Id,ListTuple.Render(parts));RefreshLocalDetails(item.Id);});
+                row=LocalInput(input,describe(current[i]),reset,!item.Owned&&!Same(column,current[i],back));
+                AddLocalRow(grid,LocalLabel(localSpec.ColumnLabel(language,column),localSpec.ColumnDescription(language,column)),row);
             }
             AddRow(shell,grid);list.Refresh();
         }
@@ -650,23 +650,26 @@ namespace TesmioAutoload
             LocalDetailField captured=field;string value=resourceSession.Value(item.Id,field),baselineValue=resourceSession.BaselineValue(item.Id,field);
             // Compare the normalised text: a lines box hands back CRLF while the store keeps LF, so a
             // plain comparison rebuilt the editor on every focus change of a multi-line field (0.4.26).
-            // apply (field left): only when the text differs from what the row was built with, and only after
-            // the focus change has finished (Later), redraw the details. Rebuilding inside Leave destroyed the
+            Func<string,bool> isPersonal=v=>item.Owned?v.Length>0:!v.Equals(baselineValue,StringComparison.Ordinal);
+            Func<string,string> describe=v=>{bool personal=isPersonal(v);string source=baselineValue.Length>0?language.T("list_original_value")+": "+baselineValue:language.T("resource_no_entry");if(personal)source=language.T("personal")+"  ·  "+source;
+                // A personal entry has no original to compare with: "Persönlich" when the field is set, nothing when it is empty (0.4.37).
+                if(item.Owned)source=personal?language.T("personal"):"";
+                // Lines fields carry their own counter; the original lines would only be cut off after a few entries (0.4.25).
+                if(field.Type=="lines")source=personal?language.T("personal"):"";
+                // A switch shows its state itself; no "no entry" line under it (0.4.32).
+                if(field.Type=="boolean")source=personal?language.T("personal"):"";return source;};
+            Panel row=null;
+            // apply (field left): only when the text differs from what the row shows, and only after the focus
+            // change has finished (Later). The row's note and reset button are updated in place; nothing is
+            // redrawn, so the detail area neither flashes nor jumps. Rebuilding inside Leave destroyed the
             // control that was about to receive the focus and left the page collapsed.
-            Action<string> apply=v=>{bool same=false;try{same=captured.Normalize(v??"")==captured.Normalize(value);}catch(FormatException){}if(same)return;Later(content,()=>Run(()=>{resourceSession.SetField(item.Id,captured,v);RefreshLocalDetails(item.Id);}));};
+            Action<string> apply=v=>{bool same=false;try{same=captured.Normalize(v??"")==captured.Normalize(value);}catch(FormatException){}if(same)return;Later(content,()=>Run(()=>{resourceSession.SetField(item.Id,captured,v);string now=resourceSession.Value(item.Id,captured);value=now;UpdateRow(row,describe(now),isPersonal(now));if(detailsList!=null&&!detailsList.IsDisposed)detailsList.Refresh();UpdateStatus();}));};
             Action<string> stage=v=>{try{if(captured.Normalize(v??"")==resourceSession.Value(item.Id,captured))return;resourceSession.SetField(item.Id,captured,v);}catch(Exception){}UpdateStatus();};
             Control input=ItemFieldInput(field,value,apply,item.Id,stage);
             string heading=localSpec.FieldHeading(language,field);if(heading.Length>0)AddLocalHeading(grid,heading);
-            bool personal=item.Owned?value.Length>0:!value.Equals(baselineValue,StringComparison.Ordinal);
-            string source=baselineValue.Length>0?language.T("list_original_value")+": "+baselineValue:language.T("resource_no_entry");if(personal)source=language.T("personal")+"  ·  "+source;
-            // A personal entry has no original to compare with: "Persönlich" when the field is set, nothing when it is empty (0.4.37).
-            if(item.Owned)source=personal?language.T("personal"):"";
-            // Lines fields carry their own counter; the original lines would only be cut off after a few entries (0.4.25).
-            if(field.Type=="lines")source=personal?language.T("personal"):"";
-            // A switch shows its state itself; no "no entry" line under it (0.4.32).
-            if(field.Type=="boolean")source=personal?language.T("personal"):"";
-            Action reset=personal?(Action)(()=>{resourceSession.SetField(item.Id,captured,"");RefreshLocalDetails(item.Id);}):null;
-            AddLocalRow(grid,LocalLabel(localSpec.FieldLabel(language,field),localSpec.FieldDescription(language,field)),LocalInput(input,source,reset));
+            Action reset=()=>{resourceSession.SetField(item.Id,captured,"");RefreshLocalDetails(item.Id);};
+            row=LocalInput(input,describe(value),reset,isPersonal(value));
+            AddLocalRow(grid,LocalLabel(localSpec.FieldLabel(language,field),localSpec.FieldDescription(language,field)),row);
         }
         // [picture:<id>] rows (0.4.35): preview of the entry's picture plus "Insert picture...", which
         // copies a chosen PNG into the folder under the entry's name (and checks the size).
@@ -790,7 +793,11 @@ namespace TesmioAutoload
             }int row=table.RowCount++;table.RowStyles.Add(new RowStyle(SizeType.AutoSize));label.Dock=DockStyle.Top;input.Dock=DockStyle.Top;table.Controls.Add(label,0,row);table.Controls.Add(input,1,row);}
         Control LocalLabel(string title,string help)
         {var box=new TableLayoutPanel{ColumnCount=1,AutoSize=true,Dock=DockStyle.Top,Margin=new Padding(0,4,16,17)};box.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));var label=Theme.Label(title,10,true);AddRow(box,label);if(help.Length>0){var descriptionLabel=Theme.Label(help,8,false);descriptionLabel.ForeColor=Theme.Muted;descriptionLabel.MaximumSize=new Size(300,0);AddRow(box,descriptionLabel);box.SizeChanged+=(s,e)=>{int w=Math.Max(120,box.ClientSize.Width);if(descriptionLabel.MaximumSize.Width!=w)descriptionLabel.MaximumSize=new Size(w,0);};}return box;}
-        Panel LocalInput(Control input,string origin,Action reset)
+        // The note and reset button of a row, kept on the row panel so a field edit can update them
+        // in place instead of redrawing the detail area (which flashed white and lost the scroll position).
+        sealed class RowNote{public Label Note;public VectorButton Reset;}
+        static void UpdateRow(Panel row,string origin,bool resetVisible){var state=row==null||row.IsDisposed?null:row.Tag as RowNote;if(state==null)return;state.Note.Text=origin;if(state.Reset!=null)state.Reset.Visible=resetVisible;}
+        Panel LocalInput(Control input,string origin,Action reset,bool resetVisible=true)
         {
             // Input on the left, the reset button in its own column on the right at the input's
             // height - the column is always reserved so rows line up whether or not the button
@@ -806,7 +813,8 @@ namespace TesmioAutoload
             var note=Theme.Label(origin,8,false);note.ForeColor=Theme.Muted;note.Location=new Point(0,noteTop(inputHeight));note.Size=new Size(Math.Max(120,panel.Width),30);note.Anchor=AnchorStyles.Left|AnchorStyles.Top;note.Visible=!toggle;panel.Controls.Add(note);
             input.SizeChanged+=(s,e)=>{int h=Math.Max(29,input.Height);if(panel.Height!=panelHeight(h)){panel.Height=panelHeight(h);note.Location=new Point(0,noteTop(h));}};
             VectorButton button=null;
-            if(reset!=null){button=new VectorButton{Symbol="reset",Primary=true,BackColor=Theme.Blue,ForeColor=Color.White,GlyphScale=1.05f,Size=new Size(Fields.Reset,Fields.Reset),Location=new Point(panel.Width-Fields.Reset,Math.Max(0,(inputHeight-Fields.Reset)/2)),Anchor=AnchorStyles.Left|AnchorStyles.Top,AccessibleName=language.T("reset")};button.Click+=(s,e)=>Run(reset);panel.Controls.Add(button);}
+            if(reset!=null){button=new VectorButton{Symbol="reset",Primary=true,BackColor=Theme.Blue,ForeColor=Color.White,GlyphScale=1.05f,Size=new Size(Fields.Reset,Fields.Reset),Location=new Point(panel.Width-Fields.Reset,Math.Max(0,(inputHeight-Fields.Reset)/2)),Anchor=AnchorStyles.Left|AnchorStyles.Top,AccessibleName=language.T("reset")};button.Click+=(s,e)=>Run(reset);button.Visible=resetVisible;panel.Controls.Add(button);}
+            panel.Tag=new RowNote{Note=note,Reset=button};
             EventHandler fit=(s,e)=>{int w=panel.ClientSize.Width;if(toggle)input.Left=Math.Max(0,w-reserve-input.Width);else input.Width=Math.Max(120,w-reserve);note.Width=Math.Max(120,w);if(button!=null)button.Left=w-Fields.Reset;};
             panel.SizeChanged+=fit;fit(panel,EventArgs.Empty);return panel;
         }
@@ -844,7 +852,14 @@ namespace TesmioAutoload
             refreshingListItem=true;
             try{for(int i=0;i<list.Items.Count;i++){var entry=list.Items[i] as LocalResourceItem;if(entry!=null&&entry.Id.Equals(id,StringComparison.OrdinalIgnoreCase)){list.Items[i]=fresh;list.SelectedIndex=i;break;}}}
             finally{refreshingListItem=false;}
-            if(localSpec.IsSections)BuildLocalSectionDetails(panel,list,fresh);else if(localSpec.IsList)BuildLocalListDetails(panel,list,fresh);else BuildLocalResourceDetails(panel,list,fresh);
+            // Frozen while it is replaced and back at the same scroll position afterwards.
+            Point scroll=panel.AutoScrollPosition;Theme.SetRedraw(panel,false);
+            try
+            {
+                if(localSpec.IsSections)BuildLocalSectionDetails(panel,list,fresh);else if(localSpec.IsList)BuildLocalListDetails(panel,list,fresh);else BuildLocalResourceDetails(panel,list,fresh);
+                panel.PerformLayout();panel.AutoScrollPosition=new Point(Math.Abs(scroll.X),Math.Abs(scroll.Y));
+            }
+            finally{Theme.SetRedraw(panel,true);}
             if(focusName!=null){Control target=FindByAccessibleName(panel,focusName);if(target!=null&&target.CanFocus)target.Focus();}
             UpdateStatus();
         }
