@@ -7,6 +7,9 @@
 
 ## 0.3.0 (2026-09-09)
 
+- 2026-09-11, version unchanged: the detail log `tesmioloader.ui_layout_fixes.log` is written to `<loader>\logs\`
+  (shared `TsmOpenLog` in `src/tesmio_plugin.h`, the folder is created on first use; if that fails the
+  file lands next to `tesmioloader.log` as before).
 First published version, with the modules CUSTOMHOUSE and TEXT_WRAP described below. Package:
 keyed_list editor texts in player style, `add_id_help` for the add dialog, game-text picker
 (`id_picker = game_texts`, RMM 0.4.21+), tabs General / Customs house / Text wrap / Text ids;

@@ -6,6 +6,9 @@ newest first.
 
 ## 0.4.1 (2026-09-09)
 
+- 2026-09-11, version unchanged: the detail log `tesmioloader.vanilla_buildings.log` is written to `<loader>\logs\`
+  (shared `TsmOpenLog` in `src/tesmio_plugin.h`, the folder is created on first use; if that fails the
+  file lands next to `tesmioloader.log` as before).
 - `insert` accepts as anchor a line that an earlier `add`, `insert` or `replace` of the same
   section produces (`Operation.anchorOp`). Validation: when the anchor has no match in the
   original, the earlier operations are searched (add field 0, insert field 2, replace field 1);

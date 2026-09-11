@@ -11,6 +11,9 @@ History newest first.
 
 ## 0.3.3 (2026-09-09)
 
+- 2026-09-11, version unchanged: the detail log `tesmioloader.weather_roads.log` is written to `<loader>\logs\`
+  (shared `TsmOpenLog` in `src/tesmio_plugin.h`, the folder is created on first use; if that fails the
+  file lands next to `tesmioloader.log` as before). The file was called `weather_roads.log` before; the new name follows the other plugins so the Republic Mod Manager log window lists it.
 - Defaults `[snow] accumulation_multiplier` 0.30 -> 0.35 and `maximum_accumulation_per_burst`
   50 -> 95 (user decision after in-game tuning: too little snow stayed after short snowfalls).
   Changed in the compiled-in `g_cfg` initialiser, both INIs, the schema/DE/EN descriptions and

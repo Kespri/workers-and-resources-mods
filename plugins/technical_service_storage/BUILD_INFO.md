@@ -7,6 +7,9 @@ service), vanilla_buildings (depot storage definitions), localization (text pack
 
 ## 0.3.3 (2026-09-08)
 
+- 2026-09-11, version unchanged: the detail log `tesmioloader.technical_service_storage.log` is written to `<loader>\logs\`
+  (shared `TsmOpenLog` in `src/tesmio_plugin.h`, the folder is created on first use; if that fails the
+  file lands next to `tesmioloader.log` as before).
 Reserve threshold in whole percent: new key `[sand_diagnostic] return_threshold_percent`
 (default 20, 0..100), read via `ConfigKeyPresent` (config_validation.h); the internal value stays
 in basis points (x100), so the runtime path is unchanged. The 0.3.2 key

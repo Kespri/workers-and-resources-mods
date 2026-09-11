@@ -9,6 +9,9 @@ scenarios). User documentation: README_DE.md / README_EN.md. History newest firs
 
 ## 0.4.0 (2026-09-08)
 
+- 2026-09-11, version unchanged: the detail log `tesmioloader.vehicle_materials.log` is written to `<loader>\logs\`
+  (shared `TsmOpenLog` in `src/tesmio_plugin.h`, the folder is created on first use; if that fails the
+  file lands next to `tesmioloader.log` as before).
 First published version.
 
 - Additional production materials per vehicle class (road, rail, ship, airplane) registered

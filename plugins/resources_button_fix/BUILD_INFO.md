@@ -5,6 +5,9 @@ kernel32.lib only. Workshop package: `My Plugins\resources_button_fix` (local_co
 
 ## 0.4.0 (2026-09-09)
 
+- 2026-09-11, version unchanged: the detail log `tesmioloader.resources_button_fix.log` is written to `<loader>\logs\`
+  (shared `TsmOpenLog` in `src/tesmio_plugin.h`, the folder is created on first use; if that fails the
+  file lands next to `tesmioloader.log` as before).
 First published version.
 
 - Compact paint/erase button grids in the terrain editor's Resources and Rocks/Gravel windows, so

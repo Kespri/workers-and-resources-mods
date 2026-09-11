@@ -9,6 +9,9 @@ User documentation: README_DE.md / README_EN.md. History newest first.
 
 ## 0.4.0 (2026-09-10)
 
+- 2026-09-11, version unchanged: the detail log `tesmioloader.localization.log` is written to `<loader>\logs\`
+  (shared `TsmOpenLog` in `src/tesmio_plugin.h`, the folder is created on first use; if that fails the
+  file lands next to `tesmioloader.log` as before).
 First published version.
 
 - Configuration: `plugins\localization.ini` when present, otherwise the INI beside the DLL

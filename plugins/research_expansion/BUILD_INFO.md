@@ -9,6 +9,9 @@ History newest first.
 
 ## 0.4.1 (2026-09-11)
 
+- 2026-09-11, version unchanged: the detail log `tesmioloader.research_expansion.log` is written to `<loader>\logs\`
+  (shared `TsmOpenLog` in `src/tesmio_plugin.h`, the folder is created on first use; if that fails the
+  file lands next to `tesmioloader.log` as before).
 - Log wording only: the WARN for the unused keys `icon_folder` / `noimage_name` no longer refers to
   an earlier build. No other change.
 

@@ -7,6 +7,9 @@ Target: SOVIET64.exe 1.1.1.9 (build 23935965), TesmioLoader API 4. The INI secti
 
 ## 1.3.5 (2026-09-08)
 
+- 2026-09-11, version unchanged: the detail log `tesmioloader.rail_physics_fix.log` is written to `<loader>\logs\`
+  (shared `TsmOpenLog` in `src/tesmio_plugin.h`, the folder is created on first use; if that fails the
+  file lands next to `tesmioloader.log` as before).
 First published version of the port.
 
 - Physics, decision logic, signatures, offsets, keys and defaults are those of RailPhysics 1.3.0
