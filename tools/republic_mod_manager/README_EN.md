@@ -39,7 +39,7 @@ RMM lives as `rmm.exe` in `tesmioloader\build`. Start it from there or through t
 
 **The list on the left.** Every row is a plugin: subscribed Workshop packages and everything that lies as a DLL in `tesmioloader\build\plugins`. The icon shows where it comes from: the Steam icon for Workshop packages, the TesmioLauncher icon for plugins in the plugins folder, a gear for anything else. A green dot means this plugin runs on the next game start. A yellow "Update" means the Workshop package is newer than what you saved last. An amber dot means you changed something here and have not saved yet.
 
-**The header at the top.** Name, version and description of the plugin, on the right the "Plugin active" switch and the language (German, English or automatic after Windows).
+**The header at the top.** Name, version and description of the plugin, on the right the "Plugin active" switch and the language of the window. RMM speaks German and English; "Automatic" picks German when Windows runs in German, otherwise English.
 
 **The tabs below.** The tabs come from the plugin. A plugin without its own settings page gets a "General" tab that RMM builds from the comments of its INI file.
 
@@ -171,7 +171,7 @@ On start RMM reads the build stamp of `SOVIET64.exe`. If it belongs to no game v
 | Key | Meaning |
 |---|---|
 | `[paths] workshop_root` | Folder with the packages. Empty = your game's Steam Workshop folder. |
-| `[settings] language` | `auto`, `de` or `en`. |
+| `[settings] language` | `auto` (German on a German Windows, otherwise English), `de` or `en`. |
 | `[settings] version_check` | 0 turns the game version warning off. |
 | `[settings] tesmiolauncher_window` | 1 shows the TesmioLauncher window on "Save + Start". |
 
