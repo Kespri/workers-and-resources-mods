@@ -170,7 +170,7 @@ Beim Start liest RMM die Kennung von `SOVIET64.exe`. Gehört sie zu keiner Spiel
 
 | Schlüssel | Bedeutung |
 |---|---|
-| `[paths] workshop_root` | Ordner mit den Paketen. Leer = Steam-Workshop-Ordner deines Spiels. |
+| `[paths] workshop_root` | Ordner mit den Paketen. Fehlt die Zeile (oder steht ein `;` davor), nimmt RMM den Steam-Workshop-Ordner deines Spiels. Ein leerer Wert ist nicht erlaubt. |
 | `[settings] language` | `auto` (Deutsch bei deutschem Windows, sonst Englisch), `de` oder `en`. |
 | `[settings] version_check` | 0 schaltet die Warnung zur Spielversion ab. |
 | `[settings] tesmiolauncher_window` | 1 zeigt das Fenster des TesmioLaunchers bei „Speichern + Starten“. |

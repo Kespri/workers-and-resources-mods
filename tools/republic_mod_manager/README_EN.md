@@ -170,7 +170,7 @@ On start RMM reads the build stamp of `SOVIET64.exe`. If it belongs to no game v
 
 | Key | Meaning |
 |---|---|
-| `[paths] workshop_root` | Folder with the packages. Empty = your game's Steam Workshop folder. |
+| `[paths] workshop_root` | Folder with the packages. Without the line (or with a `;` in front) RMM uses your game's Steam Workshop folder. An empty value is not allowed. |
 | `[settings] language` | `auto` (German on a German Windows, otherwise English), `de` or `en`. |
 | `[settings] version_check` | 0 turns the game version warning off. |
 | `[settings] tesmiolauncher_window` | 1 shows the TesmioLauncher window on "Save + Start". |
