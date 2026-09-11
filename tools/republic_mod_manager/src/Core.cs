@@ -1,4 +1,4 @@
-// Republic Mod Manager 0.4.63-beta: generic manifest/schema driven plugin deployment.
+// Republic Mod Manager 0.4.64-beta: generic manifest/schema driven plugin deployment.
 // Never loads a DLL during discovery and never edits Workshop defaults or loader code.
 // Since 0.9.0 a package needs only [mod] and [hooks] dll; everything Autoload used
 // to declare is derived by convention, and a plugin without a launcher schema gets
@@ -118,7 +118,9 @@ namespace TesmioAutoload
                 int eq = line.IndexOf('=');
                 if (section == null || eq <= 0) throw new FormatException(Msg.Key("err_zeile_zuweisung_ohne_abschnitt", i + 1));
                 string key = line.Substring(0, eq).Trim(), value = line.Substring(eq + 1).Trim();
-                if (key.Length == 0 || value.Length == 0) throw new FormatException(Msg.Key("err_zeile_leerer_schluessel_wert", i + 1));
+                // An empty value is legal INI (the loader's own plugins ship "speed_concrete =" for
+                // "use the default"); only an empty key is a broken line.
+                if (key.Length == 0) throw new FormatException(Msg.Key("err_zeile_leerer_schluessel_wert", i + 1));
                 string id = Id(section, key);
                 if (Values.ContainsKey(id)) throw new FormatException(Msg.Key("err_zeile_mehrdeutiger_doppelter_schluessel", i + 1, id));
                 Values.Add(id, value); indices.Add(id, i);
@@ -205,7 +207,8 @@ namespace TesmioAutoload
             if (Lenient) value = GenericSchema.StripComment(value);
             if (Type == "text")
             {
-                if (value.Length == 0 || value.Length > 4096 || value.IndexOfAny(new[] { '\n', '\r', '\0' }) >= 0) throw new FormatException(Msg.Key("err_ein_einzeiliger_wert_ist", Label));
+                // Lenient (INI-derived or local) schemas accept an empty text value: the plugin then uses its default.
+                if ((value.Length == 0 && !Lenient) || value.Length > 4096 || value.IndexOfAny(new[] { '\n', '\r', '\0' }) >= 0) throw new FormatException(Msg.Key("err_ein_einzeiliger_wert_ist", Label));
                 return value;
             }
             if (Type == "boolean") { if (value != "0" && value != "1") throw new FormatException(Msg.Key("err_nur_0_oder_1", Label)); return value; }
