@@ -48,7 +48,7 @@ Ordnet die Werkzeugschaltflächen in zwei Fenstern des Geländeeditors von *Work
 
 ### 🆕 Neu in 0.4.0
 - ✅ Neues Versionsschema (0.4.0 folgt auf 1.1); Layoutlogik, Hooks und INI-Schlüssel unverändert.
-- ✅ Alle Texte für Republic Mod Manager im Spieler-Stil überarbeitet: Hinweis-Box auf Allgemein, Karte „Log-Einstellungen“ mit dem Detail-Log, EIN/AUS statt 1/0, „Button“ statt „Schaltfläche“.
+- ✅ Alle Texte für Republic Mod Manager im Spieler-Stil überarbeitet: Hinweis-Box auf Allgemein, Karte „Fehlersuche“ mit dem Detail-Log, EIN/AUS statt 1/0, „Button“ statt „Schaltfläche“.
 
 ### 🆕 Neu in 1.1
 - ✅ **INI neben der DLL:** Fehlt `plugins\resources_button_fix.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket unter Soviet Mod Loader oder der Workshop Bridge. Das Plugin läuft damit direkt aus dem Steam-Abo, ohne dass etwas kopiert werden muss.
@@ -116,7 +116,7 @@ Wähle **eine** der vier Methoden. Dieselbe DLL darf nie zweimal geladen werden.
 
 Das Paket enthält im Ordner `config` ein Launcher-Schema. Republic Mod Manager zeigt Resources Button Fix damit in drei Reitern, deutsch und englisch:
 
-- **Allgemein:** Hinweise, „Dateien nur lokal“, Knopf für diese Anleitung und die Log-Einstellungen (Detail-Log)
+- **Allgemein:** Hinweise, „Dateien nur lokal“, Knopf für diese Anleitung und die Fehlersuche (Detail-Log)
 - **Ressourcenfenster:** Anordnung (Spalten, Blöcke, Größe, Abstände) sowie Position, Fenster und Alles-löschen-Knopf
 - **Felsen-/Kiesfenster:** Anordnung (P E P E oder zwei Reihen, Größe, Abstände) sowie Position und Fenster
 

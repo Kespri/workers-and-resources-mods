@@ -133,7 +133,7 @@ Choose **one** of the four methods. The same DLL must never be loaded twice.
 
 The package contains an editor schema in the `config` folder. Republic Mod Manager (0.34.0 or newer) shows Technical Service Storage in four tabs, German and English:
 
-- **General:** notes, "Files local only", a button for this guide, the card "Persistence settings" (storage migration, saving priorities and tanks, depot lifecycle) and below it "Log settings" (diagnostic log, UI debug limit)
+- **General:** notes, "Files local only", a button for this guide, the card "Persistence settings" (storage migration, saving priorities and tanks, depot lifecycle) and below it "Troubleshooting" (diagnostic log, UI debug limit)
 - **Grit materials:** the material list on the left (up to 32), the selected material with its protection strength on the right; the plus button adds a material (internal resource name as text, suggestions grouped into custom resources from the Resources plugin and vanilla resources). Original lines can be hidden with the trash button and shown again
 - **Depot window:** storage rows and Office Priority labels, priority controls, divider line and warnings
 - **Grit operation:** consumption and detection, return to the home depot, tank capacity, vehicle display and timing

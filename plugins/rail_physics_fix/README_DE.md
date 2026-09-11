@@ -53,7 +53,7 @@ Erweitert in *Workers & Resources: Soviet Republic* 1.1.1.9 die Zugphysik: Antri
 - ✅ Drei unabhängige Diagnoseschalter; Warnungen bleiben immer sichtbar
 
 ### 🆕 Neu in 1.3.5
-- ✅ Alle Texte für Republic Mod Manager im Spieler-Stil überarbeitet: Hinweis und Info-Box auf Allgemein, „Log-Einstellungen“ statt „Diagnoseprotokoll“, Bremsmarge bei den Bremsen, überall „Kurven- und Streckenvorschau“.
+- ✅ Alle Texte für Republic Mod Manager im Spieler-Stil überarbeitet: Hinweis und Info-Box auf Allgemein, „Fehlersuche“ statt „Diagnoseprotokoll“, Bremsmarge bei den Bremsen, überall „Kurven- und Streckenvorschau“.
 - ✅ Spieltest im Log bestätigt: 9 Teilsysteme gepatcht, Kurvenlimits, Bahnhofshalt, Bahnhofszone und Verbrauchsmodell arbeiten. Physik, Hooks und Werte unverändert gegenüber 1.3.4.
 
 ### 🆕 Neu in 1.3.4
@@ -133,7 +133,7 @@ Wähle **eine** der vier Methoden. Dieselbe DLL darf nie zweimal geladen werden,
 
 Das Paket enthält im Ordner `config` ein Darstellungsschema. Republic Mod Manager zeigt Rail Physics Fix damit in vier Reitern, deutsch und englisch:
 
-- **Allgemein:** Hinweise (Warnung und Info-Box), „Dateien nur lokal“, Knopf für diese Anleitung; Funktionsschalter und Log-Einstellungen
+- **Allgemein:** Hinweise (Warnung und Info-Box), „Dateien nur lokal“, Knopf für diese Anleitung; Funktionsschalter und Fehlersuche
 - **Antrieb und Bremsen:** Haftung, Leistung, Davis-Koeffizienten, Steigungsfaktor, Bremsraten, Bremsmarge
 - **Kurven- und Streckenvorschau:** Bahnhofslimit, seitliche Beschleunigung, Weite der Vorschau, Zoll-Einfahrt
 - **Treibstoff und Strom:** Leerlaufanteil, Lastfaktor, elektrischer Bedarf, Netzmultiplikator

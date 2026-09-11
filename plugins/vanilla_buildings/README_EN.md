@@ -48,7 +48,7 @@ Adjusts Vanilla, DLC and Workshop buildings in *Workers & Resources: Soviet Repu
 
 ### 🆕 New in 0.4.0
 - ✅ New version scheme (0.4.0 follows 1.3.1); patch logic, commands and INI keys unchanged.
-- ✅ Every Republic Mod Manager text reworked in player style: warning only in the Notes card, one header switch, Log settings card, notice box and multi-line field texts on the Buildings tab.
+- ✅ Every Republic Mod Manager text reworked in player style: warning only in the Notes card, one header switch, Troubleshooting card, notice box and multi-line field texts on the Buildings tab.
 
 ### 🆕 New in 1.3.1
 - ✅ **`insert` replaces `insert_before`:** `insert = 0 | ANCHOR | LINE` inserts before the anchor, `insert = 1 | ANCHOR | LINE` after it. For `$COST_RESOURCE_AUTO`, 1 adds the material to the phase of the `$COST_WORK` anchor line, 0 to the phase before it. `insert_before = ANCHOR | LINE` is still read and acts like `insert = 0 | …`.

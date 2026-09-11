@@ -50,7 +50,7 @@ Fügt *Workers & Resources: Soviet Republic* 1.1.1.9 eigene Namen, Beschreibunge
 
 ### 🆕 Neu in 0.4.0
 - Nachfolger von 1.3 ohne Laufzeitänderung; die Versionszählung beginnt mit der Überarbeitung neu bei 0.4.0.
-- Republic Mod Manager: Reiter Allgemein (Hinweise, Anleitung, Log-Einstellungen) und Plugin („Erweiterung anwenden“ mit Abschaltreihenfolge, Textpakete als Liste mit Kurztext und Herkunft).
+- Republic Mod Manager: Reiter Allgemein (Hinweise, Anleitung, Fehlersuche) und Plugin („Erweiterung anwenden“ mit Abschaltreihenfolge, Textpakete als Liste mit Kurztext und Herkunft).
 
 ### 🆕 Neu in 1.3
 - ✅ **Lokale Textpakete werden zusammengeführt statt zu ersetzen:** Ein Paketordner unter `plugins\localization` legt sich Schlüssel für Schlüssel über den gleichnamigen Ordner neben der DLL. Deine eigenen Texte und Sprachen bleiben, neue Schlüssel und Sprachen aus einem Workshop-Update kommen trotzdem an; bei gleichem Schlüssel gilt dein lokaler Text. Die lokale `localization.ini` bestimmt Namensraum, Fallback und missingText.

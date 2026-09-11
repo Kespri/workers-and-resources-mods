@@ -53,7 +53,7 @@ Extends the train physics of *Workers & Resources: Soviet Republic* 1.1.1.9: tra
 - ✅ Three independent diagnostic switches; warnings always stay visible
 
 ### 🆕 New in 1.3.5
-- ✅ Every Republic Mod Manager text reworked in player style: notice and info box on General, "Log settings" instead of "Diagnostic log", brake margin with the brakes, "curve and route look-ahead" everywhere.
+- ✅ Every Republic Mod Manager text reworked in player style: notice and info box on General, "Troubleshooting" instead of "Diagnostic log", brake margin with the brakes, "curve and route look-ahead" everywhere.
 - ✅ In-game test confirmed in the log: 9 subsystems patched, curve limits, station stop, station zone and consumption model working. Physics, hooks and values unchanged from 1.3.4.
 
 ### 🆕 New in 1.3.4
