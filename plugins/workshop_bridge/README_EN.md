@@ -142,7 +142,7 @@ A normal start in `tesmioloader.log`:
 workshop_bridge  config base=...\plugins\workshop_bridge.ini (loader folder) overlay=...\user_config\workshop_bridge.ini
 bridge   Workshop C:\...\steamapps\workshop\content\784150, policy list
 plugin   service "tss.grit_spreader" v1 from workshop_bridge.dll
-bridge   hook technical_service_storage 0.3.3    from 3795181788\hooks\technical_service_storage.dll
+bridge   hook technical_service_storage 0.3.3    from <item number>\hooks\technical_service_storage.dll
 bridge   10 hook(s) loaded, 0 skipped, 10 package(s) with hooks
 plugin   workshop_bridge  0.2.0 from workshop_bridge.dll
 ```
