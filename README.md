@@ -63,5 +63,9 @@ GNU GPL v3, see [LICENSE](LICENSE). Deposits Plus and Depletion continue plugins
 TesmioLoader by MaxLegend (Tesmio). Rail Physics Fix is a reworked version of
 [RailPhysics 1.3.0](https://github.com/TheRealMeowMeow00/WRSR_RailPhysics) by Meow Meow
 (TheRealMeowMeow00). `plugins/deposits_plus/third_party` contains Microsoft code under the
-University of Illinois Open Source License (see `LICENSE.TXT` there). The plugins were
-developed with the assistance of artificial intelligence.
+University of Illinois Open Source License (see `LICENSE.TXT` there).
+
+**Attention, comrade:** these plugins were written with the help of an artificial intelligence.
+The five-year plans behind them were still drawn up, tested and sworn at by a human every time
+the game crashed. If you do not want AI in your code, just stick to the base game. No hard
+feelings, no re-education.

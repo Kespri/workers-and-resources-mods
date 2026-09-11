@@ -23,7 +23,7 @@ Quelltexte der TesmioLoader-Plugins von Kespri für *Workers & Resources: Soviet
 
 Gemeinsame Dateien: `plugins/grit_spreader_api.h` (Dienst zwischen Technical Service Storage und Weather Roads), `plugins/tesmio_config.h` (INI-Basis und Overlay), `plugins/tests` (Offline-Tests). `src/` enthält die zwei SDK-Header `tesmio_api.h` und `tesmio_plugin.h` aus dem [TesmioLoader b0.3.6](https://github.com/MaxLegend/TesmioLoader) von MaxLegend (GPL v3), damit die Plugins mit ihren relativen Include-Pfaden aus diesem Repository heraus gebaut werden können. `tesmio_plugin.h` trägt eine lokale Änderung: `TsmOpenLog` schreibt die Detail-Protokolle der Plugins nach `tesmioloader\build\logs\`.
 
-Die Plugins wurden mit Unterstützung künstlicher Intelligenz entwickelt.
+**Genosse, Achtung:** Diese Plugins wurden mit Hilfe einer künstlichen Intelligenz geschrieben. Die Fünfjahrespläne dazu hat trotzdem ein Mensch aufgestellt, getestet und beim Abstürzen des Spiels geflucht. Wer keine KI im Code möchte, bleibt einfach beim Grundspiel. Kein Hass, keine Umerziehung.
 
 ## Bauen
 

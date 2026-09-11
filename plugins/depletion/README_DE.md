@@ -211,6 +211,8 @@ plugins\depletion\
 
 **GNU GPL v3.** Depletion ist die weiterentwickelte Fassung des Plugins `depletion` aus dem TesmioLoader von MaxLegend (Tesmio), https://github.com/MaxLegend/TesmioLoader, GPL v3; die Adressen und die Beschreibung der Texturzugriffe stammen aus dessen Reverse Engineering (`docs\08-depletion.md` des Loaders). Der vollständige Quelltext dieser Fassung liegt unter https://github.com/Kespri/workers-and-resources-mods/tree/main/plugins/depletion.
 
+**Genosse, Achtung:** Dieses Plugin wurde mit Hilfe einer künstlichen Intelligenz geschrieben. Die Fünfjahrespläne dazu hat trotzdem ein Mensch aufgestellt, getestet und beim Abstürzen des Spiels geflucht. Wer keine KI im Code möchte, bleibt einfach beim Grundspiel. Kein Hass, keine Umerziehung.
+
 ---
 
 ## ❓ FAQ

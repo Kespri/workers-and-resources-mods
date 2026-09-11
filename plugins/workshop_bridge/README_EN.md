@@ -202,6 +202,8 @@ tesmioloader\build\
 
 **GNU GPL v3**, see `LICENSE`. The bridge uses the TesmioLoader API by MaxLegend (Tesmio), https://github.com/MaxLegend/TesmioLoader. The complete source lives at https://github.com/Kespri/workers-and-resources-mods/tree/main/plugins/workshop_bridge.
 
+**Attention, comrade:** this plugin was written with the help of an artificial intelligence. The five-year plans behind it were still drawn up, tested and sworn at by a human every time the game crashed. If you do not want AI in your code, just stick to the base game. No hard feelings, no re-education.
+
 ---
 
 ## ❓ FAQ

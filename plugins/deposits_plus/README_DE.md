@@ -605,6 +605,8 @@ tesmioloader\build\
 
 **GNU GPL v3**, siehe `LICENSE` im Paket. Deposits Plus ist ein Fork des Plugins `deposits` aus dem TesmioLoader von MaxLegend (Tesmio), GPL v3, https://github.com/MaxLegend/TesmioLoader; Servicename und Spielstand-Datei sind bewusst mit dem Original identisch geblieben. **Code aus dem DirectX Shader Compiler** (DXIL-Signatur der angepassten Shader) – siehe `THIRD-PARTY-LICENSE.txt`. Der vollständige Quelltext von Deposits Plus liegt unter https://github.com/Kespri/workers-and-resources-mods/tree/main/plugins/deposits_plus.
 
+**Genosse, Achtung:** Dieses Plugin wurde mit Hilfe einer künstlichen Intelligenz geschrieben. Die Fünfjahrespläne dazu hat trotzdem ein Mensch aufgestellt, getestet und beim Abstürzen des Spiels geflucht. Wer keine KI im Code möchte, bleibt einfach beim Grundspiel. Kein Hass, keine Umerziehung.
+
 ---
 
 ## ❓ FAQ

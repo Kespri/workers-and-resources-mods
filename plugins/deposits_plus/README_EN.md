@@ -605,6 +605,8 @@ Through the Bridge or SML only the effective INI lies in `plugins`; DLL and text
 
 **GNU GPL v3**, see `LICENSE` in the package. Deposits Plus is a fork of the `deposits` plugin from the TesmioLoader by MaxLegend (Tesmio), GPL v3, https://github.com/MaxLegend/TesmioLoader; service name and savegame file deliberately stay identical to the original. **Code from the DirectX Shader Compiler** (DXIL signature of the adjusted shaders) – see `THIRD-PARTY-LICENSE.txt`. The complete source of Deposits Plus lives at https://github.com/Kespri/workers-and-resources-mods/tree/main/plugins/deposits_plus.
 
+**Attention, comrade:** this plugin was written with the help of an artificial intelligence. The five-year plans behind it were still drawn up, tested and sworn at by a human every time the game crashed. If you do not want AI in your code, just stick to the base game. No hard feelings, no re-education.
+
 ---
 
 ## ❓ FAQ

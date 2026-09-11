@@ -309,6 +309,8 @@ tesmioloader\build\
 
 **GPL v3**, siehe `LICENSE`. Rail Physics Fix ist eine überarbeitete Fassung von **RailPhysics 1.3.0** von **Meow Meow** (TheRealMeowMeow00): Original im Workshop unter https://steamcommunity.com/sharedfiles/filedetails/?id=3776784867, Quelltext des Originals unter https://github.com/TheRealMeowMeow00/WRSR_RailPhysics. Physik und Einstellungen sind unverändert übernommen; die Änderungen dieser Fassung (Argumentübergabe an die Hook-Stellen, Speicherzugriffe, Konfigurationsprüfung, degradierendes Verhalten bei zerrissenen Daten, Diagnose, Paketunterstützung) sind in den Abschnitten „Neu in …“ und in `BUILD_INFO.md` beschrieben. Der vollständige Quelltext von Rail Physics Fix (Quelltext, Brücken, Offline-Tests mit 17 Prozessen, Build-Nachweis) liegt unter https://github.com/Kespri/workers-and-resources-mods/tree/main/plugins/rail_physics_fix. Der Loader-SDK-Header stammt aus dem TesmioLoader von MaxLegend (GPL v3).
 
+**Genosse, Achtung:** Dieses Plugin wurde mit Hilfe einer künstlichen Intelligenz geschrieben. Die Fünfjahrespläne dazu hat trotzdem ein Mensch aufgestellt, getestet und beim Abstürzen des Spiels geflucht. Wer keine KI im Code möchte, bleibt einfach beim Grundspiel. Kein Hass, keine Umerziehung.
+
 ---
 
 ## ❓ FAQ
