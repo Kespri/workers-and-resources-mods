@@ -133,7 +133,7 @@ Wähle **eine** der vier Methoden. Dieselbe DLL darf nie zweimal geladen werden.
 
 Das Paket enthält im Ordner `config` ein Editor-Schema. Republic Mod Manager (ab 0.34.0) zeigt Technical Service Storage damit in vier Reitern, deutsch und englisch:
 
-- **Allgemein:** Hinweise, „Dateien nur lokal“, Knopf für diese Anleitung, die Karte „Persistenz-Einstellungen“ (Lagerergänzung, Prioritäten und Tanks speichern, Depot-Lebenszyklus) und darunter „Fehlersuche“ (Diagnoseprotokoll, UI-Debuggrenze)
+- **Allgemein:** Hinweise, „Dateien nur lokal“, Knopf für diese Anleitung, die Karte „Speichern im Spielstand“ (Lagerergänzung, Prioritäten und Tanks speichern, abgerissene Depots vergessen) und darunter „Fehlersuche“ (ausführliches Protokoll, Meldungsgrenze)
 - **Streumaterialien:** links die Materialliste (höchstens 32), rechts das gewählte Material mit seiner Schutzstärke; der Plus-Knopf legt ein Material an (interner Ressourcenname als Text, Vorschläge gruppiert nach eigenen Ressourcen aus dem Resources-Plugin und Vanilla-Ressourcen). Originalzeilen lassen sich mit dem Papierkorb ausblenden und wieder anzeigen
 - **Depotfenster:** Lagerzeilen und Office-Priority-Beschriftungen, Prioritätsfelder, Trennlinie und Warnungen
 - **Streubetrieb:** Verbrauch und Erkennung, Rückkehr zum Heimatdepot, Tankkapazität, Fahrzeuganzeige und Zeiten
