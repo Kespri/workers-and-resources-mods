@@ -185,5 +185,5 @@ A: Jedes Plugin ist ein eigenes Workshop-Objekt. Abonnieren, im Manager einschal
 
 ---
 
-**Letzte Aktualisierung:** Republic Mod Manager 0.4.68 mit Workshop Bridge 0.2.0  
+**Letzte Aktualisierung:** Republic Mod Manager 0.4.69 mit Workshop Bridge 0.2.0  
 **Für:** WRSR 1.1.1.9 | TesmioLoader API 4

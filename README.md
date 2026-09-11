@@ -45,7 +45,7 @@ carries one local change: `TsmOpenLog` writes the plugin detail logs into `tesmi
 
 | Tool | Version | What it does |
 |---|---|---|
-| [Republic Mod Manager](tools/republic_mod_manager) | 0.4.68 | Windows program: settings, switching and loading of the plugins; its Workshop item brings the installer and the Workshop Bridge |
+| [Republic Mod Manager](tools/republic_mod_manager) | 0.4.69 | Windows program: settings, switching and loading of the plugins; its Workshop item brings the installer and the Workshop Bridge |
 
 ## Installing
 

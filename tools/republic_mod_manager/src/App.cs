@@ -11,9 +11,9 @@ using System.Windows.Forms;
 [assembly: System.Reflection.AssemblyTitle("Republic Mod Manager")]
 [assembly: System.Reflection.AssemblyProduct("Republic Mod Manager (RMM)")]
 [assembly: System.Reflection.AssemblyDescription("Plugin manager for TesmioLoader - Workers & Resources: Soviet Republic")]
-[assembly: System.Reflection.AssemblyVersion("0.4.68.0")]
-[assembly: System.Reflection.AssemblyFileVersion("0.4.68.0")]
-[assembly: System.Reflection.AssemblyInformationalVersion("0.4.68-beta")]
+[assembly: System.Reflection.AssemblyVersion("0.4.69.0")]
+[assembly: System.Reflection.AssemblyFileVersion("0.4.69.0")]
+[assembly: System.Reflection.AssemblyInformationalVersion("0.4.69-beta")]
 
 namespace TesmioAutoload
 {
