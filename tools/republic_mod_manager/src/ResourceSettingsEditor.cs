@@ -94,7 +94,7 @@ namespace TesmioAutoload
             var addBar=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=2,Margin=Padding.Empty,Padding=new Padding(0,8,0,0)};addBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));addBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,44));
             string listNote=localSpec.LocalizedListNote(language,group);if(listNote.Length>0){var noteLabel=Theme.Label(listNote,9,false);noteLabel.ForeColor=Theme.Muted;noteLabel.Dock=DockStyle.Top;noteLabel.Margin=new Padding(0,4,8,0);noteLabel.AccessibleName="list-note";addBar.Controls.Add(noteLabel,0,0);}
             var add=new VectorButton{Symbol="plus",Primary=true,BackColor=Theme.Blue,ForeColor=Color.White,Size=new Size(40,38),GlyphScale=2.5f,Anchor=AnchorStyles.Top|AnchorStyles.Right,AccessibleName=addLabel.Length>0?addLabel:language.T("resource_create")};add.Click+=(s,e)=>Run(()=>{if(isSections)OpenLocalSectionDialog(group);else if(isList)OpenLocalListDialog();else OpenLocalResourceDialog();});tips.SetToolTip(add,add.AccessibleName);addBar.Controls.Add(add,1,0);left.Controls.Add(addBar,0,2);split.Panel1.Controls.Add(left);
-            var details=new Panel{Dock=DockStyle.Fill,AutoScroll=true};detailsPanel=details;split.Panel2.Controls.Add(details);narrowDetails=false;
+            var details=new Panel{Dock=DockStyle.Fill,AutoScroll=true};detailsPanel=details;detailsList=list;split.Panel2.Controls.Add(details);narrowDetails=false;
             Action<LocalResourceItem> show=item=>{if(isSections)BuildLocalSectionDetails(details,list,item);else if(isList)BuildLocalListDetails(details,list,item);else BuildLocalResourceDetails(details,list,item);};
             list.SelectedIndexChanged+=(s,e)=>{if(refreshingListItem)return;var item=list.SelectedItem as LocalResourceItem;if(item==null)return;selectedLocalResource=item.Id;show(item);};
             // Crossing the narrow threshold re-lays the details out (0.4.36).
@@ -383,7 +383,8 @@ namespace TesmioAutoload
             for(int i=0;i<localSpec.Columns.Count;i++)
             {
                 int index=i;ListColumn column=localSpec.Columns[i];
-                Action<string> apply=value=>Run(()=>{string[] parts=localSpec.TupleColumns(resourceSession.Items().First(x=>x.Id.Equals(item.Id,StringComparison.OrdinalIgnoreCase)).ListValue);if((value??"").Trim()==parts[index]||column.Normalize(value??"")==parts[index])return;parts[index]=value;resourceSession.SetListRaw(item.Id,ListTuple.Render(parts));BuildLocalResourceEditor();});
+                string shown=current[i];
+                Action<string> apply=value=>{bool same=false;try{same=(value??"").Trim()==shown||column.Normalize(value??"")==column.Normalize(shown);}catch(FormatException){}if(same)return;Later(content,()=>Run(()=>{string[] parts=localSpec.TupleColumns(resourceSession.Items().First(x=>x.Id.Equals(item.Id,StringComparison.OrdinalIgnoreCase)).ListValue);parts[index]=value;resourceSession.SetListRaw(item.Id,ListTuple.Render(parts));RefreshLocalDetails(item.Id);}));};
                 Action<string> stage=value=>{try{string[] parts=localSpec.TupleColumns(resourceSession.Items().First(x=>x.Id.Equals(item.Id,StringComparison.OrdinalIgnoreCase)).ListValue);if((value??"").Trim()==parts[index])return;parts[index]=value;resourceSession.SetListRaw(item.Id,ListTuple.Render(parts));UpdateStatus();}catch(Exception){}};
                 Control input=ColumnInput(column,current[i],apply,stage);
                 string heading=localSpec.ColumnHeading(language,column);if(heading.Length>0)AddLocalHeading(grid,heading);
@@ -648,7 +649,10 @@ namespace TesmioAutoload
             LocalDetailField captured=field;string value=resourceSession.Value(item.Id,field),baselineValue=resourceSession.BaselineValue(item.Id,field);
             // Compare the normalised text: a lines box hands back CRLF while the store keeps LF, so a
             // plain comparison rebuilt the editor on every focus change of a multi-line field (0.4.26).
-            Action<string> apply=v=>Run(()=>{if(captured.Normalize(v??"")==resourceSession.Value(item.Id,captured))return;resourceSession.SetField(item.Id,captured,v);BuildLocalResourceEditor();});
+            // apply (field left): only when the text differs from what the row was built with, and only after
+            // the focus change has finished (Later), redraw the details. Rebuilding inside Leave destroyed the
+            // control that was about to receive the focus and left the page collapsed.
+            Action<string> apply=v=>{bool same=false;try{same=captured.Normalize(v??"")==captured.Normalize(value);}catch(FormatException){}if(same)return;Later(content,()=>Run(()=>{resourceSession.SetField(item.Id,captured,v);RefreshLocalDetails(item.Id);}));};
             Action<string> stage=v=>{try{if(captured.Normalize(v??"")==resourceSession.Value(item.Id,captured))return;resourceSession.SetField(item.Id,captured,v);UpdateStatus();}catch(Exception){}};
             Control input=ItemFieldInput(field,value,apply,item.Id,stage);
             string heading=localSpec.FieldHeading(language,field);if(heading.Length>0)AddLocalHeading(grid,heading);
@@ -660,7 +664,7 @@ namespace TesmioAutoload
             if(field.Type=="lines")source=personal?language.T("personal"):"";
             // A switch shows its state itself; no "no entry" line under it (0.4.32).
             if(field.Type=="boolean")source=personal?language.T("personal"):"";
-            Action reset=personal?(Action)(()=>{resourceSession.SetField(item.Id,captured,"");BuildLocalResourceEditor();}):null;
+            Action reset=personal?(Action)(()=>{resourceSession.SetField(item.Id,captured,"");RefreshLocalDetails(item.Id);}):null;
             AddLocalRow(grid,LocalLabel(localSpec.FieldLabel(language,field),localSpec.FieldDescription(language,field)),LocalInput(input,source,reset));
         }
         // [picture:<id>] rows (0.4.35): preview of the entry's picture plus "Insert picture...", which
@@ -826,17 +830,24 @@ namespace TesmioAutoload
         }
         // Template or display name changed: only the detail area and the list entry are redrawn, the
         // rest of the editor stays (a full rebuild flickered and, from a dropdown, collapsed the page).
-        void RefreshLocalResourceDetails(Panel panel,ListBox list,string id)
+        // Every field edit of a list, section or Resources entry redraws only the detail area and the
+        // list entry (never the whole editor): the tabs, cards and scroll position stay, and the control
+        // that had the focus gets it back by its accessible name.
+        void RefreshLocalDetails(string id)
         {
-            if(panel==null||panel.IsDisposed)return;
+            Panel panel=detailsPanel;ListBox list=detailsList;if(panel==null||panel.IsDisposed||list==null||list.IsDisposed)return;
             LocalResourceItem fresh=resourceSession.Items().FirstOrDefault(x=>x.Id.Equals(id,StringComparison.OrdinalIgnoreCase));
             if(fresh==null){BuildLocalResourceEditor();return;}
+            string focusName=null;Control active=ActiveControl;while(active is ContainerControl&&((ContainerControl)active).ActiveControl!=null)active=((ContainerControl)active).ActiveControl;
+            for(Control c=active;c!=null&&c!=this;c=c.Parent){if(c==panel){for(Control n=active;n!=null&&n!=panel;n=n.Parent)if(!String.IsNullOrEmpty(n.AccessibleName)){focusName=n.AccessibleName;break;}break;}}
             refreshingListItem=true;
             try{for(int i=0;i<list.Items.Count;i++){var entry=list.Items[i] as LocalResourceItem;if(entry!=null&&entry.Id.Equals(id,StringComparison.OrdinalIgnoreCase)){list.Items[i]=fresh;list.SelectedIndex=i;break;}}}
             finally{refreshingListItem=false;}
-            BuildLocalResourceDetails(panel,list,fresh);UpdateStatus();
+            if(localSpec.IsSections)BuildLocalSectionDetails(panel,list,fresh);else if(localSpec.IsList)BuildLocalListDetails(panel,list,fresh);else BuildLocalResourceDetails(panel,list,fresh);
+            if(focusName!=null){Control target=FindByAccessibleName(panel,focusName);if(target!=null&&target.CanFocus)target.Focus();}
+            UpdateStatus();
         }
-        bool refreshingListItem;
+        bool refreshingListItem;ListBox detailsList;
         void BuildLocalResourceDetails(Panel panel,ListBox list,LocalResourceItem item)
         {
             Theme.DisposeChildren(panel);var shell=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,ColumnCount=1,Padding=new Padding(0,0,8,18),Margin=Padding.Empty};shell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));panel.Controls.Add(shell);
@@ -845,8 +856,8 @@ namespace TesmioAutoload
             AddRow(shell,titleRow);var origin=Theme.Label(item.Owned?language.T("resource_personal"):language.T("resource_original_locked"),9,false);origin.ForeColor=item.Owned?Color.FromArgb(26,132,61):Theme.Muted;origin.Margin=new Padding(0,0,0,15);AddRow(shell,origin);
             var grid=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,ColumnCount=2,Margin=Padding.Empty};FluidColumns(grid,46,800);grid.Tag=Narrow(panel)?"narrow":null;   // 0.4.36
             var idValue=new Label{Text=item.Id,AutoSize=false,Height=Fields.Height,Font=Fields.Font,BackColor=Theme.Pale,BorderStyle=BorderStyle.FixedSingle,TextAlign=ContentAlignment.MiddleLeft,Padding=new Padding(5,0,5,0)};AddLocalRow(grid,LocalLabel(language.T("resource_identifier"),language.T("resource_identifier_help")),LocalInput(idValue,item.Owned?language.T("personal"):language.T("standard"),null));
-            var template=TemplatePicker(item.Template);template.SelectedIndexChanged+=(s,e)=>{if(!template.Focused||template.Value.Length==0||template.Value.Equals(item.Template,StringComparison.OrdinalIgnoreCase))return;string chosen=template.Value;Later(template,()=>Run(()=>{resourceSession.SetList(item.Id,chosen,item.Display);RefreshLocalResourceDetails(panel,list,item.Id);}));};AddLocalRow(grid,LocalLabel(language.T("resource_template"),language.T("resource_template_help")),LocalInput(template,item.Owned?language.T("personal"):language.T("resource_inherited"),item.Owned?null:(Action)(()=>{var baseValue=ResourceListValue.Parse(resourceSession.OriginalListValue(item.Id));resourceSession.SetList(item.Id,baseValue.Template,baseValue.Display);BuildLocalResourceEditor();})));
-            var display=new TextBox{Text=item.Display,Height=Fields.Height};display.TextChanged+=(s,e)=>{if(!display.Focused)return;try{resourceSession.SetList(item.Id,item.Template,display.Text);UpdateStatus();}catch(Exception){}};display.Leave+=(s,e)=>Run(()=>{if(display.Text==item.Display)return;resourceSession.SetList(item.Id,item.Template,display.Text);RefreshLocalResourceDetails(panel,list,item.Id);});AddLocalRow(grid,LocalLabel(language.T("resource_display_name"),language.T("resource_display_help")),LocalInput(Fields.Wrap(display),item.Owned?language.T("personal"):language.T("resource_inherited"),item.Owned?null:(Action)(()=>{var baseValue=ResourceListValue.Parse(resourceSession.OriginalListValue(item.Id));resourceSession.SetList(item.Id,item.Template,baseValue.Display);BuildLocalResourceEditor();})));
+            var template=TemplatePicker(item.Template);template.SelectedIndexChanged+=(s,e)=>{if(!template.Focused||template.Value.Length==0||template.Value.Equals(item.Template,StringComparison.OrdinalIgnoreCase))return;string chosen=template.Value;Later(template,()=>Run(()=>{resourceSession.SetList(item.Id,chosen,item.Display);RefreshLocalDetails(item.Id);}));};AddLocalRow(grid,LocalLabel(language.T("resource_template"),language.T("resource_template_help")),LocalInput(template,item.Owned?language.T("personal"):language.T("resource_inherited"),item.Owned?null:(Action)(()=>{var baseValue=ResourceListValue.Parse(resourceSession.OriginalListValue(item.Id));resourceSession.SetList(item.Id,baseValue.Template,baseValue.Display);BuildLocalResourceEditor();})));
+            var display=new TextBox{Text=item.Display,Height=Fields.Height};display.TextChanged+=(s,e)=>{if(!display.Focused)return;try{resourceSession.SetList(item.Id,item.Template,display.Text);UpdateStatus();}catch(Exception){}};display.Leave+=(s,e)=>{if(display.Text==item.Display)return;string typed=display.Text;Later(display,()=>Run(()=>{resourceSession.SetList(item.Id,item.Template,typed);RefreshLocalDetails(item.Id);}));};AddLocalRow(grid,LocalLabel(language.T("resource_display_name"),language.T("resource_display_help")),LocalInput(Fields.Wrap(display),item.Owned?language.T("personal"):language.T("resource_inherited"),item.Owned?null:(Action)(()=>{var baseValue=ResourceListValue.Parse(resourceSession.OriginalListValue(item.Id));resourceSession.SetList(item.Id,item.Template,baseValue.Display);BuildLocalResourceEditor();})));
             foreach(LocalDetailField field in localSpec.Fields)
             {
                 string value=resourceSession.Value(item.Id,field),baselineValue=resourceSession.BaselineValue(item.Id,field),label=localSpec.FieldLabel(language,field),help=localSpec.FieldDescription(language,field);Control input;
