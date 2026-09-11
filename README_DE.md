@@ -8,18 +8,18 @@ Quelltexte der TesmioLoader-Plugins von Kespri für *Workers & Resources: Soviet
 
 | Ordner | Version | Zweck | Herkunft |
 |---|---|---|---|
-| `plugins/deposits_plus` | 1.8.0-beta | Vorkommenstypen, natürliche Verteilung, sandige Wiese, Arbeitsfahrzeuge | Fork des Plugins `deposits` aus dem TesmioLoader von MaxLegend (Tesmio), GPL v3 |
+| `plugins/deposits_plus` | 0.4.6 | Vorkommenstypen, natürliche Verteilung, sandige Wiese, Arbeitsfahrzeuge | Fork des Plugins `deposits` aus dem TesmioLoader von MaxLegend (Tesmio), GPL v3 |
 | `plugins/depletion` | 1.1.2 | Erschöpfung von Vorkommen, Anzeige im Minenfenster | weiterentwickeltes Plugin `depletion` aus dem TesmioLoader von MaxLegend, GPL v3 |
-| `plugins/localization` | 1.2 | Übersetzungsdienst: Textpakete in INI-Dateien werden zu erweiterten Sprachdateien im VFS | eigene Entwicklung; enthält die Textpakete `research_expansion`, `technical_service_storage`, `tesmio_lang` |
-| `plugins/rail_physics_fix` | 1.3.4-beta | physikalische Zugdynamik: Antrieb, Bremsen, Steigung, Kurven, Bahnhöfe, Zoll, Verbrauch | Fork von [RailPhysics 1.3.0](https://github.com/TheRealMeowMeow00/WRSR_RailPhysics) von Meow Meow (TheRealMeowMeow00), GPL v3; [Original im Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3776784867) |
-| `plugins/research_expansion` | 1.5 | neue Forschungen und Änderungen am Forschungsbaum über das VFS | eigene Entwicklung |
-| `plugins/resources_button_fix` | 1.1 | kompakte Schaltflächenraster im Geländeeditor | eigene Entwicklung |
-| `plugins/technical_service_storage` | 0.3.1-beta | Streugutlager, Materialprioritäten und Schneepflugtanks im Technischen Service | eigene Entwicklung |
-| `plugins/ui_layout_fixes` | 1.1 | Layoutkorrekturen in Spielfenstern | eigene Entwicklung |
-| `plugins/vanilla_buildings` | 1.3 | Patches für Vanilla-, DLC- und Workshop-Gebäude ohne Änderung der Originaldateien | eigene Entwicklung |
-| `plugins/vehicle_materials` | 1.2.0-beta | Materialbedarf von Fahrzeugen | eigene Entwicklung |
-| `plugins/weather_roads` | 0.2.11-beta | Straßenschnee, Schmelze und Schutz nach dem Räumen | eigene Entwicklung |
-| `plugins/workshop_bridge` | 0.1.0-beta | lädt Workshop-Hook-DLLs ohne Soviet Mod Loader | eigene Entwicklung |
+| `plugins/localization` | 0.4.0 | Übersetzungsdienst: Textpakete in INI-Dateien werden zu erweiterten Sprachdateien im VFS | eigene Entwicklung; enthält die Textpakete `research_expansion`, `technical_service_storage`, `tesmio_lang` |
+| `plugins/rail_physics_fix` | 1.3.5 | physikalische Zugdynamik: Antrieb, Bremsen, Steigung, Kurven, Bahnhöfe, Zoll, Verbrauch | Fork von [RailPhysics 1.3.0](https://github.com/TheRealMeowMeow00/WRSR_RailPhysics) von Meow Meow (TheRealMeowMeow00), GPL v3; [Original im Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3776784867) |
+| `plugins/research_expansion` | 0.4.0 | neue Forschungen und Änderungen am Forschungsbaum über das VFS | eigene Entwicklung |
+| `plugins/resources_button_fix` | 0.4.0 | kompakte Schaltflächenraster im Geländeeditor | eigene Entwicklung |
+| `plugins/technical_service_storage` | 0.3.3 | Streugutlager, Materialprioritäten und Schneepflugtanks im Technischen Service | eigene Entwicklung |
+| `plugins/ui_layout_fixes` | 0.3.0 | Layoutkorrekturen in Spielfenstern | eigene Entwicklung |
+| `plugins/vanilla_buildings` | 0.4.1 | Patches für Vanilla-, DLC- und Workshop-Gebäude ohne Änderung der Originaldateien | eigene Entwicklung |
+| `plugins/vehicle_materials` | 0.4.0 | Materialbedarf von Fahrzeugen | eigene Entwicklung |
+| `plugins/weather_roads` | 0.3.3 | Straßenschnee, Schmelze und Schutz nach dem Räumen | eigene Entwicklung |
+| `plugins/workshop_bridge` | 0.2.0 | lädt Workshop-Hook-DLLs ohne Soviet Mod Loader | eigene Entwicklung |
 
 Gemeinsame Dateien: `plugins/grit_spreader_api.h` (Dienst zwischen Technical Service Storage und Weather Roads), `plugins/tesmio_config.h` (INI-Basis und Overlay), `plugins/tests` (Offline-Tests). `src/` enthält die zwei SDK-Header `tesmio_api.h` und `tesmio_plugin.h` aus dem [TesmioLoader b0.3.6](https://github.com/MaxLegend/TesmioLoader) von MaxLegend (GPL v3), damit die Plugins mit ihren relativen Include-Pfaden aus diesem Repository heraus gebaut werden können.
 
