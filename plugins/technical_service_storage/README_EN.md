@@ -334,8 +334,6 @@ Added storages can become part of the native savegame. Priorities and tanks live
 - **0.3.3:** reserve threshold in percent (old key still read), vehicle table 1024 (default 512), default list without `road_salt`, texts; file formats unchanged
 - **0.3.1:** INI fallback beside the DLL, editor schema in the package; operation and file formats unchanged
 - **0.3.0:** one version number for plugin and grit component
-- **0.1.78:** material section `[grit_materials]` with the alias `[Streumaterialien]`
-- **Back to an older version:** restore the old DLL and its matching INI; the extra files stay readable
 
 ---
 

@@ -5,15 +5,16 @@ kernel32.lib only. Workshop package: `My Plugins\resources_button_fix` (local_co
 
 ## 0.4.0 (2026-09-09)
 
-Declared finished by the user after the text review; version string `0.4.0` follows 1.1 (user's
-numbering). No runtime change: hooks, layout logic, INI keys and defaults are those of 1.1.
-Package only: RMM texts (57 keys de/en plus the English schema fallbacks) rewritten in player style;
-`[launcher] notice` (restart only for the plugin switch, live reload when the window is reopened)
-replaces the group notice; group "General and diagnostics" renamed "Log settings" with the detail
-log only; group descriptions of both windows shortened; ON/OFF wording. READMEs updated.
-Backup: `_backups\resources_button_fix_1.1_before_0.4.0_*`.
+First published version.
 
-## 1.1 (2026-09-07)
-
-INI fallback beside the DLL for Workshop packages (SML, Workshop Bridge); the chosen configuration
-file is logged at start and the live reload follows it. Layout logic unchanged from 1.0.
+- Compact paint/erase button grids in the terrain editor's Resources and Rocks/Gravel windows, so
+  many plugin resources fit; grid geometry, growing window and the position of the round red
+  clear-all button are configurable per window; changed values are picked up live when the window
+  is reopened, only the plugin switch needs a full restart.
+- Configuration: `plugins\resources_button_fix.ini` when present, otherwise the INI beside the DLL
+  (Workshop package under Soviet Mod Loader or the Workshop Bridge); the chosen file is logged at
+  start and the live reload follows it.
+- Package: Republic Mod Manager texts (57 keys de/en plus the English schema fallbacks) in player
+  style; `[launcher] notice` (restart only for the plugin switch, live reload when the window is
+  reopened); card "Troubleshooting" with the detailed log; ON/OFF wording. READMEs on the common
+  template.

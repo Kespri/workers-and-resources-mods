@@ -1,4 +1,4 @@
-# 🔬 Research Expansion 0.4.0
+# 🔬 Research Expansion 0.4.1
 
 **TesmioLoader-Plugin für neue Forschungen und Änderungen am Forschungsbaum**
 
@@ -49,25 +49,16 @@ Fügt *Workers & Resources: Soviet Republic* 1.1.1.9 eigene Forschungseinträge 
 - ✅ Jeder Fehler weist die ganze Erweiterung ab und lässt die Vanilla-Forschung aktiv; das Log nennt Datei, Regel und Zeile
 - ✅ Originaldateien bleiben unverändert; die erzeugte Datei liegt im VFS des Loaders
 
+### 🆕 Neu in 0.4.1
+- Nur Protokolltext: Die Meldung zu den ungenutzten Schlüsseln `icon_folder` und `noimage_name` ist klarer formuliert.
+
 ### 🆕 Neu in 0.4.0
-- ✅ Neues Versionsschema (0.4.0 folgt auf 1.9); Prüf- und Erzeugungslogik, Befehle und INI-Schlüssel unverändert.
 - ✅ Fertig für Republic Mod Manager: Reiter Neue Forschungen, Localization und Vanilla-Änderungen mit „Forschung wählen…“, „Zeile wählen…“, dem Kasten „Original im Spiel“ und der Prüfung unbekannter Forschungen vor dem Speichern.
-
-### 🆕 Neu in 1.9
-- ✅ **Kosten ändern ohne Ersetzen-Befehl:** In `[modify:<id>]` reicht `cost = 1800`; das Plugin ersetzt die `$COST`-Zeile des Vanilla-Blocks selbst. Im Republic Mod Manager wählst du die Forschung über „Forschung wählen…“, siehst den Originalblock und baust jede Befehlszeile über „Zeile wählen…“ aus den echten Zeilen.
-
-### 🆕 Neu in 1.8
-- ✅ **Kurze Textschlüssel:** In `[research:<id>]` reichen `name = quartz_smasher` oder gar nichts; das Plugin macht daraus `research_expansion.quartz_smasher.name` und `.desc`. Ein Schlüssel mit Punkten gilt weiter unverändert.
-
-### 🆕 Neu in 1.7
 - ✅ **Neue Forschung als INI-Abschnitt:** `[research:<id>]` mit den Schlüsseln `type`, `cost`, `name`, `desc`, `requires`, `unlock` und `line` ist dieselbe Forschung wie ein `$RESEARCH`-Block, nur als Abschnitt, damit Republic Mod Manager sie bearbeiten kann. Beide Formen dürfen gemischt werden und laufen durch dieselbe Prüfung; Abschnitte werden nach den freien Blöcken eingeordnet.
-
-### 🆕 Neu in 1.6
-- ✅ **Ein Icon-Ordner statt zwei:** Die Icons liegen nur noch in `tesmioloader\vfs\media_soviet\research`, dem Ordner, aus dem das Spiel sie liest. Ein Icon, das dort liegt, bleibt unangetastet; fehlt eines, erzeugt das Plugin es beim Start aus `noimage.png` (aus `research_expansion\icons` neben der DLL, sonst aus `plugins\research_expansion\noimage.png`). Die Schlüssel `icon_folder` und `noimage_name` entfallen; alte INIs mit diesen Schlüsseln laufen weiter, ein abweichender Wert wird einmal im Log gemeldet.
-
-### 🆕 Neu in 1.5
-- ✅ **INI und Icons neben der DLL:** Fehlt `plugins\research_expansion.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket unter Soviet Mod Loader oder der Workshop Bridge. Der Icon-Ordner wird genauso gesucht: zuerst `plugins\research_expansion\icons`, sonst neben der DLL. Beide Pfade stehen im Log.
-- ✅ Editor-Schema für Republic Mod Manager im Paket: Änderungen an Vanilla-Forschungen als Liste, deutsch und englisch.
+- ✅ **Kurze Textschlüssel:** In `[research:<id>]` reichen `name = quartz_smasher` oder gar nichts; das Plugin macht daraus `research_expansion.quartz_smasher.name` und `.desc`. Ein Schlüssel mit Punkten gilt wörtlich.
+- ✅ **Kosten ändern ohne Ersetzen-Befehl:** In `[modify:<id>]` reicht `cost = 1800`; das Plugin ersetzt die `$COST`-Zeile des Vanilla-Blocks selbst. Im Republic Mod Manager wählst du die Forschung über „Forschung wählen…“, siehst den Originalblock und baust jede Befehlszeile über „Zeile wählen…“ aus den echten Zeilen.
+- ✅ **Ein Icon-Ordner:** Die Icons liegen in `tesmioloader\vfs\media_soviet\research`, dem Ordner, aus dem das Spiel sie liest. Ein Icon, das dort liegt, bleibt unangetastet; fehlt eines, erzeugt das Plugin es beim Start aus `noimage.png` (aus `research_expansion\icons` neben der DLL, sonst aus `plugins\research_expansion\noimage.png`).
+- ✅ **INI neben der DLL:** Fehlt `plugins\research_expansion.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket unter Soviet Mod Loader oder der Workshop Bridge. Der gewählte Pfad steht im Log.
 
 ---
 
@@ -194,7 +185,7 @@ $RESEARCH_ADD
 
 Regeln: Unbekannte Direktiven, fehlende Pflichtfelder, doppelte Direktiven, fehlende Vorgänger, Selbstbezüge und Kreise werden abgewiesen. `$AVAILABLE` verträgt sich nicht mit `+`-Zeilen. Eine Zeile nur aus Bindestrichen ist ein erlaubter Trenner.
 
-### Als INI-Abschnitt (seit 1.7)
+### Als INI-Abschnitt
 
 Dieselbe Forschung als Abschnitt, so schreibt sie Republic Mod Manager:
 
@@ -285,14 +276,8 @@ Forschungen sind Teil des Spielstands: Eine neue Forschung, die ein Spielstand b
 Localization ist Pflicht. Andere Plugins, die `research.ini` ersetzen, werden nicht zusammengeführt.
 
 ### Versionskompatibilität
-- **0.4.0:** Versionsschema; Logik und INI unverändert
-- **1.9:** `cost` in `[modify:]`; sonst unverändert
-- **1.8:** kurze `name`/`desc` in `[research:]`, Standard = Forschungs-ID; sonst unverändert
-- **1.7:** `[research:<id>]`-Abschnitte als INI-Form neuer Forschungen; sonst unverändert
-- **1.6:** Icons nur noch im VFS-Ordner `media_soviet\research`, vorhandene bleiben, fehlende aus `noimage.png`; `icon_folder`/`noimage_name` entfallen
-- **1.5:** INI- und Icon-Fallback neben der DLL, Editor-Schema im Paket; Prüf- und Erzeugungslogik gegenüber 1.4 unverändert
-- **1.4:** Positionierte Freischaltungen, Änderungsabschnitte `[modify:]`
-- **Zurück auf eine ältere Fassung:** alte DLL und die dazugehörige INI wiederherstellen
+- **0.4.1:** nur Protokolltext; Logik und INI unverändert
+- **0.4.0:** erste veröffentlichte Fassung
 
 ---
 
@@ -386,5 +371,5 @@ A: Für neue Forschungsblöcke ja. Änderungen an Vanilla-Forschungen und die Pl
 
 ---
 
-**Letzte Aktualisierung:** Research Expansion 0.4.0  
+**Letzte Aktualisierung:** Research Expansion 0.4.1  
 **Für:** WRSR 1.1.1.9 | TesmioLoader API 4

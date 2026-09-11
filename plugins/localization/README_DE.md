@@ -49,17 +49,10 @@ Fügt *Workers & Resources: Soviet Republic* 1.1.1.9 eigene Namen, Beschreibunge
 - ✅ Erzeugte Dateien werden vor jedem Start und beim Ausschalten wieder entfernt; die Originale unter `media_soviet` werden nie verändert
 
 ### 🆕 Neu in 0.4.0
-- Nachfolger von 1.3 ohne Laufzeitänderung; die Versionszählung beginnt mit der Überarbeitung neu bei 0.4.0.
-- Republic Mod Manager: Reiter Allgemein (Hinweise, Anleitung, Fehlersuche) und Plugin („Erweiterung anwenden“ mit Abschaltreihenfolge, Textpakete als Liste mit Kurztext und Herkunft).
-
-### 🆕 Neu in 1.3
+- ✅ **INI und Textpakete neben der DLL:** Fehlt `plugins\localization.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket unter Soviet Mod Loader oder der Workshop Bridge. Textpakete werden aus `plugins\localization` **und** aus dem Ordner `localization` neben der DLL geladen. Beide Pfade stehen im Log.
 - ✅ **Lokale Textpakete werden zusammengeführt statt zu ersetzen:** Ein Paketordner unter `plugins\localization` legt sich Schlüssel für Schlüssel über den gleichnamigen Ordner neben der DLL. Deine eigenen Texte und Sprachen bleiben, neue Schlüssel und Sprachen aus einem Workshop-Update kommen trotzdem an; bei gleichem Schlüssel gilt dein lokaler Text. Die lokale `localization.ini` bestimmt Namensraum, Fallback und missingText.
-
-### 🆕 Neu in 1.2
-- ✅ **INI und Textpakete neben der DLL:** Fehlt `plugins\localization.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket unter Soviet Mod Loader oder der Workshop Bridge. Textpakete werden aus `plugins\localization` **und** aus dem Ordner `localization` neben der DLL geladen; ein Paketordner unter `plugins\localization` gewinnt gegen die Paketkopie gleichen Namens. Beide Pfade stehen im Log.
-- ✅ Schema für Republic Mod Manager im Paket, deutsch und englisch.
 - ✅ Die Textpakete `research_expansion`, `technical_service_storage` und `tesmio_lang` reisen im Paket mit.
-- Prüfung, Erzeugung, IDs und Dienst sind gegenüber 1.1 unverändert.
+- ✅ Republic Mod Manager: Reiter Allgemein (Hinweise, Anleitung, Fehlersuche) und Plugin („Erweiterung anwenden“ mit Abschaltreihenfolge, Textpakete als Liste mit Kurztext und Herkunft).
 
 ---
 
@@ -156,7 +149,7 @@ Textpakete werden aus zwei Ordnern geladen:
 - `tesmioloader\build\plugins\localization\<paketname>` (klassische Installation, „Dateien nur lokal“, eigene Pakete)
 - der Ordner `localization` neben der DLL, im Paket `hooks\localization` (Soviet Mod Loader, Workshop Bridge)
 
-Ein Paketordner unter `plugins\localization` legt sich seit 1.3 Schlüssel für Schlüssel über den gleichnamigen Ordner neben der DLL: lokale Texte gewinnen, alles andere kommt weiter aus dem Paket, auch Sprachen und Schlüssel, die ein Workshop-Update neu bringt. So kannst du ein mitgeliefertes Textpaket lokal anpassen, ohne den Anschluss zu verlieren. Zusammen höchstens 256 Paketordner.
+Ein Paketordner unter `plugins\localization` legt sich Schlüssel für Schlüssel über den gleichnamigen Ordner neben der DLL: lokale Texte gewinnen, alles andere kommt weiter aus dem Paket, auch Sprachen und Schlüssel, die ein Workshop-Update neu bringt. So kannst du ein mitgeliefertes Textpaket lokal anpassen, ohne den Anschluss zu verlieren. Zusammen höchstens 256 Paketordner.
 
 ---
 
@@ -262,11 +255,7 @@ Sprachdateien sind nicht Teil des Spielstands. Texte einer Forschung oder Ressou
 - Andere Plugins, die `soviet*.btf` im VFS ersetzen, werden nicht zusammengeführt.
 
 ### Versionskompatibilität
-- **0.4.0:** Nachfolger von 1.3, keine Laufzeitänderung; Research Expansion verlangt ab jetzt `tesmio.localization >= 0.4.0`
-- **1.3:** lokale Paketordner werden Schlüssel für Schlüssel über das Paket gelegt; sonst unverändert
-- **1.2:** INI- und Paketordner-Fallback neben der DLL, zwei Paketordner zusammengeführt, Schema im Paket; Prüfung, Erzeugung und Dienst unverändert
-- **1.1:** Bereinigung alter Overlays vor jeder Initialisierung, stabile IDs
-- **Zurück auf eine ältere Fassung:** alte DLL und INI wiederherstellen; Textpakete sind unverändert nutzbar
+- **0.4.0:** erste veröffentlichte Fassung; Research Expansion verlangt `tesmio.localization >= 0.4.0`
 
 ---
 

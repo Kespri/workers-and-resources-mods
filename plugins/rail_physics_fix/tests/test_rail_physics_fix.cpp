@@ -114,7 +114,7 @@ static void ModelTests()
     assert(Near(rp_brake_helper(v.data(),100,2,10,80),5.616f));
     assert(SpanCount((void*)8,(void*)24,8)==2);
     assert(SpanCount((void*)24,(void*)8,8)==-1);
-    assert(SpanCount((void*)8,(void*)25,8)==2);   // 1.3.4: remainder truncated like upstream
+    assert(SpanCount((void*)8,(void*)25,8)==2);   // remainder truncated like upstream
     assert(!ReadableFast(NULL,8) && !ReadableFast((void*)~(UINT_PTR)0,8));
     puts("PASS: native mass/power, traction, resistance, signed grade, fuel, braking, span guards");
 }

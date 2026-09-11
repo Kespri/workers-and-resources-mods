@@ -47,10 +47,7 @@ Rearranges the tool buttons in two windows of the terrain editor of *Workers & R
 - ✅ Tree tools and every other editor window stay untouched; no game file and no VFS file is written
 
 ### 🆕 New in 0.4.0
-- ✅ New version scheme (0.4.0 follows 1.1); layout logic, hooks and INI keys unchanged.
-- ✅ Every Republic Mod Manager text reworked in player style: notice box on General, "Troubleshooting" card with the detail log, ON/OFF instead of 1/0.
-
-### 🆕 New in 1.1
+- ✅ Every Republic Mod Manager text in player style: notice box on General, "Troubleshooting" card with the detailed log, ON/OFF instead of 1/0.
 - ✅ **INI beside the DLL:** when `plugins\resources_button_fix.ini` does not exist, the DLL reads the INI from its own folder, i.e. from the Workshop package under Soviet Mod Loader or the Workshop Bridge. The plugin runs straight from the Steam subscription without copying anything.
 - ✅ The chosen configuration file is logged at start; live reload follows that file.
 
@@ -269,9 +266,7 @@ The file is checked as a complete new configuration set. If only one line is inv
 The plugin changes neither game files nor savegames; it only arranges buttons in the memory of the running game.
 
 ### Version compatibility
-- **0.4.0:** texts and schema layout for Republic Mod Manager; layout logic and INI unchanged
-- **1.1:** INI fallback beside the DLL for Workshop packages; layout logic unchanged from 1.0
-- **Going back to an older version:** restore the old DLL and its INI
+- **0.4.0:** first published version
 
 ---
 

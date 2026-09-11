@@ -45,15 +45,10 @@ Bündelt fensterbezogene Korrekturen für *Workers & Resources: Soviet Republic*
 - ✅ Nur geprüfter Code und Daten im Speicher des laufenden Spiels werden geändert; Spieldateien, Gebäudedateien und Spielstände bleiben unverändert
 
 ### 🆕 Neu in 0.3.0
-- ✅ Neues Versionsschema (0.3.0 folgt auf 1.3); Module, Hooks und INI-Schlüssel unverändert.
-- ✅ Alle Texte für Republic Mod Manager im Spieler-Stil überarbeitet: Hinweiskästen statt Gruppentexte, Karte Allgemein entfernt, eigener Hilfetext im Hinzufügen-Dialog, Auswahl der Spieltexte über „Text auswählen…“.
-
-### 🆕 Seit 1.3
+- ✅ Alle Texte für Republic Mod Manager im Spieler-Stil: Hinweiskästen statt Gruppentexte, Karte Allgemein entfernt, eigener Hilfetext im Hinzufügen-Dialog, Auswahl der Spieltexte über „Text auswählen…“.
 - ✅ **Modul TEXT_WRAP:** Lange Spieltexte wie der Hinweis „Zeigt den Bereich an, in dem ein mögliches Problem auf der Route besteht!“ im Fahrzeugfenster werden vom Spiel einzeilig gezeichnet und laufen aus dem Fenster. Das Modul fängt die Textabfrage des Spiels für jede Text-ID aus der Liste `[text_wrap_ids]` ab, liefert eine umgebrochene Kopie und zeichnet sie über die gehookten Zeichenfunktionen der Engine Zeile für Zeile. Regeln: höchstens `max_chars` Zeichen je Zeile (Standard 58, je Text überschreibbar), Wörter werden nie getrennt, die Zeilen werden gleich lang verteilt, die Absätze des Spiels fließen zusammen (`keep_breaks = 1` behält sie), Zeilenabstand `line_spacing` als Vielfaches der Schriftgröße (Standard 1.15). Braucht ein Text mehr als `max_lines` Zeilen (Standard 4), werden die Zeilen schrittweise breiter. Es wird kein Spielcode geändert; das Modul hängt nicht am Spiel-Build und gilt für jede Spielsprache mit Leerzeichen zwischen den Wörtern.
 - ✅ **Kandidaten finden:** `log_long_texts = 70` schreibt jede Text-ID, die das Spiel anzeigt und deren längste Zeile über 70 Zeichen hat, einmal ins Detail-Log, mit den ersten 80 Zeichen. In Republic Mod Manager trägst du die ID dann auf dem Reiter Text-IDs ein.
 - ✅ Republic Mod Manager: Listen-Editor mit den Reitern Allgemein, Zollhaus, Textumbruch und Text-IDs.
-
-### 🆕 Seit 1.1
 - ✅ **Gemeinsame Konfigurationsregel** (`tesmio_config.h`): Basis ist `plugins\ui_layout_fixes.ini`, sonst die INI neben der DLL (im Workshop-Paket). Liegt `user_config\ui_layout_fixes.ini` im Loader-Ordner, gewinnen dessen Schlüssel einzeln; diese Datei schreibt nur Republic Mod Manager. Beide Pfade stehen beim Start im Detail-Log.
 
 ---
@@ -224,10 +219,7 @@ Grenze: Kopiert das Spiel einen Text vor dem Zeichnen in einen eigenen Puffer, e
 Das Plugin verändert weder Spieldateien noch Spielstände.
 
 ### Versionskompatibilität
-- **0.3.0:** Versionsschema und Texte für Republic Mod Manager; Module und INI unverändert
-- **1.3:** Modul TEXT_WRAP mit den Abschnitten `[text_wrap]` und `[text_wrap_ids]` ersetzt das Modul VEHICLE_ROUTE_HINT der internen Zwischenstände 1.2/1.2.1 (deren Abschnitt `[vehicle_route_hint]` wird nicht mehr gelesen); CUSTOMHOUSE und alle bisherigen Schlüssel unverändert
-- **1.1:** Konfiguration über `tesmio_config.h` (Basis plus persönliches Overlay); das Modul CUSTOMHOUSE ist gegenüber 1.0 unverändert
-- **Zurück auf eine ältere Fassung:** alte DLL und die dazugehörige INI wiederherstellen
+- **0.3.0:** erste veröffentlichte Fassung mit den Modulen CUSTOMHOUSE und TEXT_WRAP
 
 ---
 

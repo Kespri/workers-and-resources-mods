@@ -1,4 +1,4 @@
-# 🔬 Research Expansion 0.4.0
+# 🔬 Research Expansion 0.4.1
 
 **TesmioLoader plugin for new research and changes to the research tree**
 
@@ -49,25 +49,16 @@ Adds your own research entries to *Workers & Resources: Soviet Republic* 1.1.1.9
 - ✅ Every error rejects the whole extension and leaves Vanilla research active; the log names file, rule and line
 - ✅ Original files stay untouched; the generated file lives in the loader's VFS
 
+### 🆕 New in 0.4.1
+- Log wording only: the message about the unused keys `icon_folder` and `noimage_name` is clearer.
+
 ### 🆕 New in 0.4.0
-- ✅ New version scheme (0.4.0 follows 1.9); validation, generation, commands and INI keys unchanged.
 - ✅ Ready for Republic Mod Manager: tabs New research, Localization and Vanilla edits with "Choose research…", "Choose line…", the "Original in the game" box and the check for unknown research before saving.
-
-### 🆕 New in 1.9
-- ✅ **Change the cost without a replace command:** in `[modify:<id>]` `cost = 1800` is enough; the plugin replaces the Vanilla block's `$COST` line itself. In Republic Mod Manager you pick the research via "Choose research…", see the original block and build every command line via "Choose line…" from the real lines.
-
-### 🆕 New in 1.8
-- ✅ **Short text keys:** in `[research:<id>]` `name = quartz_smasher` or nothing at all is enough; the plugin turns it into `research_expansion.quartz_smasher.name` and `.desc`. A key with dots is still used as it is.
-
-### 🆕 New in 1.7
 - ✅ **New research as an INI section:** `[research:<id>]` with the keys `type`, `cost`, `name`, `desc`, `requires`, `unlock` and `line` is the same research as a `$RESEARCH` block, only as a section so Republic Mod Manager can edit it. Both forms may be mixed and pass the same checks; sections are placed after the free blocks.
-
-### 🆕 New in 1.6
-- ✅ **One icon folder instead of two:** icons live only in `tesmioloader\vfs\media_soviet\research`, the folder the game reads them from. An icon that is there stays untouched; a missing one is created at start from `noimage.png` (from `research_expansion\icons` beside the DLL, else from `plugins\research_expansion\noimage.png`). The keys `icon_folder` and `noimage_name` are gone; old INIs with those keys keep working, a value other than the default is reported once in the log.
-
-### 🆕 New in 1.5
-- ✅ **INI and icons beside the DLL:** when `plugins\research_expansion.ini` does not exist, the DLL reads the INI from its own folder, i.e. from the Workshop package under Soviet Mod Loader or the Workshop Bridge. The icon folder is looked up the same way: first `plugins\research_expansion\icons`, otherwise beside the DLL. Both paths are logged.
-- ✅ Editor schema for Republic Mod Manager in the package: edits of Vanilla research as a list, German and English.
+- ✅ **Short text keys:** in `[research:<id>]` `name = quartz_smasher` or nothing at all is enough; the plugin turns it into `research_expansion.quartz_smasher.name` and `.desc`. A key with dots is used as it is.
+- ✅ **Change the cost without a replace command:** in `[modify:<id>]` `cost = 1800` is enough; the plugin replaces the Vanilla block's `$COST` line itself. In Republic Mod Manager you pick the research via "Choose research…", see the original block and build every command line via "Choose line…" from the real lines.
+- ✅ **One icon folder:** icons live in `tesmioloader\vfs\media_soviet\research`, the folder the game reads them from. An icon that is there stays untouched; a missing one is created at start from `noimage.png` (from `research_expansion\icons` beside the DLL, else from `plugins\research_expansion\noimage.png`).
+- ✅ **INI beside the DLL:** when `plugins\research_expansion.ini` does not exist, the DLL reads the INI from its own folder, i.e. from the Workshop package under Soviet Mod Loader or the Workshop Bridge. The chosen path is logged.
 
 ---
 
@@ -194,7 +185,7 @@ $RESEARCH_ADD
 
 Rules: unknown directives, missing required fields, duplicate directives, missing parents, self-references and cycles are rejected. `$AVAILABLE` cannot be combined with `+` lines. A line of dashes only is an allowed separator.
 
-### As an INI section (since 1.7)
+### As an INI section
 
 The same research as a section, the way Republic Mod Manager writes it:
 
@@ -285,14 +276,8 @@ Research is part of the savegame: a new research a savegame already knows should
 Localization is mandatory. Other plugins that replace `research.ini` are not merged.
 
 ### Version compatibility
-- **0.4.0:** version scheme; logic and INI unchanged
-- **1.9:** `cost` in `[modify:]`; otherwise unchanged
-- **1.8:** short `name`/`desc` in `[research:]`, default = research id; otherwise unchanged
-- **1.7:** `[research:<id>]` sections as the INI form of new research; otherwise unchanged
-- **1.6:** icons only in the VFS folder `media_soviet\research`, existing ones stay, missing ones come from `noimage.png`; `icon_folder`/`noimage_name` removed
-- **1.5:** INI and icon fallback beside the DLL, editor schema in the package; validation and generation unchanged from 1.4
-- **1.4:** positioned unlocks, edit sections `[modify:]`
-- **Going back to an older version:** restore the old DLL and its INI
+- **0.4.1:** log wording only; logic and INI unchanged
+- **0.4.0:** first published version
 
 ---
 
@@ -386,5 +371,5 @@ A: For new research blocks, yes. Edits of Vanilla research and the plugin settin
 
 ---
 
-**Last update:** Research Expansion 0.4.0  
+**Last update:** Research Expansion 0.4.1  
 **For:** WRSR 1.1.1.9 | TesmioLoader API 4

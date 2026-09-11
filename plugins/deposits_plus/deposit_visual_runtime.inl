@@ -115,7 +115,7 @@ static int h_VsLoad(void*self,const char*path){
 }
 static bool VsAssetPathOk(const char*p){if(!p[0]||p[0]=='/'||p[0]=='\\'||strchr(p,':'))return false;for(const char*s=p;*s;++s)if(s[0]=='.'&&s[1]=='.'&&(s==p||s[-1]=='/'||s[-1]=='\\')&&(s[2]==0||s[2]=='/'||s[2]=='\\'))return false;return true;}
 static bool VsReadFile(const char*name,VSand::Bytes&bytes){
- // 1.8.0: the assets live beside the DLL first (a Workshop package carries
+ // The assets live beside the DLL first (a Workshop package carries
  // hooks\deposits_plus\assets), then under the loader's plugins folder - the
  // local copy for anyone who keeps everything in tesmioloader\build.
  char p[MAX_PATH];HANDLE h=INVALID_HANDLE_VALUE;

@@ -1106,7 +1106,7 @@ static bool ParseDoubleStrict(const char* text, double* out)
 }
 
 // ---------------------------------------------------------------------------
-// Configuration file (since 0.2.11): <baseDir>\plugins\weather_roads.ini when it
+// Configuration file: <baseDir>\plugins\weather_roads.ini when it
 // exists (classic installation, or the effective INI Republic Mod Manager
 // writes), otherwise weather_roads.ini beside this DLL (Workshop package under
 // Soviet Mod Loader or the Workshop Bridge). Values are read exactly the way

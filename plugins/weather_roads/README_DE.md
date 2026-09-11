@@ -65,18 +65,14 @@ Steuert in *Workers & Resources: Soviet Republic* 1.1.1.9, wie schnell sich Schn
 
 ### 🆕 Neu in 0.3.0
 - ✅ Alle Texte in Republic Mod Manager und in dieser Anleitung neu geschrieben: kürzer, in der Sprache der Spieler, Schalter mit EIN und AUS statt 1 und 0, Zeilenumbrüche in längeren Erklärungen. Der Hinweis auf das Zusammenspiel mit Technical Service Storage steht jetzt in der Karte „Hinweise“.
-- Betrieb, Werte, Speicherformat und Hooks sind gegenüber 0.2.11 unverändert.
-
-### Neu in 0.2.11
-- ✅ **INI neben der DLL:** Fehlt `plugins\weather_roads.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket unter Soviet Mod Loader oder der Workshop Bridge. Der gewählte Pfad steht als `configuration file:` im Protokoll. Werte werden genau wie bisher gelesen.
+- ✅ **INI neben der DLL:** Fehlt `plugins\weather_roads.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket unter Soviet Mod Loader oder der Workshop Bridge. Der gewählte Pfad steht als `configuration file:` im Protokoll.
 - ✅ Schema für Republic Mod Manager im Paket: fünf Reiter mit allen Einstellungen, deutsch und englisch.
-- Schneeabstimmung, Schutzstärken und -dauern, Trockenpflügen, Materialkommunikation, Speicherformat und Hook-Reihenfolge sind gegenüber 0.2.10 unverändert.
 
 ---
 
 ## 💾 Installation
 
-Wähle **eine** der vier Methoden. Dieselbe DLL darf nie zweimal geladen werden. `weather_roads_probe.dll` (alter Vorgänger) nicht gleichzeitig laden; das Plugin verweigert dann die Initialisierung.
+Wähle **eine** der vier Methoden. Dieselbe DLL darf nie zweimal geladen werden.
 
 ---
 
@@ -265,17 +261,12 @@ Ohne das Plugin lädt der Spielstand normal; die Zusatzdatei wird dann nicht ang
 ### Andere Plugins
 - **Technical Service Storage** liefert Materialstärke und Trockenpflügen; ohne es gilt Stärke 1.00.
 - Die Wetteraufruf-Verkettung berücksichtigt den Hook von `daynight`; weitere Kombinationen sind nicht geprüft.
-- `weather_roads_probe.dll` darf nicht gleichzeitig geladen sein.
 
 ### Versionskompatibilität
 - **0.3.3:** Standard `accumulation_multiplier` 0.35 und `maximum_accumulation_per_burst` 95; sonst unverändert
-- **0.3.2:** Wetterfeld als Wurf 0 bis 7 gelesen, nur 1 = Schneefall; Overlay- und Log-Namen; sonst unverändert
+- **0.3.2:** Wetterfeld als Wurf 0 bis 7 gelesen, nur 1 = Schneefall; Namen im Info-Fenster und im Protokoll; sonst unverändert
 - **0.3.1:** `release_follows_weather` (Standard 1), sonst unverändert
-- **0.3.0:** neue Texte in Republic Mod Manager und README; Betrieb und Speicherformat unverändert
-- **0.2.11:** INI-Fallback neben der DLL, Schema im Paket; Betrieb und Speicherformat unverändert
-- **0.2.10:** defensive Loader-Prüfungen, Aufräumen bei Ausnahmen, klarere Startmeldungen
-- **0.2.8:** korrigierter Speicherzeitpunkt der Zusatzdatei
-- **Zurück auf eine ältere Fassung:** alte DLL und die dazugehörige INI wiederherstellen
+- **0.3.0:** erste veröffentlichte Fassung
 
 ---
 
@@ -286,7 +277,6 @@ Ohne das Plugin lädt der Spielstand normal; die Zusatzdatei wird dann nicht ang
 | Problem | Ursache | Lösung |
 |---|---|---|
 | `unsupported SOVIET64.exe` / `unsupported C3DDLL64.dll` | nicht unterstützter Spielstand | passende Plugin-Version verwenden |
-| `weather_roads_probe.dll is already loaded` | alter Vorgänger aktiv | Vorgänger abschalten, neu starten |
 | `invalid [Abschnitt] …` | Wert ungültig oder außerhalb des Bereichs | Wert prüfen; der Ersatzwert wurde verwendet |
 | `grit-spreader service unavailable` | Technical Service Storage fehlt | Stärke 1.00 aktiv; Plugin und Dienst prüfen |
 | `protection-persistence=unavailable` | Speicher-Hook fehlt oder abgelehnt | vorherige Warnungen prüfen |

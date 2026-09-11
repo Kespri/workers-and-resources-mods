@@ -53,23 +53,12 @@ Erweitert in *Workers & Resources: Soviet Republic* 1.1.1.9 die Zugphysik: Antri
 - ✅ Drei unabhängige Diagnoseschalter; Warnungen bleiben immer sichtbar
 
 ### 🆕 Neu in 1.3.5
-- ✅ Alle Texte für Republic Mod Manager im Spieler-Stil überarbeitet: Hinweis und Info-Box auf Allgemein, „Fehlersuche“ statt „Diagnoseprotokoll“, Bremsmarge bei den Bremsen, überall „Kurven- und Streckenvorschau“.
-- ✅ Spieltest im Log bestätigt: 9 Teilsysteme gepatcht, Kurvenlimits, Bahnhofshalt, Bahnhofszone und Verbrauchsmodell arbeiten. Physik, Hooks und Werte unverändert gegenüber 1.3.4.
-
-### 🆕 Neu in 1.3.4
-Ein Quelltextvergleich mit dem Original RailPhysics 1.3.0 hat gezeigt, dass die Absicherungen aus 1.3.2 an einigen Stellen strenger waren als das Original und einen Zug stilllegen oder alle Zonen verwerfen konnten, wo das Original weiterfuhr. 1.3.4 kehrt dort zum degradierenden Verhalten des Originals zurück; die Physik bleibt unverändert:
-- ✅ **Weniger Systemaufrufe je Frame:** Die Vorprüfung des Zugverbands, die Bremshilfe und der Kurvencache prüfen Speicherbereiche über den Regionscache statt mit einem VirtualQuery je Wagen und Frame.
-- ✅ **Inaktive Wagen** werden wie im Original übersprungen, bevor ihr Typ gelesen wird; ein veralteter Typzeiger dort legt den Zug nicht mehr still.
-- ✅ **Streckenvorschau bei zerrissenen Daten:** Ein unlesbares oder ungültiges Streckenstück beendet den Lauf mit den bis dahin gesammelten Punkten (Teilvorschau) statt die ganze Berechnung zu verwerfen. Nur ein Speicherfehler behält weiterhin das letzte Limit.
-- ✅ **Bahnhofs- und Zollzonen:** Eine unlesbare Kette wird übersprungen; ein Abbruch im Korridoraufbau veröffentlicht die gefundenen Korridore; schlägt der Aufbau wegen Speichermangels fehl, bleiben die bisherigen Tabellen bis zum nächsten Lauf erhalten statt 30 Sekunden ohne Zonen.
-- ✅ Ein nicht endliches natives Kurvenlimit wird unverändert durchgereicht statt auf null gebremst.
-- ✅ Spannen mit Rest werden wie im Original abgerundet statt verworfen.
-- ✅ Offline-Suite erweitert (inaktiver Wagen, zerrissene Strecke, NaN-Limit, Tabellenerhalt bei Speicherfehlern), weiterhin 17 Prozesse.
-
-### 🆕 Neu in 1.3.3
+- ✅ Alle Texte für Republic Mod Manager im Spieler-Stil: Hinweis und Info-Box auf Allgemein, Karte „Fehlersuche“, Bremsmarge bei den Bremsen, überall „Kurven- und Streckenvorschau“.
+- ✅ Spieltest im Log bestätigt: 9 Teilsysteme gepatcht, Kurvenlimits, Bahnhofshalt, Bahnhofszone und Verbrauchsmodell arbeiten.
+- ✅ **Gegenüber dem Original RailPhysics 1.3.0 behoben:** drei Fehler bei der Argumentübergabe der Brücken, ein Zugriff auf bereits freigegebenen Speicher im Korridoraufbau, ungeprüfte Speicherzugriffe und das sprachabhängige Einlesen von Dezimalzahlen. Physik, Werte und Hooks sind die des Originals; bei zerrissenen Daten, inaktiven Wagen und Speicherfehlern verhält sich das Plugin wie das Original (Teilvorschau statt Abbruch, unlesbare Kette überspringen, letzte Zonentabellen behalten).
 - ✅ **INI neben der DLL:** Fehlt `plugins\rail_physics_fix.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket unter Soviet Mod Loader oder der Workshop Bridge. Der klassische Weg über den Loader ist unverändert; der gewählte Pfad steht als `configuration file:` im Protokoll.
 - ✅ Schema für Republic Mod Manager im Paket: vier Reiter mit allen 30 Einstellungen, deutsch und englisch.
-- ✅ Offline-Testsuite um das Szenario `beside_dll` erweitert (17 Prozesse); Physik, Hooks, Brücken und Prüfungen sind gegenüber 1.3.2 unverändert.
+- ✅ Offline-Testsuite mit 17 Prozessen, darunter das Szenario `beside_dll`.
 
 ---
 
@@ -250,12 +239,7 @@ Kein eigenes Spielstandformat. Bereits beeinflusste Positionen, Geschwindigkeite
 - Andere Eingriffe an denselben Hookstellen werden durch die Signaturprüfung erkannt und lösen `RP401` bis `RP406` aus.
 
 ### Versionskompatibilität
-- **1.3.5:** Texte und Schema-Aufbau für Republic Mod Manager, Spieltest bestätigt; Physik und Hooks unverändert
-- **1.3.4:** degradierendes Verhalten des Originals bei zerrissenen Daten, inaktiven Wagen und Speicherfehlern; Physik und Hooks unverändert
-- **1.3.3:** INI-Fallback neben der DLL, Schema im Paket, Testszenario `beside_dll`
-- **1.3.2:** Versionsbezeichnung vereinheitlicht, Umbenennung zu rail_physics_fix am 05.09.2026
-- **1.3.1 → 1.3.2:** korrigierte x64-Parameterübergabe der Brücken, erweiterte Bereichs- und Speicherprüfungen
-- **Zurück auf eine ältere Fassung:** alte DLL und die dazugehörige INI wiederherstellen
+- **1.3.5:** erste veröffentlichte Fassung des Ports; Physik und Einstellungen wie RailPhysics 1.3.0, INI-Abschnitt `[railphysics]` bleibt kompatibel
 
 ---
 

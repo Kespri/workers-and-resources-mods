@@ -49,17 +49,10 @@ Adds custom names, descriptions and labels to *Workers & Resources: Soviet Repub
 - ✅ Generated files are removed before every start and when the plugin is switched off; the originals under `media_soviet` are never changed
 
 ### 🆕 New in 0.4.0
-- Successor of 1.3 without a runtime change; the version numbering restarts with the rework at 0.4.0.
-- Republic Mod Manager: tabs General (notices, guide, log settings) and Plugin ("Apply extension" with the switch-off order, text packs as a list with a short text and origin).
-
-### 🆕 New in 1.3
+- ✅ **INI and text packs beside the DLL:** when `plugins\localization.ini` is missing, the DLL reads the INI from its own folder, i.e. from the Workshop package under Soviet Mod Loader or the Workshop Bridge. Text packs are loaded from `plugins\localization` **and** from the folder `localization` beside the DLL. Both paths are logged.
 - ✅ **Local text packs are merged instead of replacing:** a pack folder under `plugins\localization` is laid over the folder of the same name beside the DLL key by key. Your own texts and languages stay, new keys and languages from a Workshop update still arrive; for the same key your local text wins. The local `localization.ini` decides namespace, fallback and missingText.
-
-### 🆕 New in 1.2
-- ✅ **INI and text packs beside the DLL:** when `plugins\localization.ini` is missing, the DLL reads the INI from its own folder, i.e. from the Workshop package under Soviet Mod Loader or the Workshop Bridge. Text packs are loaded from `plugins\localization` **and** from the folder `localization` beside the DLL; a pack folder under `plugins\localization` wins over the package copy of the same name. Both paths are logged.
-- ✅ Schema for Republic Mod Manager in the package, German and English.
 - ✅ The text packs `research_expansion`, `technical_service_storage` and `tesmio_lang` travel with the package.
-- Validation, generation, IDs and the service are unchanged from 1.1.
+- ✅ Republic Mod Manager: tabs General (notices, guide, troubleshooting) and Plugin ("Apply extension" with the switch-off order, text packs as a list with a short text and origin).
 
 ---
 
@@ -156,7 +149,7 @@ Text packs are loaded from two folders:
 - `tesmioloader\build\plugins\localization\<packname>` (classic installation, "Files local only", own packs)
 - the folder `localization` beside the DLL, in the package `hooks\localization` (Soviet Mod Loader, Workshop Bridge)
 
-Since 1.3 a pack folder under `plugins\localization` is laid over the folder of the same name beside the DLL key by key: local texts win, everything else still comes from the package, including languages and keys a Workshop update adds. That way you can adapt an included text pack locally without falling behind. At most 256 pack folders in total.
+A pack folder under `plugins\localization` is laid over the folder of the same name beside the DLL key by key: local texts win, everything else still comes from the package, including languages and keys a Workshop update adds. That way you can adapt an included text pack locally without falling behind. At most 256 pack folders in total.
 
 ---
 
@@ -262,11 +255,7 @@ Language files are not part of the savegame. Texts of a research or resource a s
 - Other plugins that replace `soviet*.btf` in the VFS are not merged.
 
 ### Version compatibility
-- **0.4.0:** successor of 1.3, no runtime change; Research Expansion now requires `tesmio.localization >= 0.4.0`
-- **1.3:** local pack folders are laid over the package key by key; otherwise unchanged
-- **1.2:** INI and pack folder fallback beside the DLL, two pack folders merged, schema in the package; validation, generation and service unchanged
-- **1.1:** cleanup of old overlays before every initialisation, stable IDs
-- **Back to an older version:** restore the old DLL and INI; text packs stay usable unchanged
+- **0.4.0:** first published version; Research Expansion requires `tesmio.localization >= 0.4.0`
 
 ---
 

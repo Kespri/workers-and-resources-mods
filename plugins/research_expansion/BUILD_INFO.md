@@ -7,74 +7,46 @@ plugin. Output: a generated `research.ini` plus one `<id>.png` per new research 
 (`<loader>\vfs\media_soviet\research`). User documentation: README_DE.md / README_EN.md.
 History newest first.
 
+## 0.4.1 (2026-09-11)
+
+- Log wording only: the WARN for the unused keys `icon_folder` / `noimage_name` no longer refers to
+  an earlier build. No other change.
+
 ## 0.4.0 (2026-09-10)
 
-Declared finished by the user; version string `0.4.0` follows 1.9 (user's numbering, back into beta).
-No runtime change: validation, generation, `[research:]` / `[modify:]` keys and defaults are those of 1.9.
-The package ships with the Republic Mod Manager tabs New research, Localization and Vanilla edits (research
-and line pickers, original block view, reference checks). In-game tests of 1.7 through 1.9 were confirmed by
-the user on 2026-09-10. Backup: `_backups\research_expansion_1.9_before_0.4.0_20260910_164734`.
+First published version.
 
-## 1.9 (2026-09-10)
-
-- `[modify:<id>]` accepts `cost = <points>` (once, positive integer): `ParseEditOperation` stores it on the
-  `Modification`, `ApplyVanillaModifications` turns it into a `replace` of the block's single `$COST` line
-  before the listed operations (rule `modify-cost` when the line is missing or ambiguous). Sections with
-  only a `cost` key count as active. Everything else unchanged. Reason: Republic Mod Manager 0.4.42 offers
-  the cost as a number field on the Vanilla edits tab.
-
-## 1.8 (2026-09-10)
-
-- `[research:]` sections: `name` / `desc` are optional and may be a bare word. `ExpandResearchSections`
-  completes a value without a dot to `TEXT_NAMESPACE.<value>.name` / `.desc`
-  (`TEXT_NAMESPACE` = "research_expansion", the namespace of the plugin's own text pack); a
-  missing key uses the research id. A value with dots is emitted unchanged, so 1.7 files keep
-  working. Free `$RESEARCH` blocks are untouched.
-- Reason (user decision 2026-09-10): the namespace is fixed by the modder and the suffixes are
-  fixed by the plugin, so typing the full key was pure error potential. Republic Mod Manager
-  0.4.31 shows the fields as `[<word>].[name]` with the id as placeholder.
-- In-game test 2026-09-10 01:17 (user): [research:clay_study] with requires = faculty_geology | before | uranium_study,
-  name = clay_study, no desc; log "1 new research entr(y/ies) (1 of them [research:] sections)",
-  "Icon for clay_study created from noimage.png", name, description and the position before
-  uranium_study confirmed in the game.
-
-## 1.7 (2026-09-10)
-
-- `[research:<id>]` sections: the INI form of a new research block for Republic Mod Manager.
-  `ValidateGeneralConfigLayout` collects them (`ResearchSection`, keys parsed by
-  `ParseResearchKey`: enabled, type, cost, name, desc, requires, unlock, line);
-  `ExpandResearchSections` turns the enabled ones into `NewBlock` line lists after `ParseNewBlocks`
-  (free blocks first, then sections in INI order), each line carrying the INI line of its key, so
-  `ValidateNewBlock`/`ValidateAllNewBlocks` check both forms with the same rules and messages.
-- `requires = <dependency> | before/after/normal | <anchor>` becomes `+<dependency>` plus
-  `@before_<anchor>` / `@after_<anchor>`; the position belongs to that dependency, as in blocks.
-- Duplicate ids between a free block and a section are rejected (`research-duplicate`); unknown
-  keys (`research-key`), bad values and repeated single keys fail closed like everything else.
-- Unknown-section message now names `[research:id]`. INI and READMEs document the section form.
-- In-game test: covered by the 1.8 test above (section written by Republic Mod Manager 0.4.31).
-
-## 1.6 (2026-09-09)
-
-- The VFS research folder is the only icon store. `PlanIcons`: an existing `<id>.png` there is
-  kept (validated as 128 x 128 PNG, an unusable one fails closed with `icon-invalid`); a missing
+- Configuration: `plugins\research_expansion.ini` when present, otherwise the INI beside the DLL
+  (Workshop package under Soviet Mod Loader or the Workshop Bridge); the chosen path is logged.
+- New research as free `$RESEARCH` blocks or as `[research:<id>]` sections (the INI form written by
+  Republic Mod Manager): `ValidateGeneralConfigLayout` collects the sections (`ResearchSection`,
+  keys enabled, type, cost, name, desc, requires, unlock, line), `ExpandResearchSections` turns the
+  enabled ones into `NewBlock` line lists after the free blocks, each line carrying the INI line of
+  its key, so `ValidateNewBlock` / `ValidateAllNewBlocks` check both forms with the same rules and
+  messages. `requires = <dependency> | before/after/normal | <anchor>` becomes `+<dependency>` plus
+  `@before_<anchor>` / `@after_<anchor>`. Duplicate ids between a free block and a section are
+  rejected (`research-duplicate`); unknown keys, bad values and repeated single keys fail closed.
+- Short text keys: `name` / `desc` in `[research:]` are optional and may be a bare word; a value
+  without a dot is completed to `research_expansion.<value>.name` / `.desc` (the namespace of the
+  plugin's own text pack), a missing key uses the research id, a value with dots is emitted
+  unchanged. Republic Mod Manager shows the fields as `[<word>].[name]` with the id as placeholder.
+- `[modify:<id>]` accepts `cost = <points>` (once, positive integer): `ApplyVanillaModifications`
+  turns it into a `replace` of the block's single `$COST` line before the listed operations (rule
+  `modify-cost` when the line is missing or ambiguous). Sections with only a `cost` key count as
+  active.
+- Icons: the VFS research folder is the only icon store. `PlanIcons`: an existing `<id>.png` there
+  is kept (validated as 128 x 128 PNG, an unusable one fails closed with `icon-invalid`); a missing
   one is seeded from `<id>.png` in `research_expansion\icons` beside the DLL, else created from
   `noimage.png` (`icon-fallback` WARN). `noimage.png` candidates in order: `research_expansion\icons`
-  beside the DLL (Workshop package or local copy), `plugins\research_expansion\noimage.png`,
-  `plugins\research_expansion\icons\noimage.png` (1.5 layout). `ApplyIconPlan` skips kept icons.
-- `[general] icon_folder` and `noimage_name` are no longer used. Both keys stay accepted by the
-  strict INI layout check so existing effective INIs keep loading; a value other than the 1.5
-  defaults logs one `legacy-key` WARN. Removed from the shipped INI, the RMM schema and the READMEs.
-- Log lines: `Icon store: <path>`, `Fallback icon: <path or reason>`, `Icon for <id> kept from the
-  VFS research folder`, `Icon for <id> created from noimage.png|the package icon`.
-- Reason (user decision 2026-09-09): keeping user icons in the Workshop package or in
-  `plugins\research_expansion\icons` meant a second copy of every icon and a folder Steam may
-  replace on update; the game reads from the VFS folder anyway.
-- Package: schema fields for the two keys removed; the card "Research icons" is kept for the
-  folder/file rows that Republic Mod Manager 0.4.28 adds. Version 1.6 until the user names the
-  final number of the text round.
-- In-game test: covered by the 1.8 test (VFS store created, clay_study.png seeded from noimage.png).
-
-## 1.5 (2026-09-07)
-
-- INI and icon fallback beside the DLL (Workshop package under SML or the Workshop Bridge),
-  editor schema shipped in the package. Validation and generation unchanged from 1.4.
+  beside the DLL, `plugins\research_expansion\noimage.png`, `plugins\research_expansion\icons\noimage.png`.
+  The keys `icon_folder` and `noimage_name` are not used; they stay accepted by the strict INI
+  layout check and log one `legacy-key` WARN when set to something else than the defaults. Log
+  lines: `Icon store: <path>`, `Fallback icon: <path or reason>`, `Icon for <id> kept from the VFS
+  research folder`, `Icon for <id> created from noimage.png|the package icon`.
+- Package: Republic Mod Manager tabs New research, Localization and Vanilla edits (research and
+  line pickers, original block view, cost as a number field, reference checks). Depends on
+  `tesmio.localization >= 0.4.0`.
+- In-game test 2026-09-10 (user): `[research:clay_study]` with `requires = faculty_geology | before
+  | uranium_study`, `name = clay_study`, no desc; log "1 new research entr(y/ies) (1 of them
+  [research:] sections)", "Icon for clay_study created from noimage.png"; name, description and the
+  position before uranium_study confirmed in the game; a vanilla cost change confirmed the same day.

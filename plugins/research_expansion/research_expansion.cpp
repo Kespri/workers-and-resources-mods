@@ -32,7 +32,7 @@ typedef struct TsmLocalizationApi
 #include <limits.h>
 #include <ctype.h>
 
-#define PLUGIN_VERSION "0.4.0"
+#define PLUGIN_VERSION "0.4.1"
 // The namespace of the plugin's own Localization text pack (localization.ini of
 // plugins\localization\research_expansion); [research:] sections complete short
 // name / desc values with it (1.8).
@@ -1283,7 +1283,7 @@ static bool ReadGeneralConfig()
         return false;
     if (legacyFolder != "icons" || legacyName != "noimage.png")
         Report("WARN", PLUGIN_INI, "legacy-key",
-            "icon_folder / noimage_name are ignored since 1.6: icons are read from the VFS research folder, noimage.png from research_expansion\\icons beside the DLL or plugins\\research_expansion");
+            "icon_folder / noimage_name are not used: icons are read from the VFS research folder, noimage.png from research_expansion\\icons beside the DLL or plugins\\research_expansion");
     return true;
 }
 

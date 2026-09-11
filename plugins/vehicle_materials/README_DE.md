@@ -302,10 +302,7 @@ Das Plugin verändert keine Spieldateien und speichert nichts im Spielstand. Mat
 
 ### Versionskompatibilität
 
-- **0.4.0 (vorher 1.2.0-beta):** gleiche DLL-Logik, neue Texte in Republic Mod Manager und im README; die Versionszählung beginnt mit der Überarbeitung neu in der Beta, 0.4.0 folgt auf 1.2.0
-- **1.2.0-beta:** liest die Konfiguration als Basis plus persönliches Overlay; die Berechnung der Materialien ist gegenüber 1.1.0 unverändert
-- **Zurück auf eine ältere Fassung:** alte DLL und die dazugehörige INI wiederherstellen
-- **Paketrevision 2 (2026-09-06):** Manifest mit `local_copy = 1`, DLL und INI unverändert
+- **0.4.0:** erste veröffentlichte Fassung; die Konfiguration wird als Basis plus persönliches Overlay gelesen
 
 ---
 

@@ -526,8 +526,7 @@ MyGame\
 
 ### Version compatibility
 
-- **Going back to an older version:** restore the old DLL and its matching INI; for a way back before 1.6 also the old savegame, because channel mapping and sand data in `tesmio_deposits.bin` are not migrated back
-- **Update to 0.4.0 (previously 1.8.x):** automatic; the legacy detail keys `generation_count`, `generation_radius_min_m` and `generation_radius_max_m` are no longer read, frequency and size class replace them. Version numbering restarts in beta with the rework; 0.4.0 follows 1.8.1.
+- **Within the 0.4 series:** updates carry save games and `tesmio_deposits.bin` over automatically; type numbers, map slots and tokens of running save games stay off limits (see above)
 - **With Deposit Depletion:** keeps working as before; the key `deplete` is passed on to the depletion plugin
 
 ---

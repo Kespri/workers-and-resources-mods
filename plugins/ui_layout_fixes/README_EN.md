@@ -45,15 +45,10 @@ Bundles window-specific corrections for *Workers & Resources: Soviet Republic* 1
 - ✅ Only verified code and data in the memory of the running game are changed; game files, building files and savegames stay untouched
 
 ### 🆕 New in 0.3.0
-- ✅ New version scheme (0.3.0 follows 1.3); modules, hooks and INI keys unchanged.
-- ✅ Every Republic Mod Manager text reworked in player style: notice boxes instead of group texts, General card removed, own help text in the add dialog, game captions picked through "Choose text...".
-
-### 🆕 Since 1.3
+- ✅ Every Republic Mod Manager text in player style: notice boxes instead of group texts, General card removed, own help text in the add dialog, game captions picked through "Choose text...".
 - ✅ **TEXT_WRAP module:** long captions such as "View area where a possible issue exists on route!" in the vehicle window are drawn as one line and run off the window. The module intercepts the game's text lookup for every text id in the `[text_wrap_ids]` list, returns a re-wrapped copy and draws it line by line through the engine's hooked print functions. Rules: at most `max_chars` characters per line (default 58, overridable per text), words are never split, the lines get similar lengths, the game's paragraphs flow together (`keep_breaks = 1` keeps them), line spacing `line_spacing` as a multiple of the font size (default 1.15). If a text needs more than `max_lines` lines (default 4), the lines get wider step by step. No game code is changed; the module does not depend on the game build and works in every game language that separates words with spaces.
 - ✅ **Finding candidates:** `log_long_texts = 70` writes every text id the game shows whose longest line exceeds 70 characters once to the detail log, with its first 80 characters. In Republic Mod Manager you then add the id on the Text ids tab.
 - ✅ Republic Mod Manager: list editor with the tabs General, Customs house, Text wrap and Text ids.
-
-### 🆕 Since 1.1
 - ✅ **Shared configuration rule** (`tesmio_config.h`): the base is `plugins\ui_layout_fixes.ini`, otherwise the INI beside the DLL (in the Workshop package). If `user_config\ui_layout_fixes.ini` exists in the loader folder, its keys win one by one; only Republic Mod Manager writes that file. Both paths are logged at start.
 
 ---
@@ -224,10 +219,7 @@ Limit: if the game copies a text into a buffer of its own before printing, the p
 The plugin changes neither game files nor savegames.
 
 ### Version compatibility
-- **0.3.0:** version scheme and Republic Mod Manager texts; modules and INI unchanged
-- **1.3:** TEXT_WRAP module with the `[text_wrap]` and `[text_wrap_ids]` sections replaces the VEHICLE_ROUTE_HINT module of the internal builds 1.2/1.2.1 (their `[vehicle_route_hint]` section is no longer read); CUSTOMHOUSE and all earlier keys unchanged
-- **1.1:** configuration through `tesmio_config.h` (base plus personal overlay); the CUSTOMHOUSE module is unchanged from 1.0
-- **Going back to an older version:** restore the old DLL and its INI
+- **0.3.0:** first published version with the modules CUSTOMHOUSE and TEXT_WRAP
 
 ---
 

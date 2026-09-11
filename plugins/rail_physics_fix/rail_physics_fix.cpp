@@ -290,7 +290,7 @@ static long SpanCount(const void* begin, const void* end, size_t stride)
     UINT_PTR a = (UINT_PTR)begin, b = (UINT_PTR)end;
     if (!stride || b < a || (b - a) / stride > 0x7FFFFFFF)
         return -1;
-    // 1.3.4: a remainder is truncated exactly like upstream's pointer division;
+    // A remainder is truncated exactly like upstream's pointer division;
     // only a reversed span or a count that would not fit is rejected.
     return (long)((b - a) / stride);
 }
@@ -326,7 +326,7 @@ static void ComputePhysics(void* veh, Physics* out)
     if (wagonCount < 0 || wagonCount > 512 ||
         (wagonCount && !ReadableFast(wb, (size_t)wagonCount * sizeof(*wb))))
     { RpWarn(RP_CONSIST, "invalid wagon vector"); return; }
-    // Native aggregate/fallback functions traverse this list too. 1.3.4: the
+    // Native aggregate/fallback functions traverse this list too. The
     // checks go through the region cache (ReadableFast) instead of one VirtualQuery
     // per wagon and frame, and inactive wagons are skipped exactly as upstream does
     // - their type is never read, so a stale type pointer there cannot stall a train.
@@ -1146,7 +1146,7 @@ static bool BuildCorridors(void)
     }
 
 done:
-    // 1.3.4: like upstream, an allocation/capacity stop publishes the corridors
+    // Like upstream, an allocation/capacity stop publishes the corridors
     // found so far; the missing ones return with the next regular rescan.
     if (strcmp(stop, "complete"))
         RpWarn(RP_SCAN, "corridor build stopped early (allocation or capacity); partial corridors published");
@@ -1335,7 +1335,7 @@ static bool ScanStationTables(void)
         int   customs = (type == CHAIN_TYPE_CUSTOMHOUSE);
         if (!station && !customs) continue;
 
-        if (!ReadablePtr(chain, CHAIN_TABLE + 16)) continue;    // 1.3.4: skip this chain like upstream
+        if (!ReadablePtr(chain, CHAIN_TABLE + 16)) continue;    // skip this chain like upstream
         BYTE** tb = *(BYTE***)(chain + CHAIN_TABLE);
         BYTE** te = *(BYTE***)(chain + CHAIN_TABLE + 8);
         long  ne = SpanCount(tb, te, 0x60);
@@ -1481,7 +1481,7 @@ static void RescanStations(void)
     ZoneData previous = DetachZones();
     if (!ScanStationTables())
     {
-        // 1.3.4: keep the last complete tables instead of running without any
+        // Keep the last complete tables instead of running without any
         // station/customs zone until the next rescan.
         ZoneData incomplete = DetachZones();
         FreeZones(incomplete);
@@ -2725,7 +2725,7 @@ static float CurveLimitFor(void* veh)
 // Called from the site-C stub with XMM9 (the final vanilla limit) in xmm1.
 extern "C" float rp_curve_helper(void* veh, float limit)
 {
-    if (!isfinite(limit)) { RpWarn(RP_NUMERIC, "invalid native curve limit"); return limit; }   // 1.3.4: pass through, never brake to zero
+    if (!isfinite(limit)) { RpWarn(RP_NUMERIC, "invalid native curve limit"); return limit; }   // pass through, never brake to zero
     if (!g.curves) return limit;
     float cl = CurveLimitFor(veh);
     return cl < limit ? cl : limit;
@@ -3012,7 +3012,7 @@ static void ResolveSites(void)
 
 // ---------------------------------------------------------------- configuration file
 //
-// 1.3.3: plugins\rail_physics_fix.ini under the loader base directory (classic
+// Configuration: plugins\rail_physics_fix.ini under the loader base directory (classic
 // installation, or the effective INI Republic Mod Manager writes) is read through
 // the host exactly as before. Only when that file is missing, rail_physics_fix.ini
 // beside this DLL (Workshop package under Soviet Mod Loader or the Workshop

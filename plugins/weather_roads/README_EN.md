@@ -65,18 +65,14 @@ Controls in *Workers & Resources: Soviet Republic* 1.1.1.9 how fast snow builds 
 
 ### 🆕 New in 0.3.0
 - ✅ Every text in Republic Mod Manager and in this guide rewritten: shorter, in players' language, switches with ON and OFF instead of 1 and 0, line breaks in longer explanations. The note on the interplay with Technical Service Storage now sits in the "Notes" card.
-- Operation, values, file format and hooks are unchanged from 0.2.11.
-
-### New in 0.2.11
-- ✅ **INI beside the DLL:** when `plugins\weather_roads.ini` is missing, the DLL reads the INI from its own folder, i.e. from the Workshop package under Soviet Mod Loader or the Workshop Bridge. The chosen path is logged as `configuration file:`. Values are read exactly as before.
+- ✅ **INI beside the DLL:** when `plugins\weather_roads.ini` is missing, the DLL reads the INI from its own folder, i.e. from the Workshop package under Soviet Mod Loader or the Workshop Bridge. The chosen path is logged as `configuration file:`.
 - ✅ Schema for Republic Mod Manager in the package: five tabs with every setting, German and English.
-- Snow tuning, protection strengths and durations, dry plowing, material communication, file format and hook order are unchanged from 0.2.10.
 
 ---
 
 ## 💾 Installation
 
-Choose **one** of the four methods. The same DLL must never be loaded twice. Do not load `weather_roads_probe.dll` (the old predecessor) at the same time; the plugin then refuses to initialise.
+Choose **one** of the four methods. The same DLL must never be loaded twice.
 
 ---
 
@@ -265,17 +261,12 @@ Without the plugin the savegame loads normally; the extra file is then not appli
 ### Other plugins
 - **Technical Service Storage** provides material strength and dry plowing; without it strength 1.00 applies.
 - The weather call chain accounts for the hook of `daynight`; other combinations are not verified.
-- `weather_roads_probe.dll` must not be loaded at the same time.
 
 ### Version compatibility
 - **0.3.3:** defaults `accumulation_multiplier` 0.35 and `maximum_accumulation_per_burst` 95; otherwise unchanged
-- **0.3.2:** weather field read as a roll 0 to 7, only 1 = snowfall; overlay and log names; otherwise unchanged
+- **0.3.2:** weather field read as a roll 0 to 7, only 1 = snowfall; names in the info window and the log; otherwise unchanged
 - **0.3.1:** `release_follows_weather` (default 1), otherwise unchanged
-- **0.3.0:** new texts in Republic Mod Manager and README; operation and file format unchanged
-- **0.2.11:** INI fallback beside the DLL, schema in the package; operation and file format unchanged
-- **0.2.10:** defensive loader checks, cleanup on exceptions, clearer start messages
-- **0.2.8:** corrected save timing of the extra file
-- **Back to an older version:** restore the old DLL and its matching INI
+- **0.3.0:** first published version
 
 ---
 
@@ -286,7 +277,6 @@ Without the plugin the savegame loads normally; the extra file is then not appli
 | Problem | Cause | Solution |
 |---|---|---|
 | `unsupported SOVIET64.exe` / `unsupported C3DDLL64.dll` | unsupported game build | use the matching plugin version |
-| `weather_roads_probe.dll is already loaded` | old predecessor active | disable the predecessor, restart |
 | `invalid [section] …` | value invalid or out of range | check the value; the fallback was used |
 | `grit-spreader service unavailable` | Technical Service Storage missing | strength 1.00 active; check plugin and service |
 | `protection-persistence=unavailable` | save hook missing or refused | check earlier warnings |

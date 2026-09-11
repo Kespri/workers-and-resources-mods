@@ -302,10 +302,7 @@ The plugin changes no game file and stores nothing in the saved game. Materials 
 
 ### Version compatibility
 
-- **0.4.0 (previously 1.2.0-beta):** same DLL logic, new texts in Republic Mod Manager and in the README; version numbering restarts in beta with the rework, 0.4.0 follows 1.2.0
-- **1.2.0-beta:** reads the configuration as base plus personal overlay; the material calculation is unchanged since 1.1.0
-- **Going back to an older version:** restore the old DLL and its matching INI
-- **Package revision 2 (2026-09-06):** manifest with `local_copy = 1`, DLL and INI unchanged
+- **0.4.0:** first published version; the configuration is read as base plus personal overlay
 
 ---
 

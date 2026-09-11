@@ -53,23 +53,12 @@ Extends the train physics of *Workers & Resources: Soviet Republic* 1.1.1.9: tra
 - ✅ Three independent diagnostic switches; warnings always stay visible
 
 ### 🆕 New in 1.3.5
-- ✅ Every Republic Mod Manager text reworked in player style: notice and info box on General, "Troubleshooting" instead of "Diagnostic log", brake margin with the brakes, "curve and route look-ahead" everywhere.
-- ✅ In-game test confirmed in the log: 9 subsystems patched, curve limits, station stop, station zone and consumption model working. Physics, hooks and values unchanged from 1.3.4.
-
-### 🆕 New in 1.3.4
-A source comparison with the original RailPhysics 1.3.0 showed that some of the 1.3.2 safeguards were stricter than the original and could stall a train or discard every zone where the original kept going. 1.3.4 returns to the original's degrading behaviour there; the physics is unchanged:
-- ✅ **Fewer system calls per frame:** the consist preflight, the brake helper and the curve cache verify memory through the region cache instead of one VirtualQuery per wagon and frame.
-- ✅ **Inactive wagons** are skipped before their type is read, as in the original; a stale type pointer there no longer stalls the train.
-- ✅ **Route lookahead on torn data:** an unreadable or invalid route leg ends the walk with the points collected so far (partial lookahead) instead of discarding the whole calculation. Only a memory failure still keeps the last limit.
-- ✅ **Station and customs zones:** an unreadable chain is skipped; a stop inside the corridor build publishes the corridors found; when the rebuild fails for lack of memory the previous tables stay until the next run instead of 30 seconds without zones.
-- ✅ A non-finite native curve limit passes through unchanged instead of braking to zero.
-- ✅ Spans with a remainder are truncated as in the original instead of rejected.
-- ✅ Offline suite extended (inactive wagon, torn route, NaN limit, table retention on memory failure), still 17 processes.
-
-### 🆕 New in 1.3.3
+- ✅ Every Republic Mod Manager text in player style: notice and info box on General, "Troubleshooting" card, brake margin with the brakes, "curve and route look-ahead" everywhere.
+- ✅ In-game test confirmed in the log: 9 subsystems patched, curve limits, station stop, station zone and consumption model working.
+- ✅ **Fixed against the original RailPhysics 1.3.0:** three argument-passing bugs of the bridges, a use-after-free in the corridor build, unchecked memory reads and the locale-dependent parsing of decimals. Physics, values and hooks are the original's; on torn data, inactive wagons and memory failures the plugin degrades like the original (partial look-ahead instead of a stop, unreadable chain skipped, last zone tables kept).
 - ✅ **INI beside the DLL:** when `plugins\rail_physics_fix.ini` is missing, the DLL reads the INI from its own folder, i.e. from the Workshop package under Soviet Mod Loader or the Workshop Bridge. The classic path through the loader is unchanged; the chosen path is logged as `configuration file:`.
 - ✅ Schema for Republic Mod Manager in the package: four tabs with all 30 settings, German and English.
-- ✅ Offline test suite extended by the `beside_dll` scenario (17 processes); physics, hooks, bridges and checks are unchanged from 1.3.2.
+- ✅ Offline test suite with 17 processes, including the `beside_dll` scenario.
 
 ---
 
@@ -250,12 +239,7 @@ No separate save format. Positions, speeds and consumption already affected stay
 - Other changes at the same hook sites are detected by the signature check and raise `RP401` to `RP406`.
 
 ### Version compatibility
-- **1.3.5:** texts and schema layout for Republic Mod Manager, in-game test confirmed; physics and hooks unchanged
-- **1.3.4:** the original's degrading behaviour on torn data, inactive wagons and memory failures; physics and hooks unchanged
-- **1.3.3:** INI fallback beside the DLL, schema in the package, test scenario `beside_dll`
-- **1.3.2:** unified version label, renamed to rail_physics_fix on 2026-09-05
-- **1.3.1 → 1.3.2:** corrected x64 argument passing of the bridges, extended range and memory checks
-- **Back to an older version:** restore the old DLL and its matching INI
+- **1.3.5:** first published version of the port; physics and settings as in RailPhysics 1.3.0, the INI section `[railphysics]` stays compatible
 
 ---
 

@@ -33,12 +33,12 @@ History newest first.
   and by a read-only memory probe of the paused game (roll 6 while the plugin reported
   "unavailable").
 - `ReadWeatherSnapshot` accepts 0..7 (was 0..2). With the old range the snapshot was refused on
-  5 of 8 rolls: 23 "weather tick unavailable" events in a 12-minute session, overlay "no world
+  5 of 8 rolls: 23 "weather tick unavailable" events in a 12-minute session, info window "no world
   data", and `release_follows_weather` could not act.
 - `release_follows_weather` drops the queue on any roll other than 1 (was: only 0). Event line
   carries `precipitation_state=<n> (<name>)`.
-- `WeatherRollName`: dry / snow / no snow / unknown for the weather EVENT lines and the overlay;
-  the overlay's old "rain" label for 2 was wrong.
+- `WeatherRollName`: dry / snow / no snow / unknown for the weather EVENT lines and the info window;
+  the window's old "rain" label for 2 was wrong.
 - Package: INI comment, schema and DE/EN descriptions say "snowfall" instead of "precipitation"
   and "a few seconds" instead of "half a minute" (the burst maximum caps the queue at 80 units,
   4.4 s at step 2 / 110 ms).
@@ -60,34 +60,22 @@ History newest first.
   snowing state was rejected (feedback into the same queue, fighting the game's weather machine).
 - Startup INFO line now ends with `release follows weather=on|off`.
 - Package: schema field on the Snow tab (order 45), DE/EN texts, INI comment, READMEs.
-- In-game test: pending (user).
 
 ## 0.3.0 (2026-09-08)
 
-- Final number of the September rework (user's call); follows 0.2.11-beta, the DLL logic is
-  unchanged. Scheme from here on: 0.M.P, patch increments per change, the next minor when a change
-  is large.
-- Workshop package texts (RMM schema, de/en) rewritten in the user's gamer style: 47/46 keys,
-  every boolean described with ON/OFF, line breaks (`\n`) in longer descriptions, the group
-  description of the General card dropped, the restart/Technical Service Storage note moved to
-  `[launcher] notice` (needs Republic Mod Manager 0.4.3), the plow formula removed from the UI,
-  "strong phase" renamed "protection phase after plowing".
-- READMEs: same naming, plain wording for melting, visual mapping and the sidecar check.
+First published version.
 
-## 0.2.11-beta (2026-09-07)
-
-- INI fallback beside the DLL: `plugins\weather_roads.ini` when present, otherwise the INI next to
-  the DLL (Workshop package under Soviet Mod Loader or the Workshop Bridge); own `ConfigString`
-  reader identical to the loader's (GetPrivateProfileStringA plus trim). Chosen path logged as
+- Scaled and optionally gradual road-snow build-up with a per-burst cap, independent natural
+  melting scale, protection phase (game minutes) followed by a weaker salt phase (game hours) with
+  a configurable factor, material strength and dry-plowing detection through the grit spreader
+  service, visual snow correction on tracked plowed areas, F10 info window with built-in
+  German/English texts, protection persistence beside the savegame (sidecar written after the
+  final native file close), defensive loader checks and cleanup on exceptions.
+- Configuration: `plugins\weather_roads.ini` when present, otherwise the INI next to the DLL
+  (Workshop package under Soviet Mod Loader or the Workshop Bridge); own `ConfigString` reader
+  identical to the loader's (GetPrivateProfileStringA plus trim). Chosen path logged as
   `configuration file:`.
-- Workshop package `My Plugins\weather_roads` with a five-tab RMM schema (33 fields).
-
-## 0.2.10 and earlier
-
-- 0.2.10: defensive loader checks, cleanup on exceptions, clearer start messages.
-- 0.2.8: corrected save timing of the sidecar (written after the final native file close).
-- 0.2.x: scaled and optionally gradual road-snow build-up with a per-burst cap, independent natural
-  melting scale, protection phase (game minutes) followed by a weaker salt phase (game hours) with a
-  configurable factor, material strength and dry-plowing detection through the grit spreader
-  service, visual snow correction on tracked plowed areas, F10 diagnostic overlay with built-in
-  German/English texts, protection persistence beside the savegame.
+- Package: five-tab RMM schema (33 fields); texts (schema, de/en) in player style: every boolean
+  described with ON/OFF, line breaks in longer descriptions, the restart/Technical Service Storage
+  note in `[launcher] notice` (needs Republic Mod Manager 0.4.3), the plow formula kept out of the
+  UI, "protection phase after plowing" naming. READMEs on the common template.

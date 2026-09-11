@@ -48,7 +48,7 @@ static void AllocationTests()
         int liveBefore=g_testLiveAllocations;
         g_testAllocCalls=0; g_testAllocFailAt=fail;
         world.Scan();
-        // 1.3.4: a failed rebuild keeps the previous complete tables; a stop inside
+        // A failed rebuild keeps the previous complete tables; a stop inside
         // the corridor build publishes the partial corridors. Never a zone-less world,
         // never an inconsistent table, never a leaked incomplete table.
         assert((g_statSegs!=NULL)==(g_statSegCount>0) && (g_corrSegs!=NULL)==(g_corrSegCount>0));
@@ -94,7 +94,7 @@ static void GuardTests()
     t_phVeh=NULL; assert(RailFuel(v.data(),1,0)==0 && !nativeCalls);
     Put(v,V_WAGON_VEC,(BYTE**)NULL); Put(v,V_WAGON_VEC+8,(BYTE**)NULL);
     ComputePhysics(v.data(),&ph); assert(ph.ok&&ph.nativeSafe);
-    // 1.3.4: an inactive wagon is skipped before its type is read (upstream behaviour);
+    // An inactive wagon is skipped before its type is read (upstream behaviour);
     // an active wagon with the same dead type pointer still keeps the native calls away.
     std::vector<BYTE> wagon(0x1800); BYTE* wagons[]={wagon.data()};
     Put(wagon,V_INACTIVE,1); Put(wagon,V_TYPE,(BYTE*)NULL);
@@ -129,7 +129,7 @@ static void GuardTests()
     g_testAllocFailAt=-1;
     assert(ComputeCurveLimit(v.data(),&radius,&ci,&slot,0)==FLT_MAX && !g_curveScanFailed);
     RpFree(g_pts); g_pts=NULL; g_ptsCap=0;
-    // 1.3.4: a torn second leg (guard page) ends the walk with the first leg's points
+    // A torn second leg (guard page) ends the walk with the first leg's points
     // instead of failing the scan; the native limit passes through unchanged when NaN.
     BYTE* tornRoute[]={sg.data(),edge.memory+4096};
     Put(v,V_ROUTE_SEGS,tornRoute); Put(v,V_ROUTE_SEGS+8,tornRoute+2);

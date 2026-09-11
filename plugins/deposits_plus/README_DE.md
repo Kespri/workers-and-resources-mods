@@ -526,8 +526,7 @@ MeinSpiel\
 
 ### Versionskompatibilität
 
-- **Zurück auf eine ältere Fassung:** alte DLL und die dazugehörige INI wiederherstellen; für einen Rückweg vor 1.6 zusätzlich den alten Spielstand, weil Kanalzuordnung und Sanddaten in `tesmio_deposits.bin` nicht zurückmigriert werden
-- **Update auf 0.4.0 (vorher 1.8.x):** automatisch; die alten Detailschlüssel `generation_count`, `generation_radius_min_m` und `generation_radius_max_m` werden nicht mehr gelesen, Häufigkeit und Größenklasse ersetzen sie. Die Versionszählung beginnt mit der Überarbeitung neu in der Beta; 0.4.0 folgt auf 1.8.1.
+- **Innerhalb der 0.4-Reihe:** Updates übernehmen Spielstände und `tesmio_deposits.bin` automatisch; Typnummern, Kartenplätze und Token laufender Spielstände bleiben tabu (siehe oben)
 - **Mit Deposit Depletion:** funktioniert weiter wie immer, der Schlüssel `deplete` wird an das Plugin depletion durchgereicht
 
 ---

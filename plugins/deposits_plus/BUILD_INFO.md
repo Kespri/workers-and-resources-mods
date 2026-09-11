@@ -7,7 +7,7 @@ kernel32.lib) compiles `deposits_plus.cpp`; the headers `deposit_generation.h`, 
 `deposit_visual_shader.h` and the `.inl` files are included, `third_party` holds Microsoft's DXIL
 hash helper (see below). Service name `deposits` and the savegame file `tesmio_deposits.bin`
 deliberately stay identical to the original so consumers such as Depletion keep working.
-User documentation: README_DE.md / README_EN.md. History newest first.
+User documentation: README_DE.md / README_EN.md. History newest first, technical notes below.
 
 ## 0.4.6 (2026-09-10)
 
@@ -21,7 +21,6 @@ User documentation: README_DE.md / README_EN.md. History newest first.
   deposit name. `desert_fill_relief = 0` keeps the band over the whole land. Log line names the band
   and the two heights.
 - Package schema: three new fields under "Desert maps: everywhere"; READMEs updated.
-- Version 0.4.6. Backup: `_backups\deposits_plus_0.4.5_before_0.4.6_*`.
 
 ## 0.4.5 (2026-09-10)
 
@@ -29,7 +28,6 @@ User documentation: README_DE.md / README_EN.md. History newest first.
   hovered layer wins over the selected one while the mouse rests on the button (`h_MM_DrawOverlay`
   picks state 1 before state 2; the row hook already tracked state 1). A vanilla layer that is on
   while a mod button is hovered stays underneath because the vanilla overlay has already been drawn.
-- Version 0.4.5. Backup: `_backups\deposits_plus_0.4.4_before_0.4.5_*`.
 
 ## 0.4.4 (2026-09-10)
 
@@ -42,7 +40,6 @@ User documentation: README_DE.md / README_EN.md. History newest first.
   zone is harmless; the resource maps (coal, iron, oil, bauxite, uranium) stay respected either way.
   Logged in the `generation enabled=` line (`block_gravel=`) and in the occupancy line.
 - Package schema: switch "Gravel zone blocks" on the Natural generation card; READMEs updated.
-- Version 0.4.4. Backup: `_backups\deposits_plus_0.4.3_before_0.4.4_*`.
 
 ## 0.4.3 (2026-09-10)
 
@@ -52,7 +49,6 @@ User documentation: README_DE.md / README_EN.md. History newest first.
   reserved 724009 / 624610 cells although the resource maps on disk cover about 157000 / 115000 cells
   (offline replay incl. a 3-cell gap: 198504 / 147392); sand, clay and gas then found no room while
   copper still fit. The runtime mask texture is the suspect; the line will tell.
-- Version 0.4.3. Backup: `_backups\deposits_plus_0.4.2_before_0.4.3_*`.
 
 ## 0.4.2 (2026-09-10)
 
@@ -67,7 +63,6 @@ User documentation: README_DE.md / README_EN.md. History newest first.
   longer reuse the meadow pair.
 - Package schema: the two file fields are grouped file lists with a pre-save check (Republic Mod
   Manager 0.4.48: `picker = files`, `reference = files`, `reference_format = dds_dxt1|dds_dxt5`).
-- Version 0.4.2. Backup: `_backups\deposits_plus_0.4.1_before_0.4.2_*`.
 
 ## 0.4.1 (2026-09-10)
 
@@ -86,70 +81,48 @@ User documentation: README_DE.md / README_EN.md. History newest first.
   deposit that never held data is filled; saved data is never touched. Infinite unless Depletion mines
   it down. Shipped on for `[sand]`.
 - Parser: `[sand_tile:]` sections are not deposits; unknown tile keys are logged and ignored.
-- Version 0.4.1. Backup: `_backups\deposits_plus_0.4.0_before_0.4.1_*`.
 
 ## 0.4.0 (2026-09-07)
 
-Version numbering restarts in beta with the September rework: 0.4.0 supersedes the unreleased
-1.8.1-beta build of the same day and follows 1.8.0-beta. Scheme from here on: 0.M.P, patch
-increments per change, the next minor when a change is large.
+First published version.
 
-- The legacy detail keys `generation_count`, `generation_radius_min_m` and
-  `generation_radius_max_m` are no longer read; `generation_frequency` (1..6 regions) and
-  `generation_size` (1..3 radius classes) are the only way to size the generation, an absent
-  preset keeps the defaults (3 regions, class 2). The mixed-settings warning went with them;
-  an old INI that still carries the keys gets the usual unknown-key handling. Shipped INI,
-  READMEs and the RMM schema of the Workshop package no longer mention them.
-- Workshop package texts (schema, de/en) reworked by the user: shorter descriptions, the
-  saved-game warning moved to the Deposits tab, headings "Natural generation" and "Working
-  vehicles" in the detail panel (needs Republic Mod Manager 0.34.4).
-- No change to hooks, savegame format or `tesmio_deposits.bin`.
-
-## 1.8.0-beta (2026-09-06)
-
+- Generation presets: `generation_frequency` (1..6 regions) and `generation_size` (1..3 radius
+  classes) are the only way to size the generation; an absent preset keeps the defaults (3 regions,
+  class 2, richness 0.45..1.00).
 - Assets are looked up beside the DLL first (`<DLL folder>\deposits_plus\assets`), then under
   `plugins\deposits_plus\assets`; the folder found is logged (`sand surface assets from ...`).
 - `TsmPluginInit` returns 1 ("deposits_plus idle") while the upstream `plugins\deposits.dll`
   exists and is enabled in tesmioloader.ini, so both never run together.
-- Workshop package `My Plugins\3796823002` with `local_copy = 1`, `[assets] dir = hooks\deposits_plus`
-  and an RMM keyed_sections schema (tabs General / Sand structure / Deposits).
+- Workshop package `My Plugins\deposits_plus` with `local_copy = 1`, `[assets] dir = hooks\deposits_plus`
+  and an RMM keyed_sections schema (tabs General / Sand structure / Deposits); texts (schema, de/en)
+  reworked by the user, headings "Natural generation" and "Working vehicles" in the detail panel.
+- No change to hooks, savegame format or `tesmio_deposits.bin` against the original plugin.
 
-## 1.7.x – sandy meadow surface
+## Technical notes: sandy meadow surface
 
 Optional ground visuals over the independent sand deposits: the meadow texture with irregular
 sand traces is blended in at sand deposits; the resource density drives the transition.
 Settings `sand_surface`, `sand_surface_strength` (0.0–1.0), `sand_surface_token` in
-`[deposits_plus]`; the token must be a deposit with `independent_map = 1`.
-
-- 1.7.1: the game loader's normal shader class linkage is passed through unchanged (1.7 had
-  wrongly excluded it; reproduced in a separate test and verified with the real FX loader from
-  the installed engine DLL in a WARP test process).
-- 1.7.2: the hook is applied inside the actual virtual `CreateShaders` call. `CreateManagedShaders`
-  only creates an empty object and does not trigger pixel-shader creation, which is why the 1.7.1
-  in-game test still showed `PS calls=0`. The whole native sequence (object creation, later file
-  load, cache use, reset and reload) was verified.
-- 1.7.3: own autumn variant combining the sand traces with the brown palette of `grass2_fall.dds`;
-  summer and autumn use separate colour/normal textures, also during the seasonal blend. The
-  native order is summer → autumn → snow; 1.7.2 had autumn and snow swapped in the material
-  selection, so the sand look could vanish on the switch to the brown meadow. `grass2_snow.dds`
-  and the native snow calculation are not replaced. No new INI keys.
+`[deposits_plus]`; the token must be a deposit with `independent_map = 1`. Summer and autumn use
+separate colour/normal textures, also during the seasonal blend; the native order is
+summer → autumn → snow; `grass2_snow.dds` and the native snow calculation are not replaced.
 
 Technique: the extra texture is injected at load time into 13 identified native terrain pixel
-shaders; their existing sequence for terrain blending, light, fog and snow is kept. Sampling
-uses the native UVs, samplers and derivatives; only RGB is blended, the original alpha stays.
-No shader file is changed. The selection mask is the current GPU resource map; its identity is
-re-checked on a world change; no GPU readback or full resource copy per frame. Unknown
-engine/shader builds, missing assets, unsuitable resource formats and binding slots taken by
-other mods disable only this visual with a concrete warning; other Deposits Plus features stay
-independent. Assets: four DDS 1024 × 1024 with eleven mip levels, colour BC1/DXT1, normal
+shaders inside the actual virtual `CreateShaders` call; their existing sequence for terrain
+blending, light, fog and snow is kept, the game loader's normal shader class linkage is passed
+through unchanged. Sampling uses the native UVs, samplers and derivatives; only RGB is blended,
+the original alpha stays. No shader file is changed. The selection mask is the current GPU
+resource map; its identity is re-checked on a world change; no GPU readback or full resource copy
+per frame. Unknown engine/shader builds, missing assets, unsuitable resource formats and binding
+slots taken by other mods disable only this visual with a concrete warning; other Deposits Plus
+features stay independent. Assets: DDS 1024 × 1024 with eleven mip levels, colour BC1/DXT1, normal
 BC3/DXT5; `build.bat` copies them into `plugins\deposits_plus\assets`.
 
 Offline verification: all 13 original shaders with D3D11/WARP, rendered mask/light/snow
 fixtures, DDS loading, season flags, world-map change, temporary shader hooks and restoration
 of the graphics bindings; both seasonal colour/normal pairs with 69,120 GPU pixel comparisons;
-material accesses of the installed engine. In game confirmed earlier: summer look, shrinking
-with Depletion, save/load. Still open: a visual and performance test of the autumn variant
-(summer → autumn → snow → melt, reload from the main menu). Expected log lines:
+material accesses of the installed engine. In game confirmed: summer look, shrinking with
+Depletion, save/load. Expected log lines:
 `sand surface shader preparation: 13/13 verified native programs augmented`,
 `sand surface active: token=$TYPE_MINE_SAND ...`,
 `sand surface terrain selection: season=2 transition=0 surface=autumn/native ...`.
@@ -160,7 +133,7 @@ are unchanged from Microsoft's DirectXShaderCompiler repository (University of I
 Source License, `third_party/LICENSE.TXT`, shipped as `THIRD-PARTY-LICENSE.txt`). The hash
 helper computes the DXBC format checksum only; it is not a security signature check.
 
-## 1.6-beta – natural generation inside the country border
+## Technical notes: natural generation inside the country border
 
 - Every loaded world: all resources of the current INI are matched by token against the
   savegame's history. Unknown empty resources and empty resources that were only skipped so far
@@ -177,7 +150,8 @@ helper computes the DXBC format checksum only; it is not a security signature ch
   conservatively. The border structure is verified against the installed engine; an unknown or
   invalid structure suppresses new placements instead of placing outside the country.
 - No overlap with other newly generated fields, existing plugin deposits or Vanilla
-  oil/iron/coal/uranium/bauxite/gravel (`generation_gap_m`). Existing overlaps are not changed.
+  oil/iron/coal/uranium/bauxite (`generation_gap_m`); the gravel/rock terrain zone only with
+  `generation_block_gravel = 1`. Existing overlaps are not changed.
 - Round robin over all new resources: at most one field and 32 attempts per turn, then the next
   resource; the order rotates with the saved seed. At most 256 attempts per requested field.
 - Water, border and occupied pieces are cut away; a field counts only when at least 60 % of its
@@ -189,52 +163,44 @@ helper computes the DXBC format checksum only; it is not a security signature ch
 - Levels: `generation_frequency` 1–6 (desired fields 1–6) and `generation_size` 1–3 (base
   measure 150–350 / 350–550 / 550–750 m). The base measure is chosen per field and scales its
   whole course; the elongated course spans about 3.4 to 4.6 times the base measure along its
-  main axis. Precedence independent of line order: `generation_frequency` overrides
-  `generation_count`, `generation_size` overrides both `generation_radius_*`; mixtures are
-  logged with resource and overridden keys. Invalid levels disable only that resource's
-  generation with a warning. Defaults since 1.6: frequency 3, size 2
-  (`generation_count = 3`, radius 350–550 m, richness 0.45–1.00).
+  main axis. Invalid levels disable only that resource's generation with a warning.
 - Sand: the shipped INI keeps `map = terrain` / `component = 1` as the origin note and adds
   `independent_map = 1`; the plugin assigns sand its own separate channel after the existing
   auto channels. On the first adoption of an old savegame without metadata the terrain richness
   is adopted (area-averaged from terrain to resource resolution) unless a sand deposit already
   exists; if that is empty too, the general first distribution applies. The visible terrain
-  mask is neither recoloured nor reduced by sand mining; the sand brush now lives in the
-  editor's resource tab. Switching back to a terrain mask is not a supported migration.
+  mask is neither recoloured nor reduced by sand mining; the sand brush lives in the editor's
+  resource tab. Switching back to a terrain mask is not a supported migration.
 
 Metadata `tesmio_deposits.bin`: versioned, checksummed identities, channel mapping, seed and
 history of removed resources; written after the native map save from its DDS files and
 replaced atomically through a temporary file; both are needed on load. History states:
-adopted, generated, not yet initialised, generation attempted but no/too little room. Metadata
-from 1.3 stays readable: `status=2` (skipped back then) counts as a pending first distribution
-while the channel is still empty; once data is adopted or saved in such a channel it is marked
-initialised, and later mining does not reset that. Limit with old data: without metadata the
-plugin cannot prove that an empty channel was never mined; `generate_existing_empty = 0` then
-protects old or incompletely initialised empty entries. That option is never a regeneration
-command. Worlds from `media_soviet/save/...` and `saved_last` count as old savegames without
-metadata, terrain templates as new worlds. Unreadable/invalid metadata, missing original map
-files, contradicting types, unknown DDS formats or missing engine functions produce warnings
-and suppress new generation and metadata overwrites; a broken file is never interpreted as a
-new empty world. A full rollback to 1.2-beta needs the old savegame and the old INI.
+adopted, generated, not yet initialised, generation attempted but no/too little room. Once data
+is adopted or saved in a channel it is marked initialised, and later mining does not reset that.
+Limit with old data: without metadata the plugin cannot prove that an empty channel was never
+mined; `generate_existing_empty = 0` then protects old or incompletely initialised empty
+entries. That option is never a regeneration command. Worlds from `media_soviet/save/...` and
+`saved_last` count as old savegames without metadata, terrain templates as new worlds.
+Unreadable/invalid metadata, missing original map files, contradicting types, unknown DDS
+formats or missing engine functions produce warnings and suppress new generation and metadata
+overwrites; a broken file is never interpreted as a new empty world.
 
 Offline verification: all 18 level combinations, fair round-robin distribution, INI-order
 independence, clipping/minimum area, concave country borders and border cells, layout
 signature of the installed engine, water/occupancy masks, no overlap, bounded search, metadata
 checksums, re-adding, re-sorting, depletion, remove/re-adopt, sand adoption and unchanged
 native vehicle gates; plus a test with the real border, height and Vanilla occupancy data of
-the coastal map template with several seeds. The engine binding still has to be tested in
-game (new test map, resource minimap on, save, reload from the menu and after a restart, then
-add exactly one new resource in a savegame copy). Log lines start with `generation`.
+the coastal map template with several seeds; offline tools `rmhist` (DDS channel histogram) and
+`occ` (occupancy replay). Log lines start with `generation`.
 
-## 1.2-beta – working vehicles for own deposits
+## Technical notes: working vehicles for own deposits
 
 Per deposit section: `working_vehicle_skill = gravelmining` (or `none`, case-insensitive;
 unknown values warn and disable only the vehicle extension of that section). The building
 stays `$TYPE_MINE_SAND` (building_type 7) and still needs `$WORKING_VEHICLES_NEEDED`,
 `$VEHICLE_PARKING` places and the normal operating conditions; vehicles use their existing
 `$SKILL_GRAVELMINING`, there is no `$SKILL_SANDMINING`. The deposit map and the `$PRODUCTION`
-resource are not changed; sand is not switched from `map=terrain` to another map. Fuel, state,
-capacity and production rules of the game stay.
+resource are not changed. Fuel, state, capacity and production rules of the game stay.
 
 Technique: four native type checks are extended by the explicitly configured mine types:
 vehicle admission for purchase/assignment, two work-performance calculation paths and the
@@ -255,7 +221,3 @@ up to 32 deposits); INI parser, defaults, invalid values, existing extra keys; f
 preconditions checked directly against executable bytes; deviating bytes and memory/protection/
 cache failures before activation tested, never partially installed vehicle branches; a
 successful installation changes only the four intended areas of a private in-memory copy.
-In-game test protocol: open a sand mine with vehicle places over a sand deposit, buy or assign
-an excavator, check mining without workers, missing fuel, full storage and resumption, save/
-load, vehicle change, and that a normal gravel/bauxite mine and an unconfigured mine behave as
-before.

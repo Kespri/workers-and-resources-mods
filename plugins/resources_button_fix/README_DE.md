@@ -47,10 +47,7 @@ Ordnet die Werkzeugschaltflächen in zwei Fenstern des Geländeeditors von *Work
 - ✅ Baumwerkzeuge und alle anderen Editorfenster bleiben unverändert; keine Spieldatei und keine VFS-Datei wird angefasst
 
 ### 🆕 Neu in 0.4.0
-- ✅ Neues Versionsschema (0.4.0 folgt auf 1.1); Layoutlogik, Hooks und INI-Schlüssel unverändert.
-- ✅ Alle Texte für Republic Mod Manager im Spieler-Stil überarbeitet: Hinweis-Box auf Allgemein, Karte „Fehlersuche“ mit dem Detail-Log, EIN/AUS statt 1/0, „Button“ statt „Schaltfläche“.
-
-### 🆕 Neu in 1.1
+- ✅ Alle Texte für Republic Mod Manager im Spieler-Stil: Hinweis-Box auf Allgemein, Karte „Fehlersuche“ mit dem ausführlichen Protokoll, EIN/AUS statt 1/0, „Button“ statt „Schaltfläche“.
 - ✅ **INI neben der DLL:** Fehlt `plugins\resources_button_fix.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket unter Soviet Mod Loader oder der Workshop Bridge. Das Plugin läuft damit direkt aus dem Steam-Abo, ohne dass etwas kopiert werden muss.
 - ✅ Die gewählte Konfigurationsdatei steht beim Start im Log; das Live-Neuladen folgt dieser Datei.
 
@@ -269,9 +266,7 @@ Die Datei wird als vollständiger neuer Konfigurationssatz geprüft. Ist nur ein
 Das Plugin verändert weder Spieldateien noch Spielstände; es ordnet nur Schaltflächen im Speicher des laufenden Spiels.
 
 ### Versionskompatibilität
-- **0.4.0:** Texte und Schema-Aufbau für Republic Mod Manager; Layoutlogik und INI unverändert
-- **1.1:** INI-Fallback neben der DLL für Workshop-Pakete; Layoutlogik gegenüber 1.0 unverändert
-- **Zurück auf eine ältere Fassung:** alte DLL und die dazugehörige INI wiederherstellen
+- **0.4.0:** erste veröffentlichte Fassung
 
 ---
 

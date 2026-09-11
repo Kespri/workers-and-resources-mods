@@ -334,8 +334,6 @@ Ergänzte Lager können Teil des nativen Spielstands werden. Prioritäten und Ta
 - **0.3.3:** Reserveschwelle in Prozent (alter Schlüssel bleibt lesbar), Fahrzeugtabelle 1024 (Standard 512), Standardliste ohne `road_salt`, Texte; Speicherformate unverändert
 - **0.3.1:** INI-Fallback neben der DLL, Editor-Schema im Paket; Betrieb und Speicherformate unverändert
 - **0.3.0:** einheitliche Versionsnummer für Plugin und Streugutkomponente
-- **0.1.78:** Materialabschnitt `[grit_materials]` mit Alias `[Streumaterialien]`
-- **Zurück auf eine ältere Fassung:** alte DLL und die dazugehörige INI wiederherstellen; die Zusatzdateien bleiben lesbar
 
 ---
 

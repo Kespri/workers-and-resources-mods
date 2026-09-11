@@ -47,13 +47,8 @@ Adjusts Vanilla, DLC and Workshop buildings in *Workers & Resources: Soviet Repu
 - ✅ A rejected target does not block the others; every rejection is logged with section, target and cause
 
 ### 🆕 New in 0.4.0
-- ✅ New version scheme (0.4.0 follows 1.3.1); patch logic, commands and INI keys unchanged.
-- ✅ Every Republic Mod Manager text reworked in player style: warning only in the Notes card, one header switch, Troubleshooting card, notice box and multi-line field texts on the Buildings tab.
-
-### 🆕 New in 1.3.1
-- ✅ **`insert` replaces `insert_before`:** `insert = 0 | ANCHOR | LINE` inserts before the anchor, `insert = 1 | ANCHOR | LINE` after it. For `$COST_RESOURCE_AUTO`, 1 adds the material to the phase of the `$COST_WORK` anchor line, 0 to the phase before it. `insert_before = ANCHOR | LINE` is still read and acts like `insert = 0 | …`.
-
-### 🆕 New in 1.3
+- ✅ Every Republic Mod Manager text in player style: warning only in the Notes card, one header switch, Troubleshooting card, notice box and multi-line field texts on the Buildings tab.
+- ✅ **`insert` with a position:** `insert = 0 | ANCHOR | LINE` inserts before the anchor, `insert = 1 | ANCHOR | LINE` after it. For `$COST_RESOURCE_AUTO`, 1 adds the material to the phase of the `$COST_WORK` anchor line, 0 to the phase before it.
 - ✅ **INI beside the DLL:** when `plugins\vanilla_buildings.ini` does not exist, the DLL reads the INI from its own folder, i.e. from the Workshop package under Soviet Mod Loader or the Workshop Bridge. The plugin runs straight from the Steam subscription.
 - ✅ The chosen configuration file is logged at start.
 - ✅ Editor schema for Republic Mod Manager in the package: rule sets with targets and commands as a list, German and English.
@@ -255,11 +250,7 @@ Other plugins that replace the same building file are not merged with these chan
 
 ### Version compatibility
 - **0.4.1:** `insert` also accepts lines produced by earlier commands of the same rule set as anchors
-- **0.4.0:** version scheme and Republic Mod Manager texts; patch logic and INI unchanged
-- **1.3.1:** `insert` command with a position before/after the anchor; `insert_before` still readable
-- **1.3:** INI fallback beside the DLL, editor schema in the package; patch logic unchanged from 1.2
-- **1.2:** targets under `buildings_types`, `dlcN\buildings` and Workshop ids, several targets per rule set
-- **Going back to an older version:** restore the old DLL and its INI
+- **0.4.0:** first published version
 
 ---
 

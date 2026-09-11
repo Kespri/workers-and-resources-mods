@@ -47,13 +47,8 @@ Passt Gebäude des Spiels, der DLCs und des Workshops in *Workers & Resources: S
 - ✅ Ein abgewiesenes Ziel blockiert die anderen nicht; jede Ablehnung wird mit Abschnitt, Ziel und Ursache protokolliert
 
 ### 🆕 Neu in 0.4.0
-- ✅ Neues Versionsschema (0.4.0 folgt auf 1.3.1); Patchlogik, Befehle und INI-Schlüssel unverändert.
-- ✅ Alle Texte für Republic Mod Manager im Spieler-Stil überarbeitet: Warnhinweis nur noch in der Karte Hinweise, ein Kopfschalter, Karte Fehlersuche, Hinweiskasten und mehrzeilige Feldtexte auf dem Reiter Gebäude.
-
-### 🆕 Neu in 1.3.1
-- ✅ **`insert` statt `insert_before`:** `insert = 0 | ANKER | ZEILE` fügt vor dem Anker ein, `insert = 1 | ANKER | ZEILE` danach. Bei `$COST_RESOURCE_AUTO` hängt 1 das Material an die Phase der `$COST_WORK`-Ankerzeile, 0 an die Phase davor. `insert_before = ANKER | ZEILE` wird weiter gelesen und wirkt wie `insert = 0 | …`.
-
-### 🆕 Neu in 1.3
+- ✅ Alle Texte für Republic Mod Manager im Spieler-Stil: Warnhinweis nur noch in der Karte Hinweise, ein Kopfschalter, Karte Fehlersuche, Hinweiskasten und mehrzeilige Feldtexte auf dem Reiter Gebäude.
+- ✅ **`insert` mit Position:** `insert = 0 | ANKER | ZEILE` fügt vor dem Anker ein, `insert = 1 | ANKER | ZEILE` danach. Bei `$COST_RESOURCE_AUTO` hängt 1 das Material an die Phase der `$COST_WORK`-Ankerzeile, 0 an die Phase davor.
 - ✅ **INI neben der DLL:** Fehlt `plugins\vanilla_buildings.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket unter Soviet Mod Loader oder der Workshop Bridge. Das Plugin läuft damit direkt aus dem Steam-Abo.
 - ✅ Die gewählte Konfigurationsdatei steht beim Start im Log.
 - ✅ Editor-Schema für Republic Mod Manager im Paket: Regelsätze mit Zielen und Befehlen als Liste, deutsch und englisch.
@@ -255,11 +250,7 @@ Andere Plugins, die dieselbe Gebäudedatei ersetzen, werden nicht mit diesen Än
 
 ### Versionskompatibilität
 - **0.4.1:** `insert` nimmt als Anker auch Zeilen, die frühere Befehle desselben Regelsatzes erzeugen
-- **0.4.0:** Versionsschema und Texte für Republic Mod Manager; Patchlogik und INI unverändert
-- **1.3.1:** Befehl `insert` mit Position vor/nach dem Anker; `insert_before` bleibt lesbar
-- **1.3:** INI-Fallback neben der DLL, Editor-Schema im Paket; Patchlogik gegenüber 1.2 unverändert
-- **1.2:** Zieldateien unter `buildings_types`, `dlcN\buildings` und Workshop-IDs, mehrere Ziele je Regelsatz
-- **Zurück auf eine ältere Fassung:** alte DLL und die dazugehörige INI wiederherstellen
+- **0.4.0:** erste veröffentlichte Fassung
 
 ---
 
