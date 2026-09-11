@@ -401,14 +401,19 @@ namespace TesmioAutoload
             // 0.4.51: three states in the heading - green saved and valid, amber unsaved, red invalid -
             // and the same state on the save button (primary only while there is something to save),
             // as a " *" on the page heading and as an amber dot at the list entry.
-            bool pending=available&&HasPending;
-            status.Text=language.T(!available?"unavailable":!valid?"invalid":pending?"unsaved":"valid"); status.ForeColor=!available?Theme.Muted:!valid?Color.Firebrick:pending?Theme.Amber:Color.FromArgb(26,132,61);
-            statusDetail.Text=error.Length>0?error:language.T(pending?"unsaved_detail":lastAction); tips.SetToolTip(statusDetail,statusDetail.Text);
+            // 0.4.71: parked entries count too - the footer names every unsaved entry, an invalid parked
+            // one blocks saving and is named, and the amber dots mark all of them.
+            bool pending=available&&HasPending; List<Workspace> unsaved=Unsaved; int total=unsaved.Count;
+            var invalidParked=parked.Values.Where(x=>!x.Valid).Select(x=>x.Entry.Name).ToList(); bool blocked=(available&&!valid)||invalidParked.Count>0;
+            status.Text=language.T(!available&&total==0?"unavailable":blocked?"invalid":total>0?"unsaved":"valid"); status.ForeColor=!available&&total==0?Theme.Muted:blocked?Color.Firebrick:total>0?Theme.Amber:Color.FromArgb(26,132,61);
+            statusDetail.Text=error.Length>0?error:invalidParked.Count>0?language.Format("invalid_elsewhere",String.Join(", ",invalidParked)):total>1||(total==1&&!pending)?language.Format("unsaved_many",String.Join(", ",unsaved.Select(x=>x.Entry.Name))):language.T(pending?"unsaved_detail":lastAction); tips.SetToolTip(statusDetail,statusDetail.Text);
             // 0.4.57: a pending package update (yellow "Update" mark) is saved away too, so the button stays usable then.
             bool updatePending=session!=null&&session.Update.Pending;
-            if(saveButton!=null){bool canSave=valid&&(pending||updatePending);saveButton.Enabled=canSave;saveButton.BackColor=canSave?Theme.Blue:Color.White;saveButton.ForeColor=canSave?Color.White:Theme.Ink;saveButton.FlatAppearance.BorderSize=canSave?0:1;saveButton.FlatAppearance.MouseOverBackColor=canSave?Color.FromArgb(0,70,180):Color.FromArgb(222,232,248);}
+            if(saveButton!=null){bool canSave=!blocked&&(total>0||updatePending);saveButton.Enabled=canSave;saveButton.BackColor=canSave?Theme.Blue:Color.White;saveButton.ForeColor=canSave?Color.White:Theme.Ink;saveButton.FlatAppearance.BorderSize=canSave?0:1;saveButton.FlatAppearance.MouseOverBackColor=canSave?Color.FromArgb(0,70,180):Color.FromArgb(222,232,248);}
+            // A page without an editor still offers Save + Start while other entries wait to be written.
+            if(startButton!=null&&!available) startButton.Enabled=total>0;
             string headingBase=heading.Text.EndsWith(" *")?heading.Text.Substring(0,heading.Text.Length-2):heading.Text;string headingNow=pending?headingBase+" *":headingBase;if(heading.Text!=headingNow)heading.Text=headingNow;
-            string dirtyRoot=pending&&this.current!=null?this.current.Root:"";if(mods.DirtyRoot!=dirtyRoot){mods.DirtyRoot=dirtyRoot;mods.Invalidate();}
+            var dirtyNow=new HashSet<string>(parked.Keys,StringComparer.OrdinalIgnoreCase);if(pending&&this.current!=null)dirtyNow.Add(this.current.Root);if(!mods.DirtyRoots.SetEquals(dirtyNow)){mods.DirtyRoots.Clear();mods.DirtyRoots.UnionWith(dirtyNow);mods.Invalidate();}
             foreach(var pair in origins)
             {
                 string id=pair.Key,current=draft.ContainsKey(id)?draft[id]:"",original=baseline.ContainsKey(id)?baseline[id]:"";

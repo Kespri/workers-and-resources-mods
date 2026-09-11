@@ -54,7 +54,7 @@ RMM liegt als `rmm.exe` im Ordner `tesmioloader\build`. Starte es von dort oder 
 
 Rechtsklick auf einen Text kopiert ihn in die Zwischenablage, praktisch für Fehlerberichte.
 
-**Die Fußzeile** zeigt den Zustand: grün „Gespeichert“, bernstein „Ungespeicherte Änderungen“, rot „Konfiguration ungültig“ mit dem Grund. Daneben die Knöpfe Zurücksetzen, Speichern und Speichern + Starten. Speichern ist nur anklickbar, wenn es etwas Gültiges zu speichern gibt.
+**Die Fußzeile** zeigt den Zustand: grün „Gespeichert“, bernstein „Ungespeicherte Änderungen“, rot „Konfiguration ungültig“ mit dem Grund. Daneben die Knöpfe Zurücksetzen, Speichern und Speichern + Starten. Speichern ist nur anklickbar, wenn es etwas Gültiges zu speichern gibt. Hast du mehrere Plugins geändert, nennt die Fußzeile sie alle.
 
 Das Fenster merkt sich Größe, Sprache, gewähltes Plugin und Reiter. Es braucht mindestens 1560 mal 760 Punkte; bei schmalen Fenstern rutschen die Beschriftungen über die Felder.
 
@@ -82,6 +82,8 @@ Der Schalter zeigt „an“ nur, wenn alles zusammenpasst, genau wie der grüne 
 - Muss eine neue DLL nach `plugins\` (nur beim Ladeweg TesmioLoader), zeigt RMM vorher Paket, Quelle, Ziel und die Prüfsumme der Datei und fragt nach.
 
 Speichern geht nur, wenn Spiel und TesmioLauncher beendet sind und alle Werte im erlaubten Bereich liegen. Nur das Öffnen, Suchen und Wechseln von Plugins oder Reitern schreibt nie eine Datei.
+
+**Mehrere Plugins auf einmal:** Du musst nicht nach jedem Plugin speichern. Wechsle einfach zum nächsten Eintrag, deine Änderungen bleiben im Speicher, und der Eintrag bekommt einen bernsteinfarbenen Punkt in der Liste. Die Fußzeile zählt alle ungespeicherten Plugins auf. Speichern oder Speichern + Starten schreibt sie dann alle auf einmal, eins nach dem anderen. Stimmt in einem Plugin ein Wert nicht, bleibt Speichern gesperrt, und die Fußzeile sagt, in welchem. Zurücksetzen gilt immer nur für das Plugin, das gerade offen ist. Beim Schließen von RMM fragt es noch einmal nach: alle speichern, alle verwerfen oder abbrechen.
 
 **Speichern + Starten** speichert genauso und startet dann das Spiel über `tesmiolauncher.exe` ohne dessen Fenster. RMM schließt sich dabei. Willst du das Launcher-Fenster sehen, setze in `rmm.ini` unter `[settings]` den Wert `tesmiolauncher_window = 1`.
 

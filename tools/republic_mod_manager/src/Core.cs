@@ -1,4 +1,4 @@
-// Republic Mod Manager 0.4.70-beta: generic manifest/schema driven plugin deployment.
+// Republic Mod Manager 0.4.71-beta: generic manifest/schema driven plugin deployment.
 // Never loads a DLL during discovery and never edits Workshop defaults or loader code.
 // Since 0.9.0 a package needs only [mod] and [hooks] dll; everything Autoload used
 // to declare is derived by convention, and a plugin without a launcher schema gets
@@ -1592,6 +1592,10 @@ namespace TesmioAutoload
             Package.AssertUnchanged();
             foreach (var pair in Before) { SafeFiles.NoLinks(pair.Key); if (SafeFiles.HashFile(pair.Key) != pair.Value) throw new IOException(Msg.Key("err_datei_inzwischen_geaendert_neu", pair.Key)); }
         }
+        // Shared files RMM writes when another entry is saved (0.4.71): the loader's plugin switches
+        // and the bridge list. Their hashes are taken afresh, so the next commit of this session does
+        // not mistake RMM's own write for a foreign change; every other file stays guarded.
+        public void RehashShared() { foreach (string path in new[] { LoaderIni, BridgeIni }) if (path != null && Before.ContainsKey(path)) Before[path] = SafeFiles.HashFile(path); }
         public string Commit(bool deploy, Action guard)
         {
             // Caller confirms native-code trust for this exact loaded package/hash.

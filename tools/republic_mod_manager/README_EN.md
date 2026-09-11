@@ -54,7 +54,7 @@ RMM lives as `rmm.exe` in `tesmioloader\build`. Start it from there or through t
 
 Right-click on any text copies it to the clipboard, handy for bug reports.
 
-**The footer** shows the state: green "Saved", amber "Unsaved changes", red "Configuration invalid" with the reason. Next to it the buttons Reset, Save and Save + Start. Save is only clickable when there is something valid to save.
+**The footer** shows the state: green "Saved", amber "Unsaved changes", red "Configuration invalid" with the reason. Next to it the buttons Reset, Save and Save + Start. Save is only clickable when there is something valid to save. If you changed several plugins, the footer names them all.
 
 The window remembers size, language, selected plugin and tab. It needs at least 1560 by 760 points; in narrow windows the labels move above the fields.
 
@@ -82,6 +82,8 @@ The switch shows "on" only when everything fits, just like the green dot in the 
 - If a new DLL has to go to `plugins\` (only on the TesmioLoader load path), RMM first shows package, source, target and the file's checksum and asks.
 
 Saving works only while the game and the TesmioLauncher are closed and all values are within their ranges. Just opening, searching and switching between plugins or tabs never writes a file.
+
+**Several plugins at once:** You do not have to save after every plugin. Just switch to the next entry; your changes stay in memory, and the entry gets an amber dot in the list. The footer lists every unsaved plugin. Save or Save + Start then writes them all at once, one after the other. If a value in one plugin is wrong, Save stays locked and the footer tells you which plugin it is. Reset only ever applies to the plugin that is open. When you close RMM it asks once more: save all, discard all or cancel.
 
 **Save + Start** saves the same way and then starts the game through `tesmiolauncher.exe` without its window. RMM closes. If you want to see the launcher window, set `tesmiolauncher_window = 1` under `[settings]` in `rmm.ini`.
 

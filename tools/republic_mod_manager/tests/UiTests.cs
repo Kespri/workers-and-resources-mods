@@ -216,6 +216,21 @@ static class UiTests
             using(var number=new NumberInput(1,100000,100)){number.Input.Text="1300";Check(number.Text=="1300","number input exposes the typed value as Text");number.Text="1800";Check(number.Input.Text=="1800","number input takes a value through Text");}
             // 0.4.45: +/- clicks raise Stepped and start an empty field at the minimum.
             using(var number=new NumberInput(1,100000,100)){int stepped=0;number.Stepped+=(s,e)=>stepped++;number.Input.Text="1300";number.TestStep(1);Check(number.Text=="1400"&&stepped==1,"plus click steps the value and raises Stepped");number.Input.Text="";number.TestStep(1);Check(number.Text=="1"&&stepped==2,"plus click on an empty field lands on the minimum");number.TestStep(-1);Check(number.Text=="1"&&stepped==2,"minus click below the minimum changes nothing");}
+            // 0.4.71: edits in several entries survive switching and are written by one save.
+            using(var form=new MainForm(new UiState{Build=loader,WorkshopRoot=collection,SelectedSource=package,Language="de"},null,false))
+            {
+                HiddenShow(form);form.PendingPrompt=()=>{throw new Exception("FAIL switching entries must not ask about unsaved changes (0.4.71)");};
+                form.TestSearch("Sample");form.SelectIndex(0);Application.DoEvents();form.TestEdit("general/limit","9");Check(form.IsDirty&&form.DirtyCount==1&&form.DirtyMarks==1,"an edit in the first entry counts as unsaved");
+                form.TestSearch("Needs");form.SelectIndex(0);Application.DoEvents();
+                Check(form.HasLocalResourceEditor&&!form.IsDirty&&form.DirtyCount==1&&form.DirtyMarks==1&&form.SaveEnabled&&form.StatusText=="Ungespeicherte Änderungen"&&form.StatusDetailText.Contains("Sample Plugin"),"switching parks the first entry: footer names it, save stays enabled, its dot stays (0.4.71)");
+                form.TestSetGlobal("max_demands","4");Check(form.IsDirty&&form.DirtyCount==2&&form.DirtyMarks==2&&form.StatusDetailText.Contains("Needs")&&form.StatusDetailText.Contains("Sample Plugin"),"the second entry adds to the unsaved entries");
+                form.TestSearch("Sample");form.SelectIndex(0);Application.DoEvents();Check(form.DisplayedValue("general/limit")=="9"&&form.IsDirty&&form.DirtyCount==2&&form.HeadingText.EndsWith(" *"),"the parked edit comes back when the entry is shown again");
+                Check(form.TestSaveAll(()=>{})&&!form.IsDirty&&form.DirtyCount==0&&form.DirtyMarks==0&&new Ini(SafeFiles.Text(Path.Combine(plugins,"sample_plugin.ini"))).Get("general","limit")=="9"&&new LooseIni(SafeFiles.Text(Path.Combine(plugins,"needs.ini"))).Get("needs","max_demands")=="4","one save writes every unsaved entry (0.4.71)");
+                form.TestEdit("general/limit","11");form.TestSearch("Needs");form.SelectIndex(0);Application.DoEvents();form.TestSetGlobal("max_demands","6");Check(form.DirtyCount==2,"two entries are unsaved again");
+                form.PendingPrompt=()=>DialogResult.Cancel;Check(!form.TestResolvePending()&&form.DirtyCount==2,"cancelling the unsaved-changes question keeps every parked edit");
+                form.PendingPrompt=()=>DialogResult.No;Check(form.TestResolvePending()&&!form.IsDirty&&form.DirtyCount==0&&form.DirtyMarks==0,"discarding drops the parked edits and reloads the shown entry");
+                form.TestSearch("Sample");form.SelectIndex(0);Application.DoEvents();Check(form.DisplayedValue("general/limit")=="9","a discarded parked edit is gone when the entry is shown again");
+            }
             Console.WriteLine("RESULT "+passed+" UI assertions passed. "+root);return 0;
         }
         catch(Exception e){Console.Error.WriteLine(e);return 1;}

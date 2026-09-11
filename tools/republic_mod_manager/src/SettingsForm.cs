@@ -14,7 +14,7 @@ namespace TesmioAutoload
     {
         readonly UiState state; readonly UiStateStore stateStore; readonly bool persistUi;
         readonly ModList mods = new ModList(); readonly TextBox search = new TextBox();
-        Button saveButton;   // 0.4.51: primary only while something is unsaved
+        Button saveButton, startButton;   // 0.4.51: primary only while something is unsaved
         readonly Label searchLabel = Theme.Label("",10,false), pluginLabel = Theme.Label("",15,true);
         readonly Label heading = Theme.Label("",22,true), description = Theme.Label("",11,false), switchLabel = Theme.Label("",11,false), switchNote = Theme.Label("",8,false);
         readonly ToggleSwitch activation = new ToggleSwitch();
@@ -25,16 +25,37 @@ namespace TesmioAutoload
         readonly Dictionary<Button,string> translatedButtons = new Dictionary<Button,string>();
         readonly Dictionary<SidebarButton,string> translatedSidebar = new Dictionary<SidebarButton,string>();
         readonly List<Button> actions = new List<Button>(); readonly List<CatalogEntry> entries = new List<CatalogEntry>();
-        readonly Dictionary<string,string> draft = new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase), baseline = new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
-        readonly HashSet<string> resets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // 0.4.71: everything an entry's editor holds in memory lives in a Workspace, so an entry with
+        // unsaved changes can be parked while another one is edited, and all of them are saved in one go.
+        sealed class Workspace
+        {
+            public CatalogEntry Entry; public Session Session; public Presentation Presentation; public LocalResourceSession ResourceSession; public LocalEditorSpec LocalSpec;
+            public string SelectedLocalResource="", LastAction="ready", SelectedTab=""; public bool Valid=true;
+            public readonly Dictionary<string,ResourceRegistry> Registries=new Dictionary<string,ResourceRegistry>(StringComparer.OrdinalIgnoreCase);
+            public readonly Dictionary<string,string> Draft=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase), Baseline=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
+            public readonly HashSet<string> Resets=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        }
+        Workspace work=new Workspace();
+        // Parked workspaces with unsaved changes, by entry root; the shown entry is never in here.
+        readonly Dictionary<string,Workspace> parked=new Dictionary<string,Workspace>(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string,string> draft {get{return work.Draft;}}
+        Dictionary<string,string> baseline {get{return work.Baseline;}}
+        HashSet<string> resets {get{return work.Resets;}}
+        Dictionary<string,ResourceRegistry> registries {get{return work.Registries;}}
+        Session session {get{return work.Session;}set{work.Session=value;}}
+        Presentation presentation {get{return work.Presentation;}set{work.Presentation=value;}}
+        LocalResourceSession resourceSession {get{return work.ResourceSession;}set{work.ResourceSession=value;}}
+        LocalEditorSpec localSpec {get{return work.LocalSpec;}set{work.LocalSpec=value;}}
+        string selectedLocalResource {get{return work.SelectedLocalResource;}set{work.SelectedLocalResource=value;}}
+        string lastAction {get{return work.LastAction;}set{work.LastAction=value;}}
         readonly Dictionary<string,Action<string>> setters = new Dictionary<string,Action<string>>(StringComparer.OrdinalIgnoreCase);
         readonly Dictionary<string,Label> origins = new Dictionary<string,Label>(StringComparer.OrdinalIgnoreCase);
         readonly Dictionary<string,VectorButton> resetButtons = new Dictionary<string,VectorButton>(StringComparer.OrdinalIgnoreCase);   // 0.4.38: shown only while the value differs from the default
         readonly IconCache icons = new IconCache(); readonly ToolTip tips = new ToolTip(); readonly StringBuilder journal = new StringBuilder();
         readonly Panel header; readonly SidebarButton languageButton; Button restoreButton; TableLayoutPanel page;
-        Session session; Presentation presentation; LocalResourceSession resourceSession; LocalEditorSpec localSpec; string selectedLocalResource=""; readonly Dictionary<string,ResourceRegistry> registries=new Dictionary<string,ResourceRegistry>(StringComparer.OrdinalIgnoreCase); CatalogEntry current; Language language;
+        CatalogEntry current; Language language;
         bool selecting, initialized, refreshing, viewWarning, resizing;
-        string lastAction = "ready",lastConsistencyAlert="";
+        string lastConsistencyAlert="";
         internal Func<DialogResult> PendingPrompt = null;
         internal Func<string,DialogResult> ResourceRemovePrompt = null;
 
@@ -42,7 +63,7 @@ namespace TesmioAutoload
         {
             state = initial.Copy(); stateStore = store; persistUi = saveUi; language = new Language(state.Language); Theme.CopyMenuLabel=()=>language.T("copy_text");
             mods.Cache=icons; icons.Warning=message=>Report(language.T("icon_warning")+" "+message); icons.LoaderExe=()=>Path.Combine(state.Build,"tesmiolauncher.exe");
-            Text = "Republic Mod Manager 0.4.70-beta  ·  "+language.T("app_dependency"); Font = new Font("Segoe UI",10); ForeColor = Theme.Ink; BackColor = Color.White;Theme.ApplyWindowChrome(this);
+            Text = "Republic Mod Manager 0.4.71-beta  ·  "+language.T("app_dependency"); Font = new Font("Segoe UI",10); ForeColor = Theme.Ink; BackColor = Color.White;Theme.ApplyWindowChrome(this);
             AutoScaleDimensions = new SizeF(96,96); AutoScaleMode = AutoScaleMode.Dpi; Size = new Size(1600,1000); MinimumSize = new Size(1560,760); StartPosition = FormStartPosition.CenterScreen;   // 0.4.36: minimum 1560 - the section editors' detail panel needs it; RestoreWindowSize caps it to the screen
             Load += (s,e) => RestoreWindowSize();
             using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Tesmio.icon")) using (var icon = new Icon(stream)) Icon = (Icon)icon.Clone();
@@ -89,10 +110,10 @@ namespace TesmioAutoload
             var statuses=new FlowLayoutPanel { Dock=DockStyle.Fill, FlowDirection=FlowDirection.TopDown, WrapContents=false }; statuses.Controls.Add(status); statuses.Controls.Add(statusDetail); statusDetail.MaximumSize=new Size(440,0); footer.Controls.Add(statuses,0,0);
             var buttons = new FlowLayoutPanel { AutoSize=true, FlowDirection=FlowDirection.LeftToRight, WrapContents=false, Anchor=AnchorStyles.Right|AnchorStyles.Top };
             restoreButton=Button("restore",RestoreOriginal,false,false); restoreButton.Visible=false; restoreButton.Enabled=false; buttons.Controls.Add(restoreButton);
-            var resetAll=Button("reset",ResetAll,false,true);resetAll.BackColor=Color.White;buttons.Controls.Add(resetAll); saveButton=Button("save",SaveAction,false,true);saveButton.BackColor=Color.White;buttons.Controls.Add(saveButton); buttons.Controls.Add(Button("save_start",Launch,true,true)); footer.Controls.Add(buttons,1,0);
+            var resetAll=Button("reset",ResetAll,false,true);resetAll.BackColor=Color.White;buttons.Controls.Add(resetAll); saveButton=Button("save",SaveAction,false,true);saveButton.BackColor=Color.White;buttons.Controls.Add(saveButton); startButton=Button("save_start",Launch,true,true);buttons.Controls.Add(startButton); footer.Controls.Add(buttons,1,0);
             TranslateShell(); SetActions(false); Report(language.T("startup"));
             Shown+=(s,e)=>{ if(!initialized) Run(InitializeCatalog); };
-            FormClosing+=(s,e)=>{ try { if(!ResolvePending()) e.Cancel=true; else SaveView(); } catch(Exception failure) { e.Cancel=true; ShowError(failure); } };
+            FormClosing+=(s,e)=>{ try { if(!ResolvePending(false)) e.Cancel=true; else SaveView(); } catch(Exception failure) { e.Cancel=true; ShowError(failure); } };
         }
         Button Button(string key,Action action,bool primary,bool packageAction)
         { var b=Theme.Button(language.T(key),()=>Run(action),primary); translatedButtons[b]=key; if(packageAction) actions.Add(b); return b; }
@@ -208,17 +229,42 @@ namespace TesmioAutoload
             finally { mods.EndUpdate(); selecting=false; }
         }
         void SelectionChanged()
-        { var candidate=mods.SelectedItem as CatalogEntry; if(candidate==null || candidate==current) return; if(!ResolvePending()) { FilterList(); return; } ShowEntry(candidate); }
+        { var candidate=mods.SelectedItem as CatalogEntry; if(candidate==null || candidate==current) return; ShowEntry(candidate); }
+        // The shown entry keeps its editor in memory while another entry is edited (0.4.71); it comes
+        // back untouched when the entry is shown again and is written by the next save.
+        void Park()
+        {
+            if(current==null||(session==null&&resourceSession==null)||!HasPending) return;
+            work.Entry=current; work.SelectedTab=state.SelectedTab; work.Valid=WorkspaceValid(work); parked[current.Root]=work;
+        }
+        bool WorkspaceValid(Workspace candidate)
+        { Workspace keep=work; work=candidate; try { if(resourceSession!=null) resourceSession.Validate(); else Prospective(); return true; } catch(Exception) { return false; } finally { work=keep; } }
+        void Resume(Workspace kept)
+        {
+            work=kept; state.SelectedTab=kept.SelectedTab;
+            try
+            {
+                // Labels come from the presentation, which was built in the language of that moment.
+                if(session!=null) RebuildPresentation();
+                if(resourceSession!=null) { heading.Text=localSpec.LocalizedName(language); description.Text=localSpec.LocalizedDescription(language); BuildLocalResourceEditor(); }
+                else BuildEditor();
+                SetActions(true); UpdateLoadPath();
+            }
+            catch(Exception e) { work=new Workspace{Entry=current}; string detail=ErrorText(e); ShowProblem(language.T("failed")+"\n\n"+detail); Report(detail); }
+            SaveView(); UpdateStatus();
+        }
         void ShowEntry(CatalogEntry entry)
         {
             bool same=current==null ? state.SelectedSource==(entry==null?"":entry.Root) : current.Root==(entry==null?"":entry.Root);
             if(!same) state.SelectedTab="";
-            current=entry; session=null; presentation=null;resourceSession=null;localSpec=null;selectedLocalResource=""; registries.Clear(); restoreButton.Visible=entry!=null&&entry.Installed&&entry.Supported&&entry.Problem.Length==0; ShowSwitch(false,""); draft.Clear(); baseline.Clear(); resets.Clear(); lastAction="ready"; SetActions(false);
+            Park();
+            current=entry; work=new Workspace{Entry=entry}; restoreButton.Visible=entry!=null&&entry.Installed&&entry.Supported&&entry.Problem.Length==0; ShowSwitch(false,""); SetActions(false);
             Theme.DisposeChildren(tabStrip); Theme.DisposeChildren(content); setters.Clear(); origins.Clear(); resetButtons.Clear(); UpdateLoadPath();
             refreshing=true; activation.Checked=false; refreshing=false;
             if(entry==null) { heading.Text=language.T("no_mods"); description.Text=""; tips.SetToolTip(heading,""); ShowInfo(language.T("no_mods_help")); SaveView(); UpdateStatus(); return; }
             state.SelectedId=entry.Id; state.SelectedSource=entry.Root; heading.Text=entry.Name; description.Text=""; tips.SetToolTip(heading,language.T("source")+": "+entry.Root+"\n"+entry.Version);
             if(entry.Problem.Length>0 || !entry.Supported) { ShowProblem(language.T("unsupported")+"\n\n"+language.Localize(entry.Problem)); SaveView(); UpdateStatus(); return; }
+            Workspace kept; if(parked.TryGetValue(entry.Root,out kept)) { parked.Remove(entry.Root); Resume(kept); return; }
             try
             {
                 if(entry.LocalEditor)
@@ -245,7 +291,7 @@ namespace TesmioAutoload
                 }
                 BuildEditor(); SetActions(true); UpdateLoadPath(); foreach(string note in session.Notes.Concat(presentation.Notes)) Report(note);
             }
-            catch(Exception e) { session=null; presentation=null;resourceSession=null;localSpec=null; string detail=ErrorText(e); ShowProblem(language.T("failed")+"\n\n"+detail); Report(detail); }
+            catch(Exception e) { work=new Workspace{Entry=entry}; string detail=ErrorText(e); ShowProblem(language.T("failed")+"\n\n"+detail); Report(detail); }
             SaveView(); UpdateStatus();
         }
         // The status bar: which loader brings the DLL into the game (bridge, SML or the classic
@@ -387,8 +433,28 @@ namespace TesmioAutoload
                 :new[]{new KeyValuePair<DialogResult,string>(DialogResult.OK,language.T("confirm")),new KeyValuePair<DialogResult,string>(DialogResult.Cancel,language.T("cancel"))};
             return MessageWindow.Show(this,language,language.T("confirm"),text,MessageWindow.Kind.Question,buttons);
         }
-        bool ResolvePending()
-        { if(!HasPending) return true; DialogResult choice=PendingPrompt!=null?PendingPrompt():Question(language.T("pending"),true); if(choice==DialogResult.Cancel) return false; if(choice==DialogResult.Yes) return SaveCurrent(); return true; }
+        bool AnyPending { get { return parked.Count>0 || HasPending; } }
+        // Every workspace with unsaved changes: parked ones first (by name), the shown one last.
+        List<Workspace> Unsaved
+        { get { var all=parked.Values.OrderBy(x=>x.Entry.Name,StringComparer.CurrentCultureIgnoreCase).ToList(); if(current!=null&&(session!=null||resourceSession!=null)&&HasPending) all.Add(work); return all; } }
+        bool ResolvePending() { return ResolvePending(true); }
+        bool ResolvePending(bool reload)
+        {
+            if(!AnyPending) return true;
+            var names=Unsaved.Select(x=>x.Entry.Name).ToList();
+            string text=names.Count==1?language.T("pending"):language.Format("pending_many",names.Count,String.Join(", ",names));
+            DialogResult choice=PendingPrompt!=null?PendingPrompt():Question(text,true);
+            if(choice==DialogResult.Cancel) return false;
+            if(choice==DialogResult.Yes) return SaveAll();
+            Discard(reload); return true;
+        }
+        // "Discard": parked workspaces are dropped; the shown entry is reloaded from disk unless the window is closing.
+        void Discard(bool reload)
+        {
+            parked.Clear();
+            if(current!=null&&HasPending) { work=new Workspace{Entry=current}; if(reload) ShowEntry(current); }
+            if(reload) UpdateStatus();
+        }
         Dictionary<string,string> Prospective()
         {
             if(session==null) throw new InvalidOperationException(language.T("unavailable"));
@@ -414,7 +480,8 @@ namespace TesmioAutoload
             string text=language.T("trust")+"\n\n"+session.Package.Name+" "+session.Package.Version+"\n"+language.T("source")+": "+session.Package.Root+"\nSHA-256: "+SafeFiles.Hash(session.Package.Dll)+"\n\n"+language.T("target")+": "+session.Build+"\\plugins\n\n"+language.T("trust_question");
             return MessageWindow.Show(this,language,language.T("confirm"),text,MessageWindow.Kind.Warning,new[]{new KeyValuePair<DialogResult,string>(DialogResult.OK,language.T("confirm")),new KeyValuePair<DialogResult,string>(DialogResult.Cancel,language.T("cancel"))})==DialogResult.OK;
         }
-        bool SaveAndDeploy(Action guard,Func<bool> approveNative)
+        bool SaveAndDeploy(Action guard,Func<bool> approveNative) { return SaveAndDeploy(true,guard,approveNative); }
+        bool SaveAndDeploy(bool rebuild,Action guard,Func<bool> approveNative)
         {
             Collect(); guard(); session.AssertUnchanged();
             bool approved=false;
@@ -425,34 +492,75 @@ namespace TesmioAutoload
                 approved=session.PreferLocal;    // the file list named the DLL and its hash
             }
             if(NativeDllChanges() && !approved && !approveNative()) return false;
-            string result=session.Commit(true,guard); lastAction="saved"; Report(language.T("saved")+" "+language.T("backup")+": "+result);
+            string result=session.Commit(true,guard); lastAction="saved"; Report(SavedNote(result));
+            if(!rebuild) return true;
             LoadDraft(); BuildEditor(); SaveView(); RefreshActivity(); return true;
         }
-        bool SaveCurrent()
+        string SavedNote(string backup) { return (work.Entry!=null?work.Entry.Name+": ":"")+language.T("saved")+" "+language.T("backup")+": "+backup; }
+        // Writes the workspace behind `work`. guard = null takes the runtime checks (game closed,
+        // files present); rebuild = refresh the page afterwards, only for the shown entry.
+        bool SaveWorkspace(bool rebuild,Action guard,Func<bool> approveNative)
         {
             if(resourceSession!=null)
             {
-                LocalResourceGuard.Check(resourceSession);
+                Action resourceGuard=guard??(()=>LocalResourceGuard.Check(resourceSession));
+                resourceGuard();
                 if(session!=null)
                 {
                     // Package-backed editor: DLL, loader entry, bridge list and local copy go
                     // first (Session never touches this INI), the editor's INI afterwards.
-                    RuntimeGuard.Check(session);session.AssertUnchanged();bool approved=false;
+                    Action sessionGuard=guard??(()=>RuntimeGuard.Check(session));
+                    sessionGuard();session.AssertUnchanged();bool approved=false;
                     if(session.LocalCopyChanged){string text=LocalCopyText();if((LocalCopyPrompt!=null?LocalCopyPrompt(text):Question(text,false))!=DialogResult.OK)return false;approved=session.PreferLocal;}
-                    if(NativeDllChanges()&&!approved&&!ConfirmNativeTrust())return false;
-                    session.Commit(true,()=>RuntimeGuard.Check(session));
+                    if(NativeDllChanges()&&!approved&&!approveNative())return false;
+                    session.Commit(true,sessionGuard);
                 }
-                string result=resourceSession.Commit(()=>LocalResourceGuard.Check(resourceSession));
+                string result=resourceSession.Commit(resourceGuard);
+                lastAction="saved";Report(SavedNote(result));
+                if(!rebuild) return true;
                 if(session!=null)session=new Session(session.Package,state.Build);
-                lastAction="saved";Report(language.T("saved")+" "+language.T("backup")+": "+result);BuildLocalResourceEditor();SaveView();RefreshActivity();return true;
+                BuildLocalResourceEditor();SaveView();RefreshActivity();return true;
             }
-            return SaveAndDeploy(()=>RuntimeGuard.Check(session),ConfirmNativeTrust);
+            return SaveAndDeploy(rebuild,guard??(()=>RuntimeGuard.Check(session)),approveNative);
         }
-        void SaveAction() { SaveCurrent(); }
+        bool SaveCurrent() { return SaveWorkspace(true,null,ConfirmNativeTrust); }
+        // Parked entries are written one after another, by name (0.4.71). After each one the remaining
+        // sessions take fresh hashes of the shared files (tesmioloader.ini, the bridge list), because RMM
+        // itself just wrote them. A failure or a declined prompt shows the entry it happened in.
+        bool SaveParked(Action guard,Func<bool> approveNative)
+        {
+            foreach(Workspace entry in parked.Values.OrderBy(x=>x.Entry.Name,StringComparer.CurrentCultureIgnoreCase).ToList())
+            {
+                Workspace keep=work; bool ok; work=entry;
+                try { ok=SaveWorkspace(false,guard,approveNative); }
+                catch(Exception) { work=keep; Jump(entry); throw; }
+                work=keep;
+                if(!ok) { Jump(entry); return false; }
+                parked.Remove(entry.Entry.Root);
+                foreach(Workspace other in parked.Values.Concat(new[]{work})) { if(other.Session!=null) other.Session.RehashShared(); if(other.ResourceSession!=null) other.ResourceSession.RehashShared(); }
+            }
+            return true;
+        }
+        void Jump(Workspace target)
+        { CatalogEntry entry=entries.FirstOrDefault(x=>x.Root.Equals(target.Entry.Root,StringComparison.OrdinalIgnoreCase))??target.Entry; ShowEntry(entry); FilterList(); }
+        bool SaveAll() { return SaveAll(null,ConfirmNativeTrust); }
+        bool SaveAll(Action guard,Func<bool> approveNative)
+        {
+            if(!SaveParked(guard,approveNative)) return false;
+            bool updatePending=session!=null&&session.Update.Pending;
+            if((session!=null||resourceSession!=null)&&(HasPending||updatePending)) return SaveWorkspace(true,guard,approveNative);
+            RefreshActivity(); SaveView(); UpdateStatus(); return true;
+        }
+        void SaveAction() { SaveAll(); }
         void Launch()
         {
-            if(resourceSession!=null){if(!SaveCurrent())return;LocalResourceGuard.Check(resourceSession);EnsureGlobalResourceConsistency();if(!ConfirmGameVersion())return;Process.Start(new ProcessStartInfo(SafeFiles.Child(resourceSession.Build,"tesmiolauncher.exe")){Arguments=LauncherOptions.Arguments,WorkingDirectory=resourceSession.Build,UseShellExecute=true});Report(language.T("launched"));Close();return;}
-            SaveAndLaunch(()=>RuntimeGuard.Check(session),ConfirmNativeTrust,()=>{EnsureGlobalResourceConsistency();Process.Start(new ProcessStartInfo(SafeFiles.Child(session.Build,"tesmiolauncher.exe")) { Arguments=LauncherOptions.Arguments, WorkingDirectory=session.Build, UseShellExecute=true });});
+            // 0.4.71: every unsaved entry is written first; the launcher then starts from the loader folder.
+            if(!SaveAll()) return;
+            if(!ConfirmGameVersion()) return;
+            if(resourceSession!=null) LocalResourceGuard.Check(resourceSession); else if(session!=null) RuntimeGuard.Check(session);
+            EnsureGlobalResourceConsistency();
+            string build=Path.GetFullPath(state.Build);
+            Process.Start(new ProcessStartInfo(SafeFiles.Child(build,"tesmiolauncher.exe")){Arguments=LauncherOptions.Arguments,WorkingDirectory=build,UseShellExecute=true});Report(language.T("launched"));Close();
         }
         void InspectStartupConsistency()
         {
@@ -483,6 +591,7 @@ namespace TesmioAutoload
         }
         bool SaveAndLaunch(Action guard,Func<bool> approveNative,Action start)
         {
+            if(!SaveParked(guard,approveNative))return false;
             if(!SaveAndDeploy(guard,approveNative))return false;
             if(!ConfirmGameVersion())return false;
             guard();start();Report(language.T("launched"));Close();return true;
@@ -561,6 +670,11 @@ namespace TesmioAutoload
         internal string StatusText {get{return status.Text;}}
         internal bool StatusValid {get{return status.Text==language.T("valid")||status.Text==language.T("unsaved");}}
         internal bool SaveEnabled {get{return saveButton!=null&&saveButton.Enabled;}}
+        internal bool StartEnabled {get{return startButton!=null&&startButton.Enabled;}}
+        internal int DirtyCount {get{return Unsaved.Count;}}
+        internal int DirtyMarks {get{return mods.DirtyRoots.Count;}}
+        internal bool TestSaveAll(Action guard) {return SaveAll(guard,()=>true);}
+        internal bool TestResolvePending() {return ResolvePending();}
         internal string HeadingText {get{return heading.Text;}}
         internal string StatusDetailText {get{return statusDetail.Text;}}
         internal void TestCommit(Action guard) {Collect();session.Commit(false,guard);LoadDraft();BuildEditor();}

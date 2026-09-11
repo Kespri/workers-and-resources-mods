@@ -391,9 +391,9 @@ namespace TesmioAutoload
         public readonly Dictionary<string,string> IconKeys = new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
         public readonly Dictionary<string,bool> ActiveStates = new Dictionary<string,bool>(StringComparer.OrdinalIgnoreCase);
         public string UpdateBadge = "Update";
-        // 0.4.51: root of the entry with unsaved changes (only ever the selected one) - drawn as
-        // an amber dot before the name.
-        public string DirtyRoot = "";
+        // 0.4.51: roots of the entries with unsaved changes, drawn as an amber dot before the name;
+        // since 0.4.71 several at once (parked entries).
+        public readonly HashSet<string> DirtyRoots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         public ModList() { DrawMode = DrawMode.OwnerDrawFixed; ItemHeight = 80; BorderStyle = BorderStyle.None; BackColor = Theme.Navy; ForeColor = Color.White; IntegralHeight = false; }
         protected override void OnDrawItem(DrawItemEventArgs e)
         {
@@ -402,7 +402,7 @@ namespace TesmioAutoload
             using (var fill = new SolidBrush(selected ? Color.FromArgb(34,84,151) : BackColor)) e.Graphics.FillRectangle(fill,e.Bounds);
             var iconRect=new Rectangle(e.Bounds.X+14,e.Bounds.Y+22,30,30);
             if(Cache==null||!Cache.DrawOrigin(e.Graphics,mod.Origin,iconRect)) IconCache.DrawBuiltin(e.Graphics,mod.Origin=="loader"?"loader":"gear",iconRect,Color.White);
-            bool dirty=DirtyRoot.Length>0&&DirtyRoot.Equals(mod.Root,StringComparison.OrdinalIgnoreCase);
+            bool dirty=DirtyRoots.Contains(mod.Root);
             if(dirty){e.Graphics.SmoothingMode=SmoothingMode.AntiAlias;using(var amber=new SolidBrush(Color.FromArgb(232,166,36)))e.Graphics.FillEllipse(amber,e.Bounds.X+55,e.Bounds.Y+24,9,9);}
             using (var title = new Font(Font,FontStyle.Bold)) TextRenderer.DrawText(e.Graphics,mod.Name,title,new Rectangle(e.Bounds.X+(dirty?69:55),e.Bounds.Y+15,e.Bounds.Width-94-(dirty?14:0),28),Color.White,TextFormatFlags.EndEllipsis|TextFormatFlags.NoPrefix);
             TextRenderer.DrawText(e.Graphics,mod.Version,Font,new Rectangle(e.Bounds.X+55,e.Bounds.Y+47,e.Bounds.Width-91,22),Color.FromArgb(184,207,233),TextFormatFlags.EndEllipsis|TextFormatFlags.NoPrefix);
