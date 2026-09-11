@@ -41,6 +41,12 @@ headers `tesmio_api.h` and `tesmio_plugin.h` from the TesmioLoader by MaxLegend 
 the plugins build from this repository with their relative include paths. `tesmio_plugin.h`
 carries one local change: `TsmOpenLog` writes the plugin detail logs into `tesmioloader\build\logs\`.
 
+## Tools
+
+| Tool | Version | What it does |
+|---|---|---|
+| [Republic Mod Manager](tools/republic_mod_manager) | 0.4.63 | Windows program: settings, switching and loading of the plugins; its Workshop item brings the installer and the Workshop Bridge |
+
 ## Installing
 
 Subscribe to the Workshop package and switch the plugin on in the Republic Mod Manager.

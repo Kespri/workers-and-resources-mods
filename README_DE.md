@@ -42,6 +42,12 @@ damit die Plugins mit ihren relativen Include-Pfaden aus diesem Repository herau
 können. `tesmio_plugin.h` trägt eine lokale Änderung: `TsmOpenLog` schreibt die Detail-Protokolle
 der Plugins nach `tesmioloader\build\logs\`.
 
+## Werkzeuge
+
+| Werkzeug | Version | Was es macht |
+|---|---|---|
+| [Republic Mod Manager](tools/republic_mod_manager) | 0.4.63 | Windows-Programm: Einstellungen, Ein- und Ausschalten und Laden der Plugins; sein Workshop-Objekt bringt den Installer und die Workshop Bridge mit |
+
 ## Installation
 
 Workshop-Paket abonnieren und das Plugin im Republic Mod Manager einschalten.

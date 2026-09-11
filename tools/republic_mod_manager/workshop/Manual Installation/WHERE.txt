@@ -1,0 +1,32 @@
+Republic Mod Manager - manual installation
+==========================================
+
+Requirement: the TesmioLoader by MaxLegend is installed, so the game folder
+already has tesmioloader\build with tesmioloader.dll and tesmioloader.ini.
+Nothing works without it.
+
+1. Close the game, the TesmioLauncher and Republic Mod Manager.
+
+2. Drag the folder "tesmioloader" (next to this file) onto the game folder:
+      C:\Program Files (x86)\Steam\steamapps\common\SovietRepublic
+   Windows asks "Merge folders?" - Yes. Existing files may be overwritten;
+   your settings live in user_config and are not touched.
+
+   Afterwards you have:
+      tesmioloader\build\rmm.exe                 the manager
+      tesmioloader\build\rmm.ini                 its base settings
+      tesmioloader\build\rmm.README_DE.md        guide (German)
+      tesmioloader\build\rmm.SCHEMA_DE.md        schema reference (German)
+      tesmioloader\build\settings_schemas\       settings pages of the plugins
+      tesmioloader\build\plugins\workshop_bridge.dll   loads Workshop packages
+      tesmioloader\build\plugins\workshop_bridge.ini   its base settings
+
+3. Open tesmioloader\build\tesmioloader.ini in a text editor and add this
+   line to the [plugins] section (or set it to 1):
+      workshop_bridge=1
+   Save as plain text (UTF-8, no BOM).
+
+4. Start rmm.exe. Done.
+
+Removing: delete the files listed above and set workshop_bridge=0 in
+tesmioloader.ini. The user_config folder with your settings can stay.
