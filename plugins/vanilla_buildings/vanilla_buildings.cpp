@@ -30,7 +30,7 @@ static const size_t MAX_OPERATIONS = 512;
 
 #define SYM_READ_FILE "?C3DHelp_ReadFileIntoBuffer@@YAHPEBDPEAPEADPEAI_N@Z"
 
-#define PLUGIN_VERSION "0.4.1"
+#define PLUGIN_VERSION "0.4.3"
 #define PLUGIN_INI "plugins\\vanilla_buildings.ini"
 #define PLUGIN_LOG_NAME "tesmioloader.vanilla_buildings.log"
 
@@ -57,6 +57,11 @@ struct ConnectionBlock
     std::string token;
     Point first;
     Point second;
+    // 2 = token line plus two point lines; 1 = a one-point entry such as
+    // $CONNECTION_ROAD_DEAD, written inline ("$TOKEN x y z") or as token line plus one
+    // point line. pointText keeps the point as written for a one-point entry.
+    int points = 2;
+    std::string pointText;
 };
 
 struct Operation
@@ -69,9 +74,10 @@ struct Operation
     int anchorAt;         // insert: line index of the anchor (collision check)
     int anchorOp;         // insert: index of the earlier operation whose line is the anchor (-1 = original line)
     bool after;           // insert: 1 = the new line follows the anchor
+    int points;           // connection commands: 2 = two-point block, 1 = one-point entry
     size_t configLine;
 
-    Operation() : kind(OP_ADD), matchStart(-1), matchEnd(-1), insertAt(-1), anchorAt(-1), anchorOp(-1), after(false), configLine(0) {}
+    Operation() : kind(OP_ADD), matchStart(-1), matchEnd(-1), insertAt(-1), anchorAt(-1), anchorOp(-1), after(false), points(2), configLine(0) {}
 };
 
 struct Decl
@@ -565,6 +571,18 @@ static bool IsAllowPass(const std::string& token)
     return Lower(token).find("_allowpass") != std::string::npos;
 }
 
+// Any $CONNECTION_* token name (uppercase letters, digits, '_'); the one-point commands
+// accept every such token, the two-point ones the narrower list below.
+static bool IsConnectionTokenName(const std::string& token)
+{
+    if (!StartsWith(token, "$CONNECTION_") || StartsWith(token, "$CONNECTIONS_")) return false;
+    for (size_t i = 1; i < token.size(); ++i)
+        if (!((token[i] >= 'A' && token[i] <= 'Z') ||
+              (token[i] >= '0' && token[i] <= '9') || token[i] == '_'))
+            return false;
+    return true;
+}
+
 static bool IsTwoPointConnectionToken(const std::string& token)
 {
     if (!StartsWith(token, "$CONNECTION_")) return false;
@@ -581,19 +599,65 @@ static bool IsTwoPointConnectionToken(const std::string& token)
 static std::vector<ConnectionBlock> FindConnections(const std::vector<std::string>& lines)
 {
     std::vector<ConnectionBlock> out;
-    for (int i = 0; i + 2 < (int)lines.size(); i++)
+    for (int i = 0; i < (int)lines.size(); i++)
     {
-        std::string token = Trimmed(lines[i]);
-        if (!TokenOnly(token) || !IsTwoPointConnectionToken(token)) continue;
+        std::string line = Trimmed(lines[i]);
+        std::string token = TokenOf(line);
+        if (!IsConnectionTokenName(token)) continue;
         ConnectionBlock b;
         b.start = i;
-        b.end = i + 2;
         b.token = token;
-        if (!ParsePoint(lines[i + 1], &b.first) || !ParsePoint(lines[i + 2], &b.second)) continue;
-        out.push_back(b);
-        i += 2;
+        if (TokenOnly(line))
+        {
+            // Two-point block: token line plus two point lines.
+            if (IsTwoPointConnectionToken(token) && i + 2 < (int)lines.size() &&
+                ParsePoint(lines[i + 1], &b.first) && ParsePoint(lines[i + 2], &b.second))
+            {
+                b.end = i + 2;
+                b.points = 2;
+                out.push_back(b);
+                i += 2;
+                continue;
+            }
+            // One-point entry on two lines: token line, then the point.
+            if (i + 1 < (int)lines.size() && ParsePoint(lines[i + 1], &b.first))
+            {
+                b.end = i + 1;
+                b.points = 1;
+                b.pointText = Trimmed(lines[i + 1]);
+                out.push_back(b);
+                i += 1;
+            }
+            continue;
+        }
+        // One-point entry inline: "$CONNECTION_ROAD_DEAD x y z".
+        std::string rest = Trimmed(line.substr(token.size()));
+        if (ParsePoint(rest, &b.first))
+        {
+            b.end = i;
+            b.points = 1;
+            b.pointText = rest;
+            out.push_back(b);
+        }
     }
     return out;
+}
+
+static bool ParseOnePointFields(const Operation& op, int tokenField, int pointField,
+    std::string* token, Point* point, std::string* why)
+{
+    *token = Trimmed(op.field[tokenField]);
+    if (!TokenOnly(*token) || !IsConnectionTokenName(*token))
+    {
+        *why = "connection token is not a $CONNECTION_... token";
+        return false;
+    }
+    if (!ParsePoint(op.field[pointField], point))
+    {
+        *why = "the connection point must contain exactly three numbers";
+        return false;
+    }
+    return true;
 }
 
 static bool ParseConnectionFields(const Operation& op, int tokenField,
@@ -778,6 +842,46 @@ static bool ValidateOperations(Decl* d, const std::vector<std::string>& lines)
         }
         else if (op.kind == OP_REPLACE_CONNECTION || op.kind == OP_REMOVE_CONNECTION)
         {
+            // One-point form: remove = token | point; replace = old token | point | new token [| new point].
+            bool onePoint = op.kind == OP_REMOVE_CONNECTION ? op.field.size() == 2 :
+                (op.field.size() == 3 || (op.field.size() == 4 && StartsWith(Trimmed(op.field[2]), "$")));
+            if (onePoint)
+            {
+                std::string token;
+                Point point;
+                if (!ParseOnePointFields(op, 0, 1, &token, &point, &why))
+                    return Fail(d, std::string(OpName(op.kind)) + ": " + why);
+                int count = 0;
+                int at = -1;
+                for (int bi = 0; bi < (int)blocks.size(); bi++)
+                    if (blocks[bi].points == 1 && blocks[bi].token == token && SamePoint(blocks[bi].first, point))
+                    {
+                        count++;
+                        at = bi;
+                    }
+                if (count != 1)
+                    return Fail(d, std::string(OpName(op.kind)) + ": one-point connection has " +
+                        std::to_string(count) + " matches instead of exactly one");
+                op.matchStart = blocks[at].start;
+                op.matchEnd = blocks[at].end;
+                op.points = 1;
+                if (op.kind == OP_REPLACE_CONNECTION)
+                {
+                    std::string newToken = Trimmed(op.field[2]);
+                    if (!TokenOnly(newToken) || !IsConnectionTokenName(newToken))
+                        return Fail(d, "replace_connection: new token is not a $CONNECTION_... token");
+                    if (IsAllowPass(newToken))
+                        return Fail(d, "replace_connection: *_ALLOWPASS is not accepted for safety reasons");
+                    bool moves = op.field.size() == 4;
+                    Point newPoint = point;
+                    if (moves && !ParsePoint(op.field[3], &newPoint))
+                        return Fail(d, "replace_connection: the new connection point must contain exactly three numbers");
+                    if (newToken == token && (!moves || SamePoint(newPoint, point)))
+                        return Fail(d, "replace_connection: old and new token are identical");
+                }
+            }
+            else
+            {
             std::string token;
             Point first, second;
             if (!ParseConnectionFields(op, 0, 1, 2, &token, &first, &second, &why))
@@ -807,9 +911,51 @@ static bool ValidateOperations(Decl* d, const std::vector<std::string>& lines)
                     return Fail(d, "replace_connection: new token is not a supported two-point connection");
                 if (IsAllowPass(newToken))
                     return Fail(d, "replace_connection: *_ALLOWPASS is not accepted for safety reasons");
-                if (newToken == token)
+                // Six fields: the connection also moves to two new points. They must parse,
+                // differ, and stay clear of every other connection (existing or planned);
+                // the block's own old points are free again. The token may then stay.
+                bool moves = op.field.size() == 6;
+                Point newFirst = first, newSecond = second;
+                if (moves)
+                {
+                    if (!ParsePoint(op.field[4], &newFirst) || !ParsePoint(op.field[5], &newSecond))
+                        return Fail(d, "replace_connection: each new coordinate line must contain exactly three numbers");
+                    if (SamePoint(newFirst, newSecond))
+                        return Fail(d, "replace_connection: the two new connection points must not be identical");
+                    for (int bi = 0; bi < (int)blocks.size(); bi++)
+                    {
+                        if (bi == at) continue;
+                        if (SamePoint(blocks[bi].first, newFirst) || SamePoint(blocks[bi].second, newFirst) ||
+                            SamePoint(blocks[bi].first, newSecond) || SamePoint(blocks[bi].second, newSecond))
+                            return Fail(d, "replace_connection: one of the new connection points is already occupied");
+                    }
+                    for (int pi = 0; pi < (int)plannedFirst.size(); pi++)
+                        if (SamePoint(plannedFirst[pi], newFirst) || SamePoint(plannedFirst[pi], newSecond) ||
+                            SamePoint(plannedSecond[pi], newFirst) || SamePoint(plannedSecond[pi], newSecond))
+                            return Fail(d, "replace_connection: a new connection point collides with another new connection");
+                    plannedFirst.push_back(newFirst);
+                    plannedSecond.push_back(newSecond);
+                }
+                if (newToken == token && (!moves || (SamePoint(newFirst, first) && SamePoint(newSecond, second))))
                     return Fail(d, "replace_connection: old and new token are identical");
             }
+            }
+        }
+        else if (op.kind == OP_ADD_CONNECTION && op.field.size() == 2)
+        {
+            // One-point entry: token | point. Dead ends share their point with a two-point
+            // connection by design, so only an exact duplicate is refused.
+            std::string token;
+            Point point;
+            if (!ParseOnePointFields(op, 0, 1, &token, &point, &why))
+                return Fail(d, "add_connection: " + why);
+            if (IsAllowPass(token))
+                return Fail(d, "add_connection: *_ALLOWPASS cannot be inserted safely at block end");
+            for (int bi = 0; bi < (int)blocks.size(); bi++)
+                if (blocks[bi].points == 1 && blocks[bi].token == token && SamePoint(blocks[bi].first, point))
+                    return Fail(d, "add_connection: the same one-point connection already exists");
+            op.points = 1;
+            op.insertAt = connectionInsert;
         }
         else if (op.kind == OP_ADD)
         {
@@ -979,6 +1125,8 @@ static std::string ApplyOperations(const Decl& d, const std::vector<std::string>
             if (followsAnchor != (pass == 0)) continue;
             if (op.kind == OP_ADD || op.kind == OP_INSERT)
                 emitted.push_back(std::make_pair(oi, Trimmed(op.field[op.kind == OP_INSERT ? 2 : 0])));
+            else if (op.kind == OP_ADD_CONNECTION && op.points == 1)
+                emitted.push_back(std::make_pair(oi, Trimmed(op.field[0]) + " " + Trimmed(op.field[1])));
             else if (op.kind == OP_ADD_CONNECTION)
             {
                 emitted.push_back(std::make_pair(oi, Trimmed(op.field[0])));
@@ -1001,11 +1149,20 @@ static std::string ApplyOperations(const Decl& d, const std::vector<std::string>
 
         if (action->kind == OP_REPLACE)
             emitted.push_back(std::make_pair(actionIndex, Trimmed(action->field[1])));
+        else if (action->kind == OP_REPLACE_CONNECTION && action->points == 1)
+        {
+            // One-point entry: the result is always written inline, "$TOKEN x y z".
+            std::string point = action->field.size() == 4 ? Trimmed(action->field[3]) :
+                action->matchEnd > i ? Trimmed(lines[i + 1]) : Trimmed(Trimmed(lines[i]).substr(TokenOf(lines[i]).size()));
+            emitted.push_back(std::make_pair(actionIndex, Trimmed(action->field[2]) + " " + point));
+        }
         else if (action->kind == OP_REPLACE_CONNECTION)
         {
             emitted.push_back(std::make_pair(actionIndex, Trimmed(action->field[3])));
-            emitted.push_back(std::make_pair(-1, lines[i + 1]));
-            emitted.push_back(std::make_pair(-1, lines[i + 2]));
+            // Optional new coordinates: fields 4 and 5 replace the two point lines.
+            bool moves = action->field.size() == 6;
+            emitted.push_back(std::make_pair(-1, moves ? Trimmed(action->field[4]) : lines[i + 1]));
+            emitted.push_back(std::make_pair(-1, moves ? Trimmed(action->field[5]) : lines[i + 2]));
         }
         // remove and remove_connection deliberately emit nothing.
         i = action->matchEnd + 1;
@@ -1056,9 +1213,18 @@ static bool AddOperation(Decl* d, const std::string& key, const std::string& val
 
     op.field = SplitFields(value);
     if (key == "insert_before" && op.field.size() == 2) { op.field.insert(op.field.begin(), "0"); expected = 3; }
+    // replace_connection takes two more fields when the connection also moves:
+    // old token | point 1 | point 2 | new token | new point 1 | new point 2
+    if (key == "replace_connection" && op.field.size() == 6) expected = 6;
+    // One-point connections ($CONNECTION_ROAD_DEAD x y z): remove/add take token | point,
+    // replace takes old token | point | new token [| new point].
+    if ((key == "remove_connection" || key == "add_connection") && op.field.size() == 2) expected = 2;
+    if (key == "replace_connection" && op.field.size() == 3) expected = 3;
     if ((int)op.field.size() != expected)
     {
-        Fail(d, key + ": expected " + std::to_string(expected) + " fields separated by |");
+        Fail(d, key + ": expected " + std::to_string(expected) + " fields separated by |" +
+            (key == "replace_connection" ? " (or 6 with new coordinates; one-point: 3 or 4)" :
+             key == "remove_connection" || key == "add_connection" ? " (or 2 for a one-point connection)" : ""));
         return true;
     }
     for (int i = 0; i < expected; i++)
@@ -1818,7 +1984,7 @@ BOOL APIENTRY DllMain(HMODULE, DWORD reason, LPVOID)
 #ifdef VANILLA_BUILDINGS_TEST
 
 static Operation TestOp(OpKind kind, const char* a, const char* b = NULL,
-    const char* c = NULL, const char* e = NULL)
+    const char* c = NULL, const char* e = NULL, const char* f = NULL, const char* g = NULL)
 {
     Operation op;
     op.kind = kind;
@@ -1826,6 +1992,8 @@ static Operation TestOp(OpKind kind, const char* a, const char* b = NULL,
     if (b) op.field.push_back(b);
     if (c) op.field.push_back(c);
     if (e) op.field.push_back(e);
+    if (f) op.field.push_back(f);
+    if (g) op.field.push_back(g);
     return op;
 }
 
@@ -1848,6 +2016,9 @@ static int RunSelfTests(void)
         "$CONNECTION_PIPE_INPUT\n"
         "14.5000 0 -0.0000\n"
         "14.5 0 2\n"
+        "$CONNECTION_ROAD_DEAD 14.5 0 4\n"
+        "$CONNECTION_ROAD_DEAD\n"
+        "14.5 0 6\n"
         "$COST_WORK SOVIET_CONSTRUCTION_GROUNDWORKS 1.0\n"
         "$COST_RESOURCE_AUTO ground_asphalt 1.0\n"
         "$COST_WORK SOVIET_CONSTRUCTION_BUILDING_NODE 1.0\n"
@@ -1862,6 +2033,10 @@ static int RunSelfTests(void)
     d.operations.push_back(TestOp(OP_REMOVE_CONNECTION, "$CONNECTION_PIPE_INPUT", "14.5 0 0", "14.5 0 2"));
     d.operations.push_back(TestOp(OP_ADD, "$PRODUCTION alcohol 0.10"));
     d.operations.push_back(TestOp(OP_ADD, "$WORKERS_NEEDED 20"));
+    // One-point connections: remove the inline one, replace and move the two-line one, add one.
+    d.operations.push_back(TestOp(OP_REMOVE_CONNECTION, "$CONNECTION_ROAD_DEAD", "14.5 0 4"));
+    d.operations.push_back(TestOp(OP_REPLACE_CONNECTION, "$CONNECTION_ROAD_DEAD", "14.5 0 6", "$CONNECTION_RAIL_DEAD", "16 0 6"));
+    d.operations.push_back(TestOp(OP_ADD_CONNECTION, "$CONNECTION_ROAD_DEAD", "30 0 0"));
     d.operations.push_back(TestOp(OP_ADD_CONNECTION, "$CONNECTION_WATERPIPE_OUTPUT", "20 0 0", "22 0 0"));
     d.operations.push_back(TestOp(OP_INSERT, "0", "$COST_WORK SOVIET_CONSTRUCTION_BUILDING_NODE 1.0", "$COST_RESOURCE_AUTO steel 2.0"));
     d.operations.push_back(TestOp(OP_INSERT, "0", "$COST_WORK SOVIET_CONSTRUCTION_BUILDING_NODE 1.0", "$COST_RESOURCE_AUTO bricks 3.0"));
@@ -1882,7 +2057,9 @@ static int RunSelfTests(void)
             Has(out, "$CONSUMPTION chemicals 0.20") ||
             !Has(out, "$CONNECTION_WATERPIPE_INPUT\r\n-7 -3.0 33\r\n-7 -3.0 31") ||
             Has(out, "$CONNECTION_PIPE_INPUT") ||
-            !Has(out, "$CONNECTION_WATERPIPE_OUTPUT\r\n20 0 0\r\n22 0 0\r\n$COST_WORK") ||
+            !Has(out, "$CONNECTION_ROAD_DEAD 30 0 0\r\n$CONNECTION_WATERPIPE_OUTPUT\r\n20 0 0\r\n22 0 0\r\n$COST_WORK") ||
+            Has(out, "$CONNECTION_ROAD_DEAD 14.5 0 4") || Has(out, "14.5 0 6") ||
+            !Has(out, "-7 -3.0 31\r\n$CONNECTION_RAIL_DEAD 16 0 6\r\n$CONNECTION_ROAD_DEAD 30 0 0\r\n") ||
             !Has(out, "$COST_RESOURCE_AUTO steel 2.0\r\n$COST_RESOURCE_AUTO bricks 3.0\r\n$COST_WORK SOVIET_CONSTRUCTION_BUILDING_NODE 1.0\r\n$COST_RESOURCE_AUTO gravel 1.0\r\n") ||
             !Has(out, "$PRODUCTION alcohol 0.10\r\n$WORKERS_NEEDED 20\r\n$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 120 sand\r\n$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 120 road_salt\r\n$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 120 gravel\r\nend"))
         {
@@ -1891,6 +2068,17 @@ static int RunSelfTests(void)
             failed++;
         }
     }
+
+    // A one-point remove with a point nobody has is rejected; a two-point remove of a one-point
+    // entry too (a dead end never matches the two-point form).
+    Decl deadMissing;
+    deadMissing.operations.push_back(TestOp(OP_REMOVE_CONNECTION, "$CONNECTION_ROAD_DEAD", "99 0 0"));
+    if (ValidateOperations(&deadMissing, lines)) { fprintf(stderr,
+        "FATAL: self-test [dead-missing] Unknown one-point connection was accepted. Action: correct validation\n"); failed++; }
+    Decl deadTwoPoint;
+    deadTwoPoint.operations.push_back(TestOp(OP_REMOVE_CONNECTION, "$CONNECTION_ROAD_DEAD", "14.5 0 4", "14.5 0 6"));
+    if (ValidateOperations(&deadTwoPoint, lines)) { fprintf(stderr,
+        "FATAL: self-test [dead-two-point] Two-point remove of a dead end was accepted. Action: correct validation\n"); failed++; }
 
     Decl ambiguous;
     ambiguous.operations.push_back(TestOp(OP_REMOVE, "$COST_WORK SOVIET_CONSTRUCTION_BUILDING_NODE 1.0"));
@@ -1911,6 +2099,39 @@ static int RunSelfTests(void)
     allowpass.operations.push_back(TestOp(OP_ADD_CONNECTION, "$CONNECTION_ROAD_ALLOWPASS", "30 0 0", "31 0 0"));
     if (ValidateOperations(&allowpass, lines)) { fprintf(stderr,
         "FATAL: self-test [allowpass] Invalid allowpass rule was accepted. Action: correct validation\n"); failed++; }
+
+    // replace_connection with new coordinates: token and both point lines change.
+    Decl moved;
+    moved.operations.push_back(TestOp(OP_REPLACE_CONNECTION, "$CONNECTION_PIPE_INPUT", "14.5 0 0", "14.5 0 2",
+        "$CONNECTION_WATERPIPE_OUTPUT", "14.5 -2.15 0", "14.5 -2.15 2"));
+    if (!ValidateOperations(&moved, lines))
+    {
+        fprintf(stderr, "FATAL: self-test [moved-connection] %s. Action: correct the validator\n", moved.error.c_str());
+        failed++;
+    }
+    else
+    {
+        std::string out = ApplyOperations(moved, lines, false);
+        if (!Has(out, "$CONNECTION_WATERPIPE_OUTPUT\r\n14.5 -2.15 0\r\n14.5 -2.15 2\r\n$CONNECTION_ROAD_DEAD 14.5 0 4") ||
+            Has(out, "$CONNECTION_PIPE_INPUT") || Has(out, "14.5000 0 -0.0000"))
+        {
+            fprintf(stderr, "FATAL: self-test [moved-connection-output] Output mismatch. "
+                "Action: inspect the generated text below\n%s\n", out.c_str());
+            failed++;
+        }
+    }
+    // The same token with new coordinates is a plain move and stays allowed.
+    Decl movedSame;
+    movedSame.operations.push_back(TestOp(OP_REPLACE_CONNECTION, "$CONNECTION_PIPE_INPUT", "14.5 0 0", "14.5 0 2",
+        "$CONNECTION_PIPE_INPUT", "14.5 -1 0", "14.5 -1 2"));
+    if (!ValidateOperations(&movedSame, lines)) { fprintf(stderr,
+        "FATAL: self-test [moved-same-token] %s. Action: correct the validator\n", movedSame.error.c_str()); failed++; }
+    // New coordinates on a point another connection uses are rejected.
+    Decl movedOccupied;
+    movedOccupied.operations.push_back(TestOp(OP_REPLACE_CONNECTION, "$CONNECTION_PIPE_INPUT", "14.5 0 0", "14.5 0 2",
+        "$CONNECTION_WATERPIPE_OUTPUT", "-7 -3 33", "14.5 -2 2"));
+    if (ValidateOperations(&movedOccupied, lines)) { fprintf(stderr,
+        "FATAL: self-test [moved-occupied] Occupied new point was accepted. Action: correct validation\n"); failed++; }
 
     if (!failed) printf("INFO: self-test [summary] All vanilla_buildings self-tests passed\n");
     return failed ? 1 : 0;

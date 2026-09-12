@@ -1,4 +1,4 @@
-# 🏗️ Vanilla Buildings 0.4.1
+# 🏗️ Vanilla Buildings 0.4.3
 
 **TesmioLoader-Plugin für temporäre Änderungen an Gebäudedateien**
 
@@ -190,7 +190,11 @@ Leerzeichen am Zeilenanfang und -ende werden ignoriert, Unterschiede innerhalb d
 |---|---|
 | `add_connection = TOKEN \| PUNKT1 \| PUNKT2` | Fügt einen neuen Dreizeilenblock nach dem letzten Anschluss ein. |
 | `replace_connection = TOKEN \| PUNKT1 \| PUNKT2 \| NEUES_TOKEN` | Ändert nur das Token des über beide Punkte eindeutig gefundenen Blocks. |
+| `replace_connection = TOKEN \| PUNKT1 \| PUNKT2 \| NEUES_TOKEN \| NEUER_PUNKT1 \| NEUER_PUNKT2` | Wie oben, ersetzt zusätzlich beide Punkte, zum Beispiel für eine andere Höhe. Das Token darf dabei gleich bleiben. Die neuen Punkte dürfen keinen anderen Anschluss berühren. |
 | `remove_connection = TOKEN \| PUNKT1 \| PUNKT2` | Entfernt den ganzen Dreizeilenblock. |
+| `add_connection = TOKEN \| PUNKT` | Einpunktiger Anschluss wie `$CONNECTION_ROAD_DEAD`, wird als eine Zeile `$TOKEN x y z` eingefügt. |
+| `replace_connection = TOKEN \| PUNKT \| NEUES_TOKEN` | Ändert das Token eines einpunktigen Anschlusses; mit `\| NEUER_PUNKT` dahinter auch seinen Punkt. |
+| `remove_connection = TOKEN \| PUNKT` | Entfernt einen einpunktigen Anschluss, egal ob das Spiel ihn einzeilig oder als Token plus Punktzeile schreibt. |
 
 Ein Punkt besteht aus drei Zahlen, etwa `14.5 0 2`; der Vergleich ist numerisch, `0` und `0.0000` gelten als gleich. Die beiden Punkte müssen verschieden sein und in der Reihenfolge der Originaldatei stehen. Belegte Punkte und neue `*_ALLOWPASS`-Anschlüsse werden abgewiesen.
 
@@ -202,6 +206,7 @@ enabled = 0
 target = buildings_types\plastics_factory.ini
 replace = $PRODUCTION plastics 0.11 | $PRODUCTION plastics 0.20
 replace_connection = $CONNECTION_CONNECTION | 14.5 0.0 23.3 | 14.5 0.0 21.3 | $CONNECTION_WATERPIPE_INPUT
+replace_connection = $CONNECTION_CONNECTION | -19.12 0.36 -27.02 | -19.12 0.36 -23.32 | $CONNECTION_WATERPIPE_INPUT | -19.12 -2.15 -27.02 | -19.12 -2.15 -23.32
 remove = $CONSUMPTION_PER_SECOND eletric 0.26
 remove_connection = $CONNECTION_CONNECTION | -23.4 0.0 15.9 | -21.4 0.0 15.9
 add = $PRODUCTION glass 0.45
@@ -249,6 +254,8 @@ Das Plugin ändert Gebäudedefinitionen, keine gespeicherten Gebäude. Neue Lage
 Andere Plugins, die dieselbe Gebäudedatei ersetzen, werden nicht mit diesen Änderungen zusammengeführt. Für Materialien aus Vehicle Materials liefert dieses Plugin die passende `$STORAGE_IMPORT_SPECIAL`-Zeile in den Fahrzeugfabriken.
 
 ### Versionskompatibilität
+- **0.4.3:** einpunktige Anschlüsse wie `$CONNECTION_ROAD_DEAD` lassen sich mit `add_connection`, `replace_connection` und `remove_connection` bearbeiten (Token | Punkt)
+- **0.4.2:** `replace_connection` nimmt hinter dem neuen Token wahlweise zwei neue Punkte und verschiebt den Anschluss dabei
 - **0.4.1:** `insert` nimmt als Anker auch Zeilen, die frühere Befehle desselben Regelsatzes erzeugen
 - **0.4.0:** erste veröffentlichte Fassung
 
@@ -342,5 +349,5 @@ A: Nein. Republic Mod Manager zeigt die Regelsätze als Liste mit Zielen und Bef
 
 ---
 
-**Letzte Aktualisierung:** Vanilla Buildings 0.4.1  
+**Letzte Aktualisierung:** Vanilla Buildings 0.4.3  
 **Für:** WRSR 1.1.1.9 | TesmioLoader API 4

@@ -397,7 +397,7 @@ namespace TesmioAutoload
         {
             if(language==null) return;
             bool available=session!=null||resourceSession!=null,valid=available; string error="";
-            if(valid) try {if(resourceSession!=null)resourceSession.Validate();else Prospective();} catch(Exception e) {valid=false;error=ErrorText(e);}
+            if(valid) try {if(resourceSession!=null)resourceSession.ValidateAll();else Prospective();} catch(Exception e) {valid=false;error=ErrorText(e);}
             // 0.4.51: three states in the heading - green saved and valid, amber unsaved, red invalid -
             // and the same state on the save button (primary only while there is something to save),
             // as a " *" on the page heading and as an amber dot at the list entry.
@@ -410,8 +410,9 @@ namespace TesmioAutoload
             // 0.4.57: a pending package update (yellow "Update" mark) is saved away too, so the button stays usable then.
             bool updatePending=session!=null&&session.Update.Pending;
             if(saveButton!=null){bool canSave=!blocked&&(total>0||updatePending);saveButton.Enabled=canSave;saveButton.BackColor=canSave?Theme.Blue:Color.White;saveButton.ForeColor=canSave?Color.White:Theme.Ink;saveButton.FlatAppearance.BorderSize=canSave?0:1;saveButton.FlatAppearance.MouseOverBackColor=canSave?Color.FromArgb(0,70,180):Color.FromArgb(222,232,248);}
-            // A page without an editor still offers Save + Start while other entries wait to be written.
-            if(startButton!=null&&!available) startButton.Enabled=total>0;
+            // Save + Start follows the same rule as Save: locked while any entry is invalid; a page without
+            // an editor still offers it while other entries wait to be written.
+            if(startButton!=null) startButton.Enabled=!blocked&&(available||total>0);
             string headingBase=heading.Text.EndsWith(" *")?heading.Text.Substring(0,heading.Text.Length-2):heading.Text;string headingNow=pending?headingBase+" *":headingBase;if(heading.Text!=headingNow)heading.Text=headingNow;
             var dirtyNow=new HashSet<string>(parked.Keys,StringComparer.OrdinalIgnoreCase);if(pending&&this.current!=null)dirtyNow.Add(this.current.Root);if(!mods.DirtyRoots.SetEquals(dirtyNow)){mods.DirtyRoots.Clear();mods.DirtyRoots.UnionWith(dirtyNow);mods.Invalidate();}
             foreach(var pair in origins)

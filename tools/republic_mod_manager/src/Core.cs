@@ -1,4 +1,4 @@
-// Republic Mod Manager 0.4.71-beta: generic manifest/schema driven plugin deployment.
+// Republic Mod Manager 0.4.79-beta: generic manifest/schema driven plugin deployment.
 // Never loads a DLL during discovery and never edits Workshop defaults or loader code.
 // Since 0.9.0 a package needs only [mod] and [hooks] dll; everything Autoload used
 // to declare is derived by convention, and a plugin without a launcher schema gets
@@ -759,6 +759,14 @@ namespace TesmioAutoload
         static readonly Regex Warning = new Regex(@"\b(warn(ing)?|declined|skipped|missing|unknown|unsupported|idle)\b", RegexOptions.IgnoreCase);
         // Plugin summaries such as "0 warning(s), 0 error(s), 0 fatal error(s)" are good news.
         static readonly Regex Clean = new Regex(@"\b0 warning\(s\), 0 error\(s\), 0 fatal", RegexOptions.IgnoreCase);
+        // 0.4.78: the level a plugin prints after its name ("weather_roads  INFO  Init ...",
+        // "research_expansion  WARN: ...") decides first; an INFO line is raised only by a
+        // counter above zero ("12 warning(s)", "errors=2"), never by the word "error" in "errors=0".
+        // The subject before the level is optional: a plugin's own detail log starts its lines
+        // with the stamp and the level ("[2026-09-12 04:53:48.614] INFO  Init [ready] ...").
+        static readonly Regex Level = new Regex(@"^\[[^\]]*\]\s*(?:\S+\s+)?(INFO|WARN(?:ING)?|ERROR|FATAL|DEBUG|TRACE)\b:?", RegexOptions.IgnoreCase);
+        static readonly Regex ErrorCount = new Regex(@"\b[1-9]\d*\s+(?:fatal )?error\(s\)|\b(?:errors|fatal)=[1-9]\d*", RegexOptions.IgnoreCase);
+        static readonly Regex WarningCount = new Regex(@"\b[1-9]\d*\s+warning\(s\)|\bwarnings=[1-9]\d*", RegexOptions.IgnoreCase);
         static readonly Regex Stamp = new Regex(@"^\[[^\]]*\]\s*");
         public static List<Source> Sources(string build)
         {
@@ -795,6 +803,20 @@ namespace TesmioAutoload
             if (line == null) return Kind.Plain;
             if (Clean.IsMatch(line)) return Kind.Plain;
             if (line.IndexOf("hook ok", StringComparison.OrdinalIgnoreCase) >= 0) return Kind.Plain;
+            Match level = Level.Match(line);
+            if (level.Success)
+            {
+                string kind = level.Groups[1].Value.ToUpperInvariant();
+                if (kind == "ERROR" || kind == "FATAL") return Kind.Problem;
+                if (kind.StartsWith("WARN")) return Kind.Warning;
+                if (ErrorCount.IsMatch(line)) return Kind.Problem;
+                if (WarningCount.IsMatch(line)) return Kind.Warning;
+                return Kind.Plain;
+            }
+            // The game's own lines carry the level in the subject: "game.WARN 6", "game.ERROR setfocus".
+            string subject = SubjectOf(line);
+            if (subject.EndsWith(".ERROR", StringComparison.OrdinalIgnoreCase) || subject.EndsWith(".FATAL", StringComparison.OrdinalIgnoreCase)) return Kind.Problem;
+            if (subject.EndsWith(".WARN", StringComparison.OrdinalIgnoreCase) || subject.EndsWith(".WARNING", StringComparison.OrdinalIgnoreCase)) return Kind.Warning;
             if (Problem.IsMatch(line)) return Kind.Problem;
             if (Warning.IsMatch(line)) return Kind.Warning;
             return Kind.Plain;

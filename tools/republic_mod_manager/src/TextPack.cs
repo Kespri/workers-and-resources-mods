@@ -17,6 +17,10 @@ namespace TesmioAutoload
     {
         public string Tab = "", Folder = "", SeedDependency = "", SeedPath = "", Namespace = "", KeysFrom = "";
         public string Label = "", LabelKey = "", Description = "", DescriptionKey = "", Missing = "", MissingKey = "";
+        // required = 1 (0.4.75): while the local folder is missing, every tab shows a red box
+        // with the notice and the text pack's tab is tinted red - the player must click
+        // "Create locally" first, otherwise the plugin refuses its own entries in the game.
+        public bool Required; public string RequiredNotice = "", RequiredNoticeKey = "";
     }
 
     public sealed class TextPackSession
@@ -84,6 +88,22 @@ namespace TesmioAutoload
             if (value.Length == 0) ini.Remove("strings", key); else ini.Set("strings", key, value);
         }
 
+        // Every <id>.name and <id>.desc that no language file defines gets the id as its text in
+        // the given language (0.4.77): an entry saved without texts then never makes the plugin
+        // refuse the whole expansion; the player replaces the placeholder on the text pack tab.
+        public int EnsureKeys(IEnumerable<string> ids, string language)
+        {
+            if (!files.ContainsKey(language)) return 0;
+            var known = new HashSet<string>(Keys(), StringComparer.OrdinalIgnoreCase); int added = 0;
+            foreach (string id in ids)
+                foreach (string suffix in new[] { ".name", ".desc" })
+                {
+                    string key = id + suffix;
+                    if (known.Contains(key) || !ValidKey(key)) continue;
+                    Set(language, key, id); known.Add(key); added++;
+                }
+            return added;
+        }
         // Removes a key from every language file (0.4.34); used for keys no research owns.
         public void RemoveKey(string key)
         {

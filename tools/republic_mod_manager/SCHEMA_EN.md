@@ -502,6 +502,8 @@ keys_from = research                   ; list group whose identifiers give the l
 label_key = ...
 description_key = ...
 missing_key = re.textpack.missing      ; yellow box with "Create locally" while the folder is missing
+required = 1                           ; red box on every tab, red tab and no saving (with own entries) while the folder is missing
+required_notice_key = re.textpack.required   ; text of the red box (required_notice = fallback); without it a default text
 ```
 
 The tab shows the fallback language, the language files (with "+" from the game's languages), per own entry name and description, and further keys with a trash button that removes a key from all language files.

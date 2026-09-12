@@ -502,6 +502,8 @@ keys_from = research                   ; Listengruppe, deren Kennungen die Zeile
 label_key = ...
 description_key = ...
 missing_key = re.textpack.missing      ; gelber Kasten mit "Lokal anlegen", solange der Ordner fehlt
+required = 1                           ; rote Box auf jedem Reiter, roter Reiter und Speichern gesperrt (bei eigenen Eintraegen), solange der Ordner fehlt
+required_notice_key = re.textpack.required   ; Text der roten Box (required_notice = Rueckfalltext); ohne Angabe ein Standardtext
 ```
 
 Der Reiter zeigt die Rückfallsprache, die Sprachdateien (mit „+“ aus den Spielsprachen), je eigenem Eintrag Name und Beschreibung sowie weitere Schlüssel mit einem Papierkorb, der einen Schlüssel aus allen Sprachdateien entfernt.

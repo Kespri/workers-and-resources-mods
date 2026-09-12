@@ -4,6 +4,31 @@ Target: WRSR 1.1.1.9, TesmioLoader API 4. Build: the standard line (`cl /O2 /MT 
 ... /link kernel32.lib`); exports TsmPluginApiVersion/TsmPluginInit/TsmPluginStart. History
 newest first.
 
+## 0.4.3 (2026-09-12)
+
+- One-point connections. The game writes dead ends such as `$CONNECTION_ROAD_DEAD` either inline
+  (`$TOKEN x y z`) or as a token line plus one point line; neither the single-line commands (refused
+  for every `$CONNECTION` token) nor the two-point connection commands could touch them. `FindConnections`
+  now records both forms as blocks with `points = 1` (`pointText` keeps the point as written);
+  `IsConnectionTokenName` accepts any `$CONNECTION_*` name for them. Commands: `remove_connection =
+  token | point`, `add_connection = token | point` (emitted inline, only an exact duplicate is refused -
+  dead ends share their point with a two-point connection by design), `replace_connection = old token |
+  point | new token [| new point]` (result written inline; a four-field command is one-point when field
+  3 starts with `$`). `Operation.points` carries the form to `ApplyOperations`. Self-tests: inline dead
+  end removed, two-line dead end replaced and moved, dead end added before the two-point add, unknown
+  point rejected, two-point remove of a dead end rejected.
+
+## 0.4.2 (2026-09-12)
+
+- `replace_connection` accepts six fields: `old token | point 1 | point 2 | new token | new point 1 |
+  new point 2`. With the two extra fields the block's point lines are replaced as well (the user
+  needed another connection height without remove + add). The token may stay the same then (a plain
+  move); with four fields the old rule stands (token must change). Validation: both new points parse,
+  differ, and neither touches a point of another existing block or of a planned `add_connection`
+  (the moved connection's own old points are ignored); the new points are added to the planned list.
+  `AddOperation` takes 4 or 6 fields for this key. Self-tests: moved connection output, same-token
+  move accepted, occupied new point rejected.
+
 ## 0.4.1 (2026-09-09)
 
 - 2026-09-11, version unchanged: the detail log `tesmioloader.vanilla_buildings.log` is written to `<loader>\logs\`

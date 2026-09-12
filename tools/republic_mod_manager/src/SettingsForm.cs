@@ -29,8 +29,8 @@ namespace TesmioAutoload
         // unsaved changes can be parked while another one is edited, and all of them are saved in one go.
         sealed class Workspace
         {
-            public CatalogEntry Entry; public Session Session; public Presentation Presentation; public LocalResourceSession ResourceSession; public LocalEditorSpec LocalSpec;
-            public string SelectedLocalResource="", LastAction="ready", SelectedTab=""; public bool Valid=true;
+            public CatalogEntry Entry; public Session Session; public Presentation Presentation; public LocalResourceSession ResourceSession; public LocalEditorSpec LocalSpec; public TextPackSession TextPack;
+            public string SelectedLocalResource="", LastAction="ready", SelectedTab="", LanguageCode=""; public bool Valid=true;
             public readonly Dictionary<string,ResourceRegistry> Registries=new Dictionary<string,ResourceRegistry>(StringComparer.OrdinalIgnoreCase);
             public readonly Dictionary<string,string> Draft=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase), Baseline=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
             public readonly HashSet<string> Resets=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -63,7 +63,7 @@ namespace TesmioAutoload
         {
             state = initial.Copy(); stateStore = store; persistUi = saveUi; language = new Language(state.Language); Theme.CopyMenuLabel=()=>language.T("copy_text");
             mods.Cache=icons; icons.Warning=message=>Report(language.T("icon_warning")+" "+message); icons.LoaderExe=()=>Path.Combine(state.Build,"tesmiolauncher.exe");
-            Text = "Republic Mod Manager 0.4.71-beta  ·  "+language.T("app_dependency"); Font = new Font("Segoe UI",10); ForeColor = Theme.Ink; BackColor = Color.White;Theme.ApplyWindowChrome(this);
+            Text = "Republic Mod Manager 0.4.79-beta  ·  "+language.T("app_dependency"); Font = new Font("Segoe UI",10); ForeColor = Theme.Ink; BackColor = Color.White;Theme.ApplyWindowChrome(this);
             AutoScaleDimensions = new SizeF(96,96); AutoScaleMode = AutoScaleMode.Dpi; Size = new Size(1600,1000); MinimumSize = new Size(1560,760); StartPosition = FormStartPosition.CenterScreen;   // 0.4.36: minimum 1560 - the section editors' detail panel needs it; RestoreWindowSize caps it to the screen
             Load += (s,e) => RestoreWindowSize();
             using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Tesmio.icon")) using (var icon = new Icon(stream)) Icon = (Icon)icon.Clone();
@@ -207,7 +207,7 @@ namespace TesmioAutoload
         }
         void ShowError(Exception e) { string detail=ErrorText(e);Report(detail); MessageWindow.Show(this,language,Text,language.T("failed")+"\n\n"+language.T("technical")+":\n"+detail,MessageWindow.Kind.Error,DialogResult.OK); }
         public void Report(string text) { journal.AppendLine(DateTime.Now.ToString("HH:mm:ss")+"  "+language.Localize(text)); }
-        public void InitializeCatalog() { initialized=true; Scan(false); }
+        public void InitializeCatalog() { initialized=true; Scan(false); BuildingPickerWindow.Prime(state.Build,state.WorkshopRoot); }
         void Scan(bool ask)
         {
             if(ask && !ResolvePending()) return;
@@ -235,17 +235,19 @@ namespace TesmioAutoload
         void Park()
         {
             if(current==null||(session==null&&resourceSession==null)||!HasPending) return;
-            work.Entry=current; work.SelectedTab=state.SelectedTab; work.Valid=WorkspaceValid(work); parked[current.Root]=work;
+            work.Entry=current; work.SelectedTab=state.SelectedTab; work.LanguageCode=language.Code; work.Valid=WorkspaceValid(work); parked[current.Root]=work;
         }
         bool WorkspaceValid(Workspace candidate)
-        { Workspace keep=work; work=candidate; try { if(resourceSession!=null) resourceSession.Validate(); else Prospective(); return true; } catch(Exception) { return false; } finally { work=keep; } }
+        { Workspace keep=work; work=candidate; try { if(resourceSession!=null) resourceSession.ValidateAll(); else Prospective(); return true; } catch(Exception) { return false; } finally { work=keep; } }
         void Resume(Workspace kept)
         {
             work=kept; state.SelectedTab=kept.SelectedTab;
             try
             {
-                // Labels come from the presentation, which was built in the language of that moment.
-                if(session!=null) RebuildPresentation();
+                // Labels come from the presentation, which was built in the language of that moment; rebuilt
+                // only after a language change, and never at the cost of the page: an invalid draft value
+                // makes the rebuild throw, then the old labels stay and the editor shows the value in red.
+                if(session!=null&&kept.LanguageCode!=language.Code) try { RebuildPresentation(); } catch(Exception) { }
                 if(resourceSession!=null) { heading.Text=localSpec.LocalizedName(language); description.Text=localSpec.LocalizedDescription(language); BuildLocalResourceEditor(); }
                 else BuildEditor();
                 SetActions(true); UpdateLoadPath();
@@ -503,6 +505,7 @@ namespace TesmioAutoload
         {
             if(resourceSession!=null)
             {
+                FillTextPackKeys();
                 Action resourceGuard=guard??(()=>LocalResourceGuard.Check(resourceSession));
                 resourceGuard();
                 if(session!=null)

@@ -1,4 +1,4 @@
-# 🏗️ Vanilla Buildings 0.4.1
+# 🏗️ Vanilla Buildings 0.4.3
 
 **TesmioLoader plugin for temporary changes to building files**
 
@@ -190,7 +190,11 @@ Whitespace at the start and end of a line is ignored, differences inside the lin
 |---|---|
 | `add_connection = TOKEN \| POINT1 \| POINT2` | Inserts a new three-line block after the last connection. |
 | `replace_connection = TOKEN \| POINT1 \| POINT2 \| NEW_TOKEN` | Changes only the token of the block found uniquely by both points. |
+| `replace_connection = TOKEN \| POINT1 \| POINT2 \| NEW_TOKEN \| NEW_POINT1 \| NEW_POINT2` | Same as above and also replaces both points, for example for another height. The token may stay the same. The new points must not touch another connection. |
 | `remove_connection = TOKEN \| POINT1 \| POINT2` | Removes the whole three-line block. |
+| `add_connection = TOKEN \| POINT` | One-point connection such as `$CONNECTION_ROAD_DEAD`, inserted as one line `$TOKEN x y z`. |
+| `replace_connection = TOKEN \| POINT \| NEW_TOKEN` | Changes the token of a one-point connection; with `\| NEW_POINT` behind it also its point. |
+| `remove_connection = TOKEN \| POINT` | Removes a one-point connection, whether the game writes it on one line or as token plus point line. |
 
 A point is three numbers, for example `14.5 0 2`; the comparison is numeric, `0` and `0.0000` are equal. The two points must differ and follow the order of the original file. Occupied points and new `*_ALLOWPASS` connections are rejected.
 
@@ -202,6 +206,7 @@ enabled = 0
 target = buildings_types\plastics_factory.ini
 replace = $PRODUCTION plastics 0.11 | $PRODUCTION plastics 0.20
 replace_connection = $CONNECTION_CONNECTION | 14.5 0.0 23.3 | 14.5 0.0 21.3 | $CONNECTION_WATERPIPE_INPUT
+replace_connection = $CONNECTION_CONNECTION | -19.12 0.36 -27.02 | -19.12 0.36 -23.32 | $CONNECTION_WATERPIPE_INPUT | -19.12 -2.15 -27.02 | -19.12 -2.15 -23.32
 remove = $CONSUMPTION_PER_SECOND eletric 0.26
 remove_connection = $CONNECTION_CONNECTION | -23.4 0.0 15.9 | -21.4 0.0 15.9
 add = $PRODUCTION glass 0.45
@@ -249,6 +254,8 @@ The plugin changes building definitions, not saved buildings. New storages apply
 Other plugins that replace the same building file are not merged with these changes. For materials from Vehicle Materials this plugin provides the matching `$STORAGE_IMPORT_SPECIAL` line in the vehicle factories.
 
 ### Version compatibility
+- **0.4.3:** one-point connections such as `$CONNECTION_ROAD_DEAD` can be edited with `add_connection`, `replace_connection` and `remove_connection` (token | point)
+- **0.4.2:** `replace_connection` optionally takes two new points after the new token and moves the connection
 - **0.4.1:** `insert` also accepts lines produced by earlier commands of the same rule set as anchors
 - **0.4.0:** first published version
 
@@ -342,5 +349,5 @@ A: No. Republic Mod Manager shows the rule sets as a list with targets and comma
 
 ---
 
-**Last update:** Vanilla Buildings 0.4.1  
+**Last update:** Vanilla Buildings 0.4.3  
 **For:** WRSR 1.1.1.9 | TesmioLoader API 4

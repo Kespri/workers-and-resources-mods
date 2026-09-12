@@ -61,12 +61,22 @@ namespace TesmioAutoload
             ShowSwitch(session==null||session.SwitchMode!="none",switchNote);
             // Tabs come from the schema; the list card and the plugin-wide card each name theirs.
             if(!localSpec.Tabs.Any(t=>t.Id==state.SelectedTab))state.SelectedTab=localSpec.Tabs.Any(t=>t.Id==localSpec.DefaultTab)?localSpec.DefaultTab:localSpec.Tabs[0].Id;
+            // 0.4.75: a required text pack that is not local yet tints its tab red and puts a red
+            // box on every tab, so nobody misses the "Create locally" step.
+            bool textPackDue=localSpec.TextPackDue(resourceSession.Build);
             foreach(LocalTab entry in localSpec.Tabs)
             {
                 string id=entry.Id;bool active=id==state.SelectedTab;var tab=Theme.Button(localSpec.LocalizedTabLabel(language,entry),()=>Run(()=>{state.SelectedTab=id;BuildLocalResourceEditor();}),false);tab.FlatAppearance.BorderSize=0;tab.Margin=new Padding(0,0,12,0);tab.Tag=id;tab.Height=42;
-                tab.ForeColor=active?Color.White:Theme.Ink;tab.BackColor=active?Theme.SelectionBlue:Color.White;tab.FlatAppearance.MouseOverBackColor=active?Theme.SelectionBlue:Theme.TabHover;tabStrip.Controls.Add(tab);
+                tab.ForeColor=active?Color.White:Theme.Ink;tab.BackColor=active?Theme.SelectionBlue:Color.White;tab.FlatAppearance.MouseOverBackColor=active?Theme.SelectionBlue:Theme.TabHover;
+                if(textPackDue&&!active&&id.Equals(localSpec.TextPack.Tab,StringComparison.OrdinalIgnoreCase)){tab.BackColor=Color.FromArgb(253,235,235);tab.ForeColor=Color.FromArgb(150,28,28);tab.FlatAppearance.MouseOverBackColor=Color.FromArgb(247,214,214);tab.AccessibleName="tab-due:"+id;}
+                tabStrip.Controls.Add(tab);
             }
             tabStrip.Invalidate();
+            if(textPackDue)
+            {
+                string due=localSpec.LocalizedTextPackRequired(language);if(due.Length==0)due=language.Format("textpack_required",localSpec.LocalizedTabLabel(language,localSpec.Tabs.First(t=>t.Id.Equals(localSpec.TextPack.Tab,StringComparison.OrdinalIgnoreCase))),language.T("textpack_create"));
+                var card=BeginCard(780);AddNotice(card,due,"error");
+            }
             bool isList=localSpec.IsList,isSections=localSpec.IsSections;
             // A package-backed editor shows the package's notices (bridge, local copy) on
             // the plugin-wide tab, then the guides, then the cards of that tab.
@@ -166,7 +176,8 @@ namespace TesmioAutoload
         // [textpack] (0.4.30): fallback language, the language files with "+", and the texts of
         // every own research (name / description) plus free keys of the selected language.
         // Edits are staged as dependent writes and land with the next save.
-        TextPackSession textPack; string selectedTextLanguage="";
+        // The text pack session lives in the workspace (0.4.77), so a parked entry keeps its staged edits.
+        TextPackSession textPack {get{return work.TextPack;}set{work.TextPack=value;}} string selectedTextLanguage="";
         void BuildTextPackCard()
         {
             TextPackSpec tp=localSpec.TextPack;string folder=localSpec.ResolvePath(tp.Folder,resourceSession.Build);
@@ -205,6 +216,19 @@ namespace TesmioAutoload
             AddRow(inner,split);((CardLayout)card.Tag).Tall=split;
         }
         void StageTextPack(){resourceSession.StageDependencyWrites(textPack.Writes());UpdateStatus();}
+        // Before a save (0.4.77): every own entry of the text pack's key group gets its missing
+        // name/desc keys filled with the id in the fallback language, so the plugin never refuses
+        // the whole expansion over an entry saved without texts.
+        void FillTextPackKeys()
+        {
+            if(localSpec==null||resourceSession==null||localSpec.TextPack==null||localSpec.TextPack.KeysFrom.Length==0)return;
+            TextPackSession pack=CurrentTextPack();if(pack==null||!pack.Exists)return;
+            ItemGroup group=localSpec.GroupById(localSpec.TextPack.KeysFrom);if(group==null)return;
+            var own=resourceSession.Items(group).Where(i=>i.Owned).Select(i=>localSpec.DisplayId(i.Id)).ToList();
+            string lang=pack.HasLanguage(pack.Fallback)?pack.Fallback:pack.Languages.FirstOrDefault();if(lang==null||own.Count==0)return;
+            int added=pack.EnsureKeys(own,lang);
+            if(added>0){resourceSession.StageDependencyWrites(pack.Writes());Report(language.Format("textpack_filled",added,lang));}
+        }
         // The text pack session of the schema, loaded on demand and reloaded after a save or reset.
         TextPackSession CurrentTextPack()
         {
@@ -544,7 +568,8 @@ namespace TesmioAutoload
                 });
                 return box;
             }
-            if(field.Type=="boolean"){var toggle=new ToggleSwitch{Checked=value=="1",AccessibleName="item:"+field.Id};toggle.CheckedChanged+=(s,e)=>{if(!refreshing)apply(toggle.Checked?"1":"0");};return toggle;}
+            // 0.4.76: a switch without a value shows the schema default (default = 1 -> ON), the way the plugin reads a missing key.
+            if(field.Type=="boolean"){var toggle=new ToggleSwitch{Checked=value.Length==0?field.Default=="1":value=="1",AccessibleName="item:"+field.Id};toggle.CheckedChanged+=(s,e)=>{if(!refreshing)apply(toggle.Checked?"1":"0");};return toggle;}
             if(field.Type=="choice")
             {
                 var combo=new ComboBox{DropDownStyle=field.AllowOther?ComboBoxStyle.DropDown:ComboBoxStyle.DropDownList,Height=Fields.Height,AccessibleName="item:"+field.Id};if(!field.AllowOther)combo.Items.Add("");combo.Items.AddRange(field.Choices);

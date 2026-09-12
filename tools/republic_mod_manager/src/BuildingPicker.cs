@@ -76,66 +76,117 @@ namespace TesmioAutoload
     }
 
     // Groups of check boxes with collapsible headers, laid out in columns.
+    // A grouped list of buildings that draws itself (0.4.73): one row per building, a
+    // collapsible header per group, only the rows in view are painted. No control per
+    // building - 1900 buildings used to mean 1900 check boxes, seconds to open, and a
+    // layout pass per keystroke in the search box.
     sealed class GroupedCheckList : Panel
     {
-        sealed class Group { public string Key, Title; public Panel Header; public Label HeaderText; public FlowLayoutPanel Items; public int Total; }
-        readonly List<Group> groups = new List<Group>(); readonly Dictionary<string, CheckBox> boxes = new Dictionary<string, CheckBox>(StringComparer.OrdinalIgnoreCase);
+        sealed class Item { public string Id, Text, Tooltip; public bool Checked, Enabled, Hidden; }
+        sealed class Group { public string Key, Title; public readonly List<Item> Items = new List<Item>(); }
+        // What is laid out right now: a group header (Item == null) or one building cell.
+        sealed class Cell { public Group Group; public Item Item; public Rectangle Bounds; }
+        readonly List<Group> groups = new List<Group>(); readonly Dictionary<string, Item> items = new Dictionary<string, Item>(StringComparer.OrdinalIgnoreCase);
+        readonly List<Cell> cells = new List<Cell>(); Cell hover; ToolTip tips;
         public readonly HashSet<string> Collapsed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         public Action<string, bool> Toggled;
         public int Columns = 3;
-        public GroupedCheckList() { AutoScroll = true; BackColor = Color.White; BorderStyle = BorderStyle.FixedSingle; DoubleBuffered = true; }
-        public void Clear() { Theme.DisposeChildren(this); groups.Clear(); boxes.Clear(); }
-        public void AddGroup(string key, string title)
+        const int HeaderHeight = 30, RowHeight = 24, GroupGap = 4, ItemsTop = 4, ItemsBottom = 6, LeftPad = 8;
+        public GroupedCheckList()
         {
-            var header = new Panel { Height = 30, BackColor = Theme.Chrome, Cursor = Cursors.Hand, Margin = Padding.Empty };
-            var text = Theme.Label("", 10, true); text.Location = new Point(8, 6); text.AutoSize = true; header.Controls.Add(text);
-            var items = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = true, Padding = new Padding(8, 4, 0, 6), Margin = Padding.Empty, BackColor = Color.White };
-            var group = new Group { Key = key, Title = title, Header = header, HeaderText = text, Items = items };
-            EventHandler toggle = (s, e) => { if (Collapsed.Contains(key)) Collapsed.Remove(key); else Collapsed.Add(key); Relayout(); };
-            header.Click += toggle; text.Click += toggle;
-            groups.Add(group); Controls.Add(header); Controls.Add(items);
+            AutoScroll = true; BackColor = Color.White; BorderStyle = BorderStyle.FixedSingle;
+            SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.ResizeRedraw | ControlStyles.Selectable, true);
         }
+        public void Clear() { groups.Clear(); items.Clear(); cells.Clear(); hover = null; AutoScrollMinSize = Size.Empty; Invalidate(); }
+        public void AddGroup(string key, string title) { groups.Add(new Group { Key = key, Title = title }); }
         public void AddItem(string groupKey, string id, string text, bool isChecked, bool enabled, string tooltip, ToolTip tips)
         {
             Group group = groups.First(g => g.Key == groupKey);
-            var box = new CheckBox { Text = text, Checked = isChecked, Enabled = enabled, AutoSize = false, Height = 24, Margin = new Padding(0, 1, 6, 1), AccessibleName = "building:" + id, Tag = id, UseMnemonic = false, AutoEllipsis = true };
-            if (!enabled) box.ForeColor = Theme.Muted;
-            if (tooltip.Length > 0 && tips != null) tips.SetToolTip(box, tooltip);
-            box.CheckedChanged += (s, e) => { if (Toggled != null && box.Focused) Toggled(id, box.Checked); };
-            group.Items.Controls.Add(box); boxes[id] = box; group.Total++;
+            var item = new Item { Id = id, Text = text, Checked = isChecked, Enabled = enabled, Tooltip = tooltip ?? "" };
+            group.Items.Add(item); items[id] = item; if (tips != null) this.tips = tips;
         }
-        // Visibility is tracked here, not read back from the controls: Control.Visible
-        // is false for every child while the window itself is not shown yet.
-        readonly HashSet<string> hidden = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        public bool Contains(string id) { return boxes.ContainsKey(id); }
-        public void SetVisible(string id, bool visible) { CheckBox box; if (!boxes.TryGetValue(id, out box)) return; box.Visible = visible; if (visible) hidden.Remove(id); else hidden.Add(id); }
-        public bool IsVisible(string id) { return boxes.ContainsKey(id) && !hidden.Contains(id); }
-        public void Remove(string id) { CheckBox box; if (!boxes.TryGetValue(id, out box)) return; foreach (Group g in groups) if (g.Items.Controls.Contains(box)) { g.Items.Controls.Remove(box); g.Total--; } boxes.Remove(id); hidden.Remove(id); box.Dispose(); }
-        public int VisibleCount { get { return boxes.Keys.Count(id => !hidden.Contains(id)); } }
-        public IEnumerable<string> Ids { get { return boxes.Keys; } }
+        public bool Contains(string id) { return items.ContainsKey(id); }
+        // Visibility is a flag on the item; the next Relayout lays out only the shown ones.
+        public void SetVisible(string id, bool visible) { Item item; if (items.TryGetValue(id, out item)) item.Hidden = !visible; }
+        public void SetChecked(string id, bool isChecked) { Item item; if (items.TryGetValue(id, out item)) item.Checked = isChecked; }
+        public bool IsVisible(string id) { Item item; return items.TryGetValue(id, out item) && !item.Hidden; }
+        public void Remove(string id) { Item item; if (!items.TryGetValue(id, out item)) return; foreach (Group g in groups) g.Items.Remove(item); items.Remove(id); }
+        public int VisibleCount { get { return items.Values.Count(x => !x.Hidden); } }
+        public IEnumerable<string> Ids { get { return items.Keys; } }
         public void ExpandAll() { Collapsed.Clear(); Relayout(); }
         public void CollapseAll() { foreach (Group g in groups) Collapsed.Add(g.Key); Relayout(); }
+        // Recomputes the cells; nothing is created, so this is cheap enough for every keystroke.
         public void Relayout()
         {
-            SuspendLayout();
-            int width = Math.Max(300, ClientSize.Width - 4), y = -VerticalScroll.Value, column = Math.Max(140, (width - 16) / Math.Max(1, Columns) - 8);
+            cells.Clear(); hover = null;
+            int width = Math.Max(300, ClientSize.Width), y = 0, columns = Math.Max(1, Columns), column = Math.Max(140, (width - LeftPad - 8) / columns);
             foreach (Group group in groups)
             {
-                int shown = group.Items.Controls.Cast<Control>().Count(c => !hidden.Contains((string)c.Tag));
+                var shown = group.Items.Where(i => !i.Hidden).ToList();
+                if (shown.Count == 0) continue;
                 bool collapsed = Collapsed.Contains(group.Key);
-                group.Header.Visible = shown > 0; group.Items.Visible = shown > 0 && !collapsed;
-                if (shown == 0) continue;
-                group.HeaderText.Text = (collapsed ? "▸ " : "▾ ") + group.Title + "  (" + shown + ")";
-                group.Header.Location = new Point(0, y); group.Header.Width = width; y += group.Header.Height;
+                cells.Add(new Cell { Group = group, Bounds = new Rectangle(0, y, width, HeaderHeight) }); y += HeaderHeight;
                 if (!collapsed)
                 {
-                    foreach (Control c in group.Items.Controls) c.Width = column;
-                    group.Items.Location = new Point(0, y); group.Items.MaximumSize = new Size(width, 0); group.Items.MinimumSize = new Size(width, 0); group.Items.PerformLayout(); y += group.Items.Height;
+                    y += ItemsTop;
+                    for (int i = 0; i < shown.Count; i++)
+                    {
+                        int row = i / columns, col = i % columns;
+                        cells.Add(new Cell { Group = group, Item = shown[i], Bounds = new Rectangle(LeftPad + col * column, y + row * RowHeight, column - 6, RowHeight) });
+                    }
+                    y += ((shown.Count + columns - 1) / columns) * RowHeight + ItemsBottom;
                 }
-                y += 4;
+                y += GroupGap;
             }
-            ResumeLayout(true);
+            AutoScrollMinSize = new Size(0, y); Invalidate();
         }
+        Cell HitTest(Point p)
+        {
+            int y = p.Y - AutoScrollPosition.Y;
+            foreach (Cell cell in cells) if (cell.Bounds.Contains(p.X, y)) return cell;
+            return null;
+        }
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            int offset = AutoScrollPosition.Y; var clip = e.ClipRectangle; clip.Offset(0, -offset);
+            foreach (Cell cell in cells)
+            {
+                if (!cell.Bounds.IntersectsWith(clip)) continue;
+                var r = cell.Bounds; r.Offset(0, offset);
+                if (cell.Item == null)
+                {
+                    using (var fill = new SolidBrush(Theme.Chrome)) e.Graphics.FillRectangle(fill, r);
+                    bool collapsed = Collapsed.Contains(cell.Group.Key); int shown = cell.Group.Items.Count(i => !i.Hidden);
+                    using (var bold = new Font(Font, FontStyle.Bold))
+                        TextRenderer.DrawText(e.Graphics, (collapsed ? "▸ " : "▾ ") + cell.Group.Title + "  (" + shown + ")", bold, new Rectangle(r.X + 8, r.Y, r.Width - 16, r.Height), Theme.Ink, TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+                    continue;
+                }
+                Item item = cell.Item;
+                System.Windows.Forms.VisualStyles.CheckBoxState state = item.Enabled ? (item.Checked ? System.Windows.Forms.VisualStyles.CheckBoxState.CheckedNormal : System.Windows.Forms.VisualStyles.CheckBoxState.UncheckedNormal) : (item.Checked ? System.Windows.Forms.VisualStyles.CheckBoxState.CheckedDisabled : System.Windows.Forms.VisualStyles.CheckBoxState.UncheckedDisabled);
+                if (cell == hover && item.Enabled) state = item.Checked ? System.Windows.Forms.VisualStyles.CheckBoxState.CheckedHot : System.Windows.Forms.VisualStyles.CheckBoxState.UncheckedHot;
+                Size glyph = CheckBoxRenderer.GetGlyphSize(e.Graphics, state);
+                CheckBoxRenderer.DrawCheckBox(e.Graphics, new Point(r.X, r.Y + (r.Height - glyph.Height) / 2), state);
+                TextRenderer.DrawText(e.Graphics, item.Text, Font, new Rectangle(r.X + glyph.Width + 4, r.Y, r.Width - glyph.Width - 4, r.Height), item.Enabled ? Theme.Ink : Theme.Muted, TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+            }
+        }
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            base.OnMouseMove(e); Cell now = HitTest(e.Location);
+            if (now != hover) { hover = now; if (tips != null) tips.SetToolTip(this, now != null && now.Item != null ? now.Item.Tooltip : ""); Invalidate(); }
+        }
+        protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); if (hover != null) { hover = null; Invalidate(); } }
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            base.OnMouseDown(e); Focus(); if (e.Button != MouseButtons.Left) return;
+            Cell cell = HitTest(e.Location); if (cell == null) return;
+            if (cell.Item == null) { if (Collapsed.Contains(cell.Group.Key)) Collapsed.Remove(cell.Group.Key); else Collapsed.Add(cell.Group.Key); Relayout(); return; }
+            if (!cell.Item.Enabled) return;
+            cell.Item.Checked = !cell.Item.Checked; Invalidate();
+            if (Toggled != null) Toggled(cell.Item.Id, cell.Item.Checked);
+        }
+        protected override void OnScroll(ScrollEventArgs se) { base.OnScroll(se); Invalidate(); }
+        protected override void OnMouseWheel(MouseEventArgs e) { base.OnMouseWheel(e); Invalidate(); }
         protected override void OnResize(EventArgs e) { base.OnResize(e); if (groups.Count > 0) Relayout(); }
     }
 
@@ -149,9 +200,23 @@ namespace TesmioAutoload
         readonly Label counter = Theme.Label("", 10, true); readonly GroupedCheckList selected = new GroupedCheckList(), available = new GroupedCheckList();
         readonly List<string> chosen = new List<string>(); readonly ToolTip tips = new ToolTip();
         readonly List<string> originKeys = new List<string>(), kindKeys = new List<string>();
+        readonly Dictionary<string, string> kindLabels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        // The search waits for a short pause in typing before it filters (0.4.73).
+        readonly Timer searchTimer = new Timer { Interval = 150 };
         static readonly Dictionary<string, List<BuildingEntry>> cache = new Dictionary<string, List<BuildingEntry>>(StringComparer.OrdinalIgnoreCase);
         public List<string> Result;
         bool loading;
+        // Reads the building list on a background thread so the first picker opens without the wait (0.4.73).
+        public static void Prime(string build, string workshopRoot)
+        {
+            string cacheKey = (build ?? "") + "|" + (workshopRoot ?? "");
+            lock (cache) { if (cache.ContainsKey(cacheKey)) return; }
+            System.Threading.ThreadPool.QueueUserWorkItem(delegate
+            {
+                try { var list = GameBuildings.Scan(build, workshopRoot); lock (cache) { if (!cache.ContainsKey(cacheKey)) cache[cacheKey] = list; } }
+                catch (Exception) { }
+            });
+        }
 
         public BuildingPickerWindow(Language language, string build, string workshopRoot, IEnumerable<string> current, IDictionary<string, string> used, Font font, Icon icon)
         {
@@ -168,7 +233,7 @@ namespace TesmioAutoload
             // Filters.
             var bar = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, Margin = Padding.Empty };
             var searchLabel = Theme.Label(language.T("picker_search"), 10, false); searchLabel.Margin = new Padding(0, 8, 6, 0); bar.Controls.Add(searchLabel);
-            search.Width = 200; search.Margin = new Padding(0, 4, 14, 0); search.TextChanged += delegate { ApplyFilter(); }; bar.Controls.Add(search);
+            search.Width = 200; search.Margin = new Padding(0, 4, 14, 0); search.TextChanged += delegate { searchTimer.Stop(); searchTimer.Start(); }; searchTimer.Tick += delegate { searchTimer.Stop(); ApplyFilter(); }; FormClosed += delegate { searchTimer.Dispose(); }; bar.Controls.Add(search);
             origin.DropDownStyle = ComboBoxStyle.DropDownList; origin.Width = 190; origin.Margin = new Padding(0, 4, 14, 0); bar.Controls.Add(origin);
             kind.DropDownStyle = ComboBoxStyle.DropDownList; kind.Width = 220; kind.Margin = new Padding(0, 4, 14, 0); bar.Controls.Add(kind);
             obsolete.Text = language.T("picker_obsolete"); obsolete.AutoSize = true; obsolete.Margin = new Padding(0, 8, 14, 0); obsolete.CheckedChanged += delegate { ApplyFilter(); }; bar.Controls.Add(obsolete);
@@ -199,6 +264,7 @@ namespace TesmioAutoload
             if (e.Origin == "missing") return language.T("picker_not_found");
             return language.T("picker_workshop") + ": " + e.OriginLabel;
         }
+        string KindLabelCached(string type) { string label; if (!kindLabels.TryGetValue(type, out label)) { label = KindLabel(type); kindLabels[type] = label; } return label; }
         string KindLabel(string type) { if (type.Length == 0) return language.T("picker_kind_unknown"); string key = "btype." + type.ToLowerInvariant(); string text = language.T(key); return text == key ? type : text; }
         void FillFilters()
         {
@@ -237,7 +303,7 @@ namespace TesmioAutoload
         {
             if (e.Origin == "missing") return false;
             string needle = search.Text.Trim();
-            if (needle.Length > 0 && e.Name.IndexOf(needle, StringComparison.CurrentCultureIgnoreCase) < 0 && e.Target.IndexOf(needle, StringComparison.CurrentCultureIgnoreCase) < 0 && KindLabel(e.Type).IndexOf(needle, StringComparison.CurrentCultureIgnoreCase) < 0) return false;
+            if (needle.Length > 0 && e.Name.IndexOf(needle, StringComparison.CurrentCultureIgnoreCase) < 0 && e.Target.IndexOf(needle, StringComparison.CurrentCultureIgnoreCase) < 0 && KindLabelCached(e.Type).IndexOf(needle, StringComparison.CurrentCultureIgnoreCase) < 0) return false;
             string o = origin.SelectedIndex >= 0 ? originKeys[origin.SelectedIndex] : ""; if (o.Length > 0 && e.Origin != o) return false;
             string k = kind.SelectedIndex >= 0 ? kindKeys[kind.SelectedIndex] : ""; if (k.Length > 0 && e.Type != k) return false;
             if (e.Obsolete && !obsolete.Checked) return false;
@@ -264,14 +330,14 @@ namespace TesmioAutoload
         void Unselect(string target)
         {
             chosen.RemoveAll(t => t.Equals(target, StringComparison.OrdinalIgnoreCase)); selected.Remove(target);
-            BuildingEntry e; if (byTarget.TryGetValue(target, out e) && e.Origin != "missing") available.SetVisible(target, Passes(e));
+            BuildingEntry e; if (byTarget.TryGetValue(target, out e) && e.Origin != "missing") { available.SetChecked(target, false); available.SetVisible(target, Passes(e)); }
             available.Relayout(); selected.Relayout(); UpdateCounter();
         }
         internal int Total { get { return all.Count(e => e.Origin != "missing"); } }
         internal int SelectedCount { get { return chosen.Count; } }
         internal int VisibleCount { get { return available.VisibleCount; } }
         internal string CounterText { get { return counter.Text; } }
-        internal void TestSearch(string text) { search.Text = text; }
+        internal void TestSearch(string text) { search.Text = text; searchTimer.Stop(); ApplyFilter(); }
         internal void TestObsolete(bool show) { obsolete.Checked = show; }
         internal void TestSelect(string target) { Select(target); }
         internal void TestUnselect(string target) { Unselect(target); }

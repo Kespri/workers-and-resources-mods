@@ -28,7 +28,7 @@ Quelltext, wie es die GNU GPL v3 verlangt; fertige DLLs liegen hier nicht.
 | [Resources Button Fix](plugins/resources_button_fix) | 0.4.0 | Kompakte Werkzeugraster im Geländeeditor |
 | [Technical Service Storage](plugins/technical_service_storage) | 0.3.3 | Streugutlager, Materialprioritäten und Schneepflugtanks |
 | [UI Layout Fixes](plugins/ui_layout_fixes) | 0.3.0 | Zeilenabstand im Zollhaus, Textumbruch in Info-Fenstern |
-| [Vanilla Buildings](plugins/vanilla_buildings) | 0.4.1 | Vorübergehende Änderungen an Gebäudedateien, ohne die Originale anzufassen |
+| [Vanilla Buildings](plugins/vanilla_buildings) | 0.4.3 | Vorübergehende Änderungen an Gebäudedateien, ohne die Originale anzufassen |
 | [Vehicle Materials](plugins/vehicle_materials) | 0.4.0 | Zusätzliche Materialien für die Fahrzeugproduktion |
 | [Weather Roads](plugins/weather_roads) | 0.3.3 | Straßenschnee, Schmelze und Schutz nach dem Räumen |
 | [Workshop Bridge](plugins/workshop_bridge) | 0.2.0 | Lädt Workshop-Pakete ohne den Soviet Mod Loader |
@@ -46,7 +46,7 @@ der Plugins nach `tesmioloader\build\logs\`.
 
 | Werkzeug | Version | Was es macht |
 |---|---|---|
-| [Republic Mod Manager](tools/republic_mod_manager) | 0.4.71 | Windows-Programm: Einstellungen, Ein- und Ausschalten und Laden der Plugins; sein Workshop-Objekt bringt den Installer und die Workshop Bridge mit |
+| [Republic Mod Manager](tools/republic_mod_manager) | 0.4.79 | Windows-Programm: Einstellungen, Ein- und Ausschalten und Laden der Plugins; sein Workshop-Objekt bringt den Installer und die Workshop Bridge mit |
 
 ## Installation
 

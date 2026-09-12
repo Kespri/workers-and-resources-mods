@@ -253,6 +253,9 @@ namespace TesmioAutoload
         public string LocalizedTextPackLabel(Language l){return TextPack==null?"":Text(l,TextPack.LabelKey,TextPack.Label);}
         public string LocalizedTextPackDescription(Language l){return TextPack==null?"":Text(l,TextPack.DescriptionKey,TextPack.Description).Replace("\\n","\n");}
         public string LocalizedTextPackMissing(Language l){return TextPack==null?"":Text(l,TextPack.MissingKey,TextPack.Missing).Replace("\\n","\n");}
+        public string LocalizedTextPackRequired(Language l){return TextPack==null?"":Text(l,TextPack.RequiredNoticeKey,TextPack.RequiredNotice).Replace("\\n","\n");}
+        // The text pack's folder is still missing although the schema requires it (0.4.75).
+        public bool TextPackDue(string build){if(TextPack==null||!TextPack.Required)return false;try{return !Directory.Exists(ResolvePath(TextPack.Folder,build));}catch(FormatException){return false;}}
         public ItemGroup GroupOfId(string id){if(id==null)return null;foreach(ItemGroup g in ExtraGroups)if(id.StartsWith(g.Prefix,StringComparison.OrdinalIgnoreCase))return g;return null;}
         public ItemGroup GroupById(string groupId){return String.IsNullOrEmpty(groupId)?null:ExtraGroups.FirstOrDefault(x=>x.Id.Equals(groupId,StringComparison.OrdinalIgnoreCase));}
         public IEnumerable<LocalDetailField> ItemFields(ItemGroup group){string gid=group==null?"":group.Id;return Fields.Where(x=>x.Scope=="item"&&x.Group.Equals(gid,StringComparison.OrdinalIgnoreCase));}
@@ -498,7 +501,7 @@ namespace TesmioAutoload
             // [textpack] (0.4.30): a Localization text pack edited on its own tab.
             if(ini.Sections.Any(x=>x.Equals("textpack",StringComparison.OrdinalIgnoreCase)))
             {
-                var tp=new TextPackSpec{Tab=ini.Get("textpack","tab",s.GlobalTab),Folder=ini.Required("textpack","folder"),Namespace=ini.Get("textpack","namespace",""),KeysFrom=ini.Get("textpack","keys_from","").Trim(),Label=ini.Get("textpack","label","Localization"),LabelKey=ini.Get("textpack","label_key",""),Description=ini.Get("textpack","description",""),DescriptionKey=ini.Get("textpack","description_key",""),Missing=ini.Get("textpack","missing",""),MissingKey=ini.Get("textpack","missing_key","")};
+                var tp=new TextPackSpec{Tab=ini.Get("textpack","tab",s.GlobalTab),Folder=ini.Required("textpack","folder"),Namespace=ini.Get("textpack","namespace",""),KeysFrom=ini.Get("textpack","keys_from","").Trim(),Label=ini.Get("textpack","label","Localization"),LabelKey=ini.Get("textpack","label_key",""),Description=ini.Get("textpack","description",""),DescriptionKey=ini.Get("textpack","description_key",""),Missing=ini.Get("textpack","missing",""),MissingKey=ini.Get("textpack","missing_key",""),Required=ini.Get("textpack","required","0")=="1",RequiredNotice=ini.Get("textpack","required_notice",""),RequiredNoticeKey=ini.Get("textpack","required_notice_key","")};
                 string seed=ini.Get("textpack","seed","");
                 if(seed.Length>0){int bar=seed.IndexOf('|');if(!seed.StartsWith("dependency:",StringComparison.OrdinalIgnoreCase)||bar<12)throw new FormatException(Msg.Key("err_ungueltiges_textpaket", seed));tp.SeedDependency=seed.Substring(11,bar-11).Trim();tp.SeedPath=seed.Substring(bar+1).Trim();if(tp.SeedPath.Length==0||tp.SeedPath.Contains("..")||tp.SeedPath.Contains(":"))throw new FormatException(Msg.Key("err_ungueltiges_textpaket", seed));}
                 s.ResolvePath(tp.Folder,Path.GetTempPath());   // syntax check only
@@ -902,7 +905,6 @@ namespace TesmioAutoload
             var source=UpstreamItems();foreach(var change in Overrides.Items.Values){if(change.Owned){if(source.ContainsKey(change.Id)||change.ListValue.Length==0&&!Spec.IsSections||Spec.IsSections&&Spec.IsReserved(change.Id))throw new FormatException(Msg.Key("err_persoenlicher_eintrag_kollidiert_mit", change.Id));}else if(!source.ContainsKey(change.Id))throw new FormatException(Msg.Key("err_original_eintrag_nicht_mehr", change.Id));if(change.Suppressed&&!Spec.HidesOriginals)throw new FormatException(Msg.Key("err_ausblenden_gibt_es_nur", change.Id));if(change.ListValue.Length>0){if(Spec.IsSections)throw new FormatException(Msg.Key("err_abschnittseintraege_haben_keine_listenzeile", change.Id));if(Spec.IsList)Spec.NormalizeTuple(change.ListValue);else{var list=ResourceListValue.Parse(change.ListValue);if(!CollectionRules.SafeItem(list.Template)||list.Display.Length>128||list.Display.Any(Char.IsControl))throw new FormatException(Msg.Key("err_ungueltiger_listeneintrag", change.Id));}}foreach(var pair in change.Fields){LocalDetailField field=Spec.Fields.FirstOrDefault(x=>x.Id.Equals(pair.Key,StringComparison.OrdinalIgnoreCase));if(field==null||field.Scope=="global")throw new FormatException(Msg.Key("err_unbekanntes_detailfeld", pair.Key));field.Normalize(pair.Value);}}
             foreach(var g in Overrides.Globals){LocalDetailField field=Spec.Fields.FirstOrDefault(x=>x.Id.Equals(g.Key,StringComparison.OrdinalIgnoreCase)&&x.Scope=="global");if(field==null)throw new FormatException(Msg.Key("err_unbekanntes_plugin_feld", g.Key));field.Normalize(g.Value);}
             if(!Spec.IsList)foreach(var item in Items()){if(item.Template.Equals("custom",StringComparison.OrdinalIgnoreCase)){LocalDetailField transport=Spec.Fields.FirstOrDefault(x=>x.Scope=="custom"&&x.Key.Equals("transport",StringComparison.OrdinalIgnoreCase));if(transport!=null&&String.IsNullOrWhiteSpace(Value(item.Id,transport)))throw new RuleException("resource_custom_needs_transport",item.Id);}}
-            CheckReferences();
             if(Spec.IsSections)
             {
                 var items=Items();
@@ -921,9 +923,25 @@ namespace TesmioAutoload
         // game knows (research ids, building files, text ids). Only the player's own entries
         // and personal values are checked, and only once the form has handed over the sets;
         // a set that cannot be read (no game folder) is skipped rather than flagging everything.
+        // Since 0.4.74 they run only for the footer and the save (ValidateAll), not after every
+        // edit: a $UNLOCK_RESEARCH line may name a research the player is about to add.
         public ReferenceSets References;
+        public void ValidateAll(){Validate();CheckReferences();}
         void CheckReferences()
         {
+            // A required text pack that is not local yet blocks the save as soon as the player owns
+            // entries whose texts would live there (0.4.77): the plugin would refuse them all in the game.
+            if(Spec.TextPack!=null&&Spec.TextPack.Required&&Spec.TextPack.KeysFrom.Length>0&&Spec.TextPackDue(Build))
+            {
+                ItemGroup keyed=Spec.GroupById(Spec.TextPack.KeysFrom);
+                if(keyed!=null&&Items(keyed).Any(x=>x.Owned))
+                {
+                    LocalTab tab=Spec.Tabs.FirstOrDefault(t=>t.Id.Equals(Spec.TextPack.Tab,StringComparison.OrdinalIgnoreCase));
+                    Language l=References!=null?References.Language:null;
+                    string label=tab==null?Spec.TextPack.Tab:l!=null?Spec.LocalizedTabLabel(l,tab):tab.Label;
+                    throw new RuleException("textpack_due",label,l!=null?l.T("textpack_create"):"Create locally");
+                }
+            }
             if(References==null)return;
             foreach(var item in Items())
             {
@@ -977,7 +995,7 @@ namespace TesmioAutoload
         public void RehashShared(){if(Before.ContainsKey(LoaderIni))Before[LoaderIni]=SafeFiles.HashFile(LoaderIni);}
         public string Commit(Action guard)
         {
-            string mutexName="Local\\TesmioAutoload_"+SafeFiles.Hash(SafeFiles.Utf8.GetBytes(Build.ToUpperInvariant()));using(var mutex=new Mutex(false,mutexName)){bool held=false;try{try{held=mutex.WaitOne(0);}catch(AbandonedMutexException){held=true;}if(!held)throw new IOException(Msg.Key("err_ein_anderes_autoload_fenster"));guard();AssertUnchanged();Validate();string effective=Effective(),personal=Overrides.Render();var writes=new Dictionary<string,byte[]>(dependentWrites,StringComparer.OrdinalIgnoreCase);writes[UserIni]=SafeFiles.Utf8.GetBytes(personal);if(!ExternalLoader&&LoaderChanged)writes[LoaderIni]=RenderLoaderIni();if(refreshUpstream||!File.Exists(UpstreamFile))writes[UpstreamFile]=SafeFiles.Utf8.GetBytes(upstreamText);writes[LocalIni]=SafeFiles.Utf8.GetBytes(effective);writes[Receipt]=SafeFiles.Utf8.GetBytes("[state]\r\nid = "+Spec.Id+"\r\neffective_hash = "+SafeFiles.Hash(SafeFiles.Utf8.GetBytes(effective))+"\r\nupstream_hash = "+SafeFiles.Hash(SafeFiles.Utf8.GetBytes(upstreamText))+"\r\nschema_hash = "+Spec.SchemaHash+"\r\n");string backup=Transaction.Apply(Build,Spec.Id,writes,Before,guard);foreach(string path in Before.Keys.ToList())Before[path]=SafeFiles.HashFile(path);initialOverrides=personal;dependentWrites.Clear();refreshUpstream=false;Generation++;return backup;}finally{if(held)mutex.ReleaseMutex();}}
+            string mutexName="Local\\TesmioAutoload_"+SafeFiles.Hash(SafeFiles.Utf8.GetBytes(Build.ToUpperInvariant()));using(var mutex=new Mutex(false,mutexName)){bool held=false;try{try{held=mutex.WaitOne(0);}catch(AbandonedMutexException){held=true;}if(!held)throw new IOException(Msg.Key("err_ein_anderes_autoload_fenster"));guard();AssertUnchanged();ValidateAll();string effective=Effective(),personal=Overrides.Render();var writes=new Dictionary<string,byte[]>(dependentWrites,StringComparer.OrdinalIgnoreCase);writes[UserIni]=SafeFiles.Utf8.GetBytes(personal);if(!ExternalLoader&&LoaderChanged)writes[LoaderIni]=RenderLoaderIni();if(refreshUpstream||!File.Exists(UpstreamFile))writes[UpstreamFile]=SafeFiles.Utf8.GetBytes(upstreamText);writes[LocalIni]=SafeFiles.Utf8.GetBytes(effective);writes[Receipt]=SafeFiles.Utf8.GetBytes("[state]\r\nid = "+Spec.Id+"\r\neffective_hash = "+SafeFiles.Hash(SafeFiles.Utf8.GetBytes(effective))+"\r\nupstream_hash = "+SafeFiles.Hash(SafeFiles.Utf8.GetBytes(upstreamText))+"\r\nschema_hash = "+Spec.SchemaHash+"\r\n");string backup=Transaction.Apply(Build,Spec.Id,writes,Before,guard);foreach(string path in Before.Keys.ToList())Before[path]=SafeFiles.HashFile(path);initialOverrides=personal;dependentWrites.Clear();refreshUpstream=false;Generation++;return backup;}finally{if(held)mutex.ReleaseMutex();}}
         }
     }
 
