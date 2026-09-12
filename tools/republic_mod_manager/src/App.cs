@@ -40,7 +40,7 @@ namespace TesmioAutoload
             try
             {
                 string directory = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\');
-                var defaults = new UiState { Build = directory }; string legacy = "", screenshot = null, snapshotSize = null, snapshotWindow = null;
+                var defaults = new UiState { Build = directory }; string legacy = "", screenshot = null, snapshotSize = null, snapshotWindow = null; bool saveMode = false;
                 if (!File.Exists(Path.Combine(defaults.Build, "tesmioloader.dll"))) try
                 {
                     foreach (string library in Discovery.SteamLibraries())
@@ -67,10 +67,12 @@ namespace TesmioAutoload
                 if (defaults.WorkshopRoot.Length == 0) defaults.WorkshopRoot = Catalog.InitialRoot(defaults.Build, legacy);
                 if (legacy.Length > 0) defaults.SelectedSource = Path.GetFullPath(legacy);
                 var notes = new List<string>(); UiStateStore.Migrate(directory); var store = new UiStateStore(UiStateStore.DefaultPath(directory));
-                bool snapshotMode = args.Contains("--ui-snapshot");
+                bool snapshotMode = args.Contains("--ui-snapshot") || args.Contains("--save");
                 var state = snapshotMode ? defaults : store.Load(defaults, notes);
                 for (int i = 0; i < args.Length; ++i)
                 {
+                    // --save is the one option without a value; everything else is a pair.
+                    if (args[i] == "--save") { saveMode = true; continue; }
                     if (i + 1 >= args.Length) throw new ArgumentException(Msg.Key("err_argument_ben_tigt_einen", args[i]));
                     string key = args[i], value = args[++i];
                     if (key == "--build") state.Build = value;
@@ -92,6 +94,22 @@ namespace TesmioAutoload
                 using (var form = new MainForm(state, store, !snapshotMode))
                 {
                     foreach (string note in notes) form.Report(note);
+                    // 0.4.81: save the selected entry without showing the window - the same code path
+                    // as the Save button, with the same runtime checks. Anything that would ask the
+                    // player (a native DLL going into plugins\, the local-copy confirmation) is
+                    // refused instead of answered, so this can never decide something on their behalf.
+                    if (saveMode)
+                    {
+                        form.ShowInTaskbar = false; form.StartPosition = FormStartPosition.Manual; form.Location = new Point(-20000, -20000);
+                        form.Show(); form.PerformLayout(); Application.DoEvents();
+                        string result = form.CliSave();
+                        Console.WriteLine(result); Console.Out.Flush();
+                        // Closing asks about anything still unsaved, and there is nobody to answer:
+                        // whatever is left over is dropped, which writes nothing.
+                        form.PendingPrompt = () => DialogResult.No;
+                        form.Close();
+                        return result.StartsWith("PASS", StringComparison.Ordinal) ? 0 : 1;
+                    }
                     if (screenshot != null)
                     {
                         form.ShowInTaskbar = false; form.StartPosition = FormStartPosition.Manual; form.Location = new Point(-20000, -20000);
@@ -149,7 +167,8 @@ namespace TesmioAutoload
             }
             catch (Exception e)
             {
-                if (args.Contains("--ui-snapshot")) Console.Error.WriteLine(e);
+                // A command-line run must never wait for a click: it writes the reason and ends.
+                if (args.Contains("--ui-snapshot") || args.Contains("--save")) { Console.Error.WriteLine(e); Console.Error.Flush(); }
                 else { var fallback = new Language("auto"); MessageWindow.Show(null, fallback, "Republic Mod Manager", fallback.Localize(e.Message), MessageWindow.Kind.Error, DialogResult.OK); }
                 return 1;
             }

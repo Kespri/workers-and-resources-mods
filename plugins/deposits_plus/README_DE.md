@@ -1,4 +1,4 @@
-# 🏭 Deposits Plus 0.4.6
+# 🏭 Deposits Plus 0.4.7
 
 **Erweiterung des TesmioLoader-Plugins deposits**
 
@@ -231,7 +231,7 @@ radius = gravel
 icon = sand
 ; 1 = Minimap-Knopf und Ebene (Überfahren zeigt sie kurz, Klick hält sie), 0 = keine
 minimap = 1
-; Name des Editor-Pinsels, höchstens 7 Zeichen, bei map = terrain höchstens 4 (leer = kein Pinsel)
+; Name des Editor-Pinsels, höchstens 31 Zeichen (leer = kein Pinsel)
 editor = sand
 ; Nur für das Plugin depletion: Tonnen je gesättigtem Texel, 0 = unendlich, leer = globaler Wert
 ; deplete = 500
@@ -272,7 +272,7 @@ Die DLL prüft diese Grenzen. Ein Wert außerhalb schaltet die Verteilung für d
 | `sand_surface_strength` | 0 bis 1, sonst Bodendarstellung aus | 1.0 |
 | `type` | 10 bis 127 | Pflicht |
 | `component` | 0 bis 3 | Pflicht, außer bei auto |
-| `editor` | höchstens 7 Zeichen, bei map = terrain 4 | leer |
+| `editor` | höchstens 31 Zeichen | leer |
 
 ---
 
@@ -528,6 +528,7 @@ MeinSpiel\
 
 - **Innerhalb der 0.4-Reihe:** Updates übernehmen Spielstände und `tesmio_deposits.bin` automatisch; Typnummern, Kartenplätze und Token laufender Spielstände bleiben tabu (siehe oben)
 - **Mit Deposit Depletion:** funktioniert weiter wie immer, der Schlüssel `deplete` wird an das Plugin depletion durchgereicht
+- **0.4.7:** Der Pinselname darf jetzt bis zu 31 Zeichen lang sein. Bestehende Namen und die zwei PNG-Dateien bleiben, wie sie sind
 
 ---
 
@@ -631,5 +632,5 @@ A: Nein. Republic Mod Manager zeigt alle Einstellungen mit Beschreibung, prüft 
 
 ---
 
-**Letzte Aktualisierung:** Deposits Plus 0.4.0  
+**Letzte Aktualisierung:** Deposits Plus 0.4.7  
 **Für:** WRSR 1.1.1.9 | TesmioLoader API 4

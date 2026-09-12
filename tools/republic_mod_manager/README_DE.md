@@ -14,14 +14,15 @@ Republic Mod Manager (kurz RMM) ist ein Fenster für alle deine TesmioLoader-Plu
 4. [Speichern und Starten](#-speichern-und-starten)
 5. [Die Karte „Hinweise“](#-die-karte-hinweise)
 6. [Wie ein Plugin ins Spiel kommt](#-wie-ein-plugin-ins-spiel-kommt)
-7. [Dateien nur lokal](#-dateien-nur-lokal)
-8. [Das Protokollfenster](#-das-protokollfenster)
-9. [Profile und Wiederherstellung](#-profile-und-wiederherstellung)
-10. [Listen-Editoren: Resources, Needs, Deposits und Paket-Editoren](#-listen-editoren)
-11. [Spielversion und rmm.ini](#-spielversion-und-rmmini)
-12. [Wo deine Dateien liegen](#-wo-deine-dateien-liegen)
-13. [Wenn etwas nicht klappt](#-wenn-etwas-nicht-klappt)
-14. [Für Plugin-Autoren](#-für-plugin-autoren)
+7. [Inhaltspakete](#-inhaltspakete-ressourcen-vorkommen-gebäude)
+8. [Dateien nur lokal](#-dateien-nur-lokal)
+9. [Das Protokollfenster](#-das-protokollfenster)
+10. [Profile und Wiederherstellung](#-profile-und-wiederherstellung)
+11. [Listen-Editoren: Resources, Needs, Deposits und Paket-Editoren](#-listen-editoren)
+12. [Spielversion und rmm.ini](#-spielversion-und-rmmini)
+13. [Wo deine Dateien liegen](#-wo-deine-dateien-liegen)
+14. [Wenn etwas nicht klappt](#-wenn-etwas-nicht-klappt)
+15. [Für Plugin-Autoren](#-für-plugin-autoren)
 
 ---
 
@@ -68,7 +69,7 @@ Der Schalter im Kopf entscheidet, ob das Plugin beim nächsten Spielstart läuft
 - **TesmioLoader:** Der Schalter ist das Kästchen des TesmioLaunchers, also der Eintrag `[plugins] <name>` in `tesmioloader.ini`. Beim Einschalten setzt RMM zusätzlich das Feld `enabled` in der INI des Plugins auf 1, falls es eines gibt, damit die DLL nicht sofort wieder ablehnt.
 - **Soviet Mod Loader:** SML lädt jedes abonnierte Paket selbst. Der Schalter setzt dann nur das Feld `enabled` in der INI. Hat die INI kein solches Feld, fehlt der Schalter, und ein Hinweis sagt, dass nur das Abbestellen das Paket abschaltet.
 
-Der Schalter zeigt „an“ nur, wenn alles zusammenpasst, genau wie der grüne Punkt in der Liste. Reine Inhaltspakete für den Soviet Mod Loader (Ressourcen, Gebäude ohne DLL) haben keinen Schalter; die zeigt RMM nur an.
+Der Schalter zeigt „an“ nur, wenn alles zusammenpasst, genau wie der grüne Punkt in der Liste. Inhaltspakete ohne DLL (Ressourcen, Vorkommen, Gebäude) haben statt dessen den Schalter „Im Spiel bereitstellen“.
 
 ---
 
@@ -112,6 +113,24 @@ Der TesmioLoader allein lädt nur DLLs aus `tesmioloader\build\plugins`. Für Wo
 3. **TesmioLoader klassisch:** Ohne Bridge und SML kopiert RMM DLL und INI nach `plugins\` und schaltet das Plugin in `tesmioloader.ini` ein.
 
 Die Workshop Bridge erscheint selbst als Plugin in der Liste. Ihre Karte hat den Schalter „Bridge aktiv“, den Workshop-Ordner (normalerweise „auto“ = der Steam-Workshop-Ordner deines Spiels), die Regel, welche Pakete geladen werden, und einen Knopf „Jetzt aufräumen“, der Einträge von Paketen entfernt, die du nicht mehr hast. Die Paketliste selbst pflegst du nie von Hand; das macht der Schalter „Plugin aktiv“ der Pakete.
+
+---
+
+## 📦 Inhaltspakete (Ressourcen, Vorkommen, Gebäude)
+
+Manche Workshop-Pakete bringen keine DLL mit, sondern nur Inhalte: neue Ressourcen, Vorkommen, Bedürfnisse oder Gebäude als INI-Abschnitte, dazu Dateien wie Symbole und Modelle. Solche Pakete erkennst du in der Liste daran, dass ihre Seite keine Einstellungen hat, sondern nur einen Schalter „Im Spiel bereitstellen“.
+
+Einschalten und Speichern macht drei Dinge:
+
+- Die Einträge wandern in die INIs der zuständigen Plugins: Ressourcen zu **Resources**, Vorkommen zu **Deposits Plus**, Bedürfnisse zu **Needs**, Gebäude zu **Buildings Plus**.
+- Die mitgelieferten Dateien landen unter `tesmioloader\vfs`, wo das Spiel sie statt seiner eigenen liest.
+- Bei Vorkommen vergibt RMM die Typnummer selbst, damit sie sich nie mit einem anderen Vorkommen beisst. Eine einmal vergebene Nummer bleibt.
+
+In den Editoren erscheinen die Einträge als Originale mit Schloss: du kannst ihre Werte für dich überschreiben, aber den Eintrag selbst nicht löschen. Einen Eintrag, den es schon gibt, lässt RMM unangetastet und sagt auf der Paketseite, welcher übersprungen wurde.
+
+Ausschalten und Speichern nimmt Einträge und Dateien wieder heraus. Deine eigenen Einträge und deine Überschreibungen bleiben. Ändert sich das Paket im Workshop, erscheint in der Liste die gelbe Marke „Update“; einmal speichern übernimmt den neuen Stand.
+
+Ist ein Plugin nicht eingerichtet, sagt die Paketseite das (zum Beispiel „Für Gebäude ist kein passendes Plugin eingerichtet“) und überspringt diesen Teil. Unter Soviet Mod Loader brauchst du den Schalter nicht: SML führt solche Pakete beim Spielstart selbst zusammen.
 
 ---
 
@@ -178,6 +197,13 @@ Beim Start liest RMM die Kennung von `SOVIET64.exe`. Gehört sie zu keiner Spiel
 | `[settings] tesmiolauncher_window` | 1 zeigt das Fenster des TesmioLaunchers bei „Speichern + Starten“. |
 
 Was du im Fenster einstellst, hat Vorrang vor der Datei.
+**Ohne Fenster speichern.** Für Wartung von der Kommandozeile aus:
+
+```bash
+rmm.exe --save --build "<Spiel>\tesmioloader\build" --package "<Ordner des Plugins oder Pakets>"
+```
+
+Das ist derselbe Weg wie der Knopf Speichern, mit denselben Prüfungen: Spiel und TesmioLauncher müssen zu sein, alle Werte gültig. Jede Rückfrage, die das Fenster stellen würde, wird abgelehnt statt beantwortet; eine DLL wandert also nie ohne dich nach `plugins\`. Die Antwort ist eine Zeile, die mit PASS oder FAIL beginnt.
 
 ---
 
@@ -188,7 +214,8 @@ SovietRepublic\tesmioloader\build\
 ├── rmm.exe, rmm.ini                    RMM und seine Grundeinstellungen
 ├── settings_schemas\                   Einstellungsseiten für die Loader-Plugins
 ├── plugins\                            DLLs und wirksame INIs der Plugins
-│   └── workshop_bridge.dll, .ini       die Workshop Bridge
+│   ├── workshop_bridge.dll, .ini       die Workshop Bridge
+│   └── buildings_plus.dll, .ini        Buildings Plus (neue Gebäude aus einer Erklärung)
 ├── user_config\
 │   ├── <name>.ini                      deine persönlichen Werte je Plugin
 │   ├── workshop_bridge.ini             Paketliste der Bridge

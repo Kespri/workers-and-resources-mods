@@ -9,6 +9,21 @@ hash helper (see below). Service name `deposits` and the savegame file `tesmio_d
 deliberately stay identical to the original so consumers such as Depletion keep working.
 User documentation: README_DE.md / README_EN.md. History newest first, technical notes below.
 
+## 0.4.7 (2026-09-12)
+
+- The editor brush name is no longer capped at seven characters (four with `map = terrain`). The
+  name in the tool descriptor is only an internal registry key: the button's picture is bound from
+  a path this plugin passes itself, the hover text comes from `TOOL_CAPTION`, and the paint hook
+  matches the active tool by pointer, never by name. So the descriptor now gets a short generated
+  key `<verb>_t<type>` - ten characters at most, which fits `paint_rock` as well as
+  `paint_bauxite` - while the icon path keeps the configured name
+  (`editor/tool_<verb>_<editor>.png`). The configured name may be up to 31 characters of letters,
+  digits, `_` and `-`; the two PNGs a deposit ships are named exactly as before.
+- Found because a deposit called `rocksalt` silently lost its brush: the old code refused the
+  14-character `paint_rocksalt`, logged `editor FAILED tool name: ...` and dropped the pair, which
+  left the deposit working and the brush missing. The minimap button was never affected - it takes
+  its picture from the resource record named by `icon`, where no length is involved.
+
 ## 0.4.6 (2026-09-10)
 
 - Desert map test by the user: sand at 100% everywhere left no room for copper, clay and gas, because the

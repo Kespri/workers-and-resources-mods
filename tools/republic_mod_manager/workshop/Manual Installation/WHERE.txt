@@ -20,6 +20,8 @@ Nothing works without it.
       tesmioloader\build\settings_schemas\             settings pages of the plugins
       tesmioloader\build\plugins\workshop_bridge.dll   loads Workshop packages
       tesmioloader\build\plugins\workshop_bridge.ini   its base settings
+      tesmioloader\build\plugins\buildings_plus.dll    new buildings from a declaration
+      tesmioloader\build\plugins\buildings_plus.ini    its base settings
 
 3. Open tesmioloader\build\tesmioloader.ini in a text editor and add this
    line to the [plugins] section (or set it to 1):

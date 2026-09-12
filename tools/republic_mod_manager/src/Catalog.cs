@@ -40,11 +40,19 @@ namespace TesmioAutoload
         {
             var result = new List<string>();
             if (String.IsNullOrWhiteSpace(build)) return result;
-            foreach (var e in entries.Where(x => x.Supported && !x.Installed && !x.LocalEditor && x.Kind == "plugin" && x.Problem.Length == 0))
+            foreach (var e in entries.Where(x => x.Supported && !x.Installed && !x.LocalEditor && (x.Kind == "plugin" || x.Kind == "content") && x.Problem.Length == 0))
             {
                 e.Updated = false; e.PreviousVersion = "";
                 try
                 {
+                    if (e.Kind == "content")
+                    {
+                        // 0.4.80: a provided content package whose fragments or assets changed in the Workshop.
+                        var content = new ContentSession(Package.Load(e.Root), build);
+                        e.Updated = content.UpdatePending; e.PreviousVersion = content.ProvidedVersion;
+                        if (e.Updated) result.Add(e.Name + (content.ProvidedVersion.Length > 0 && content.ProvidedVersion != e.Version ? " (" + content.ProvidedVersion + " -> " + e.Version + ")" : ""));
+                        continue;
+                    }
                     UpdateState u = UpdateCheck.Of(Package.Load(e.Root), build);
                     e.Updated = u.Pending; e.PreviousVersion = u.PreviousVersion;
                     if (u.Pending) result.Add(e.Name + (u.PreviousVersion.Length > 0 ? " (" + u.PreviousVersion + " -> " + e.Version + ")" : ""));

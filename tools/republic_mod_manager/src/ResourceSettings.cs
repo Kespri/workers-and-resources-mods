@@ -69,6 +69,10 @@ namespace TesmioAutoload
         // names the line counter ("Anzahl Gebaeude"); maximum_lines caps the rows.
         public string Picker="", CountLabel="", CountLabelKey="";
         public string PickerFormat="line";   // 0.4.42: research_lines picker - line | line_edit | line_anchor | anchor_edit | edit
+        // 0.4.80: the plugin assigns this value itself when the field is left empty and keeps it in
+        // an INI of its own ("<path>|<section>", the entry id as key). The editor shows the assigned
+        // value as the field's placeholder, so nobody has to open that file.
+        public string AssignedFrom="",AssignedSection="";
         // 0.4.48: picker = files on a text field - a grouped list of the files under picker_folders (path specs
         // like [folder:], "|"-separated, first hit wins) matching picker_pattern; the value is the relative path.
         public string[] PickerFolders=new string[0]; public string PickerPattern="*";
@@ -473,7 +477,16 @@ namespace TesmioAutoload
                 // reference (0.4.40): the value must name something the game knows; checked in Validate.
                 f.Reference=ini.Get(section,"reference","").Trim();f.ReferenceOwn=ini.Get(section,"reference_own","").Trim();string refFormat=ini.Get(section,"reference_format","id").Trim();if(refFormat.StartsWith("directive:",StringComparison.OrdinalIgnoreCase)){f.ReferenceDirective=refFormat.Substring(10).Trim();refFormat="directive";}f.ReferenceFormat=refFormat;
                 if(f.Reference.Length>0&&(!(ReferenceSets.Known(f.Reference)||f.Reference=="files")||scope!="item"||!(type=="text"||type=="lines"||type=="choice")||!new[]{"id","file","requires","directive","exists","dds_dxt1","dds_dxt5"}.Contains(refFormat)||refFormat=="directive"&&f.ReferenceDirective.Length==0||f.ReferenceOwn.Length>0&&s.GroupById(f.ReferenceOwn)==null||f.Reference=="files"&&(f.Picker!="files"||!new[]{"id","exists","dds_dxt1","dds_dxt5"}.Contains(refFormat))))throw new FormatException(Msg.Key("err_ungueltiger_verweis", section));
-                if(!Int32.TryParse(ini.Get(section,"maximum_lines","0"),NumberStyles.None,CultureInfo.InvariantCulture,out f.MaximumLines)||f.Picker.Length>0&&(f.Picker=="files"?(type!="text"||f.PickerFolders.Length==0):(f.Picker!="game_buildings"&&f.Picker!="game_research"&&f.Picker!="research_lines"||type!="lines"))||!new[]{"line","line_edit","line_anchor","anchor_edit","edit"}.Contains(f.PickerFormat))throw new FormatException(Msg.Key("err_ungueltiges_detailfeld", section));
+                // 0.4.80: game_donor names a base-game building for a clone (text field), donor_lines
+                // picks lines out of that donor's building.ini (lines field).
+                if(!Int32.TryParse(ini.Get(section,"maximum_lines","0"),NumberStyles.None,CultureInfo.InvariantCulture,out f.MaximumLines)||f.Picker.Length>0&&(f.Picker=="files"||f.Picker=="game_donor"?(type!="text"||f.Picker=="files"&&f.PickerFolders.Length==0):(f.Picker!="game_buildings"&&f.Picker!="game_research"&&f.Picker!="research_lines"&&f.Picker!="donor_lines"||type!="lines"))||!new[]{"line","line_edit","line_anchor","anchor_edit","edit"}.Contains(f.PickerFormat))throw new FormatException(Msg.Key("err_ungueltiges_detailfeld", section));
+                string assigned=ini.Get(section,"assigned_from","").Trim();
+                if(assigned.Length>0)
+                {
+                    string[] parts=assigned.Split('|');
+                    if(parts.Length!=2||parts[0].Trim().Length==0||parts[1].Trim().Length==0||scope!="item"||type!="text")throw new FormatException(Msg.Key("err_ungueltiges_detailfeld", section));
+                    f.AssignedFrom=parts[0].Trim();f.AssignedSection=parts[1].Trim();
+                }
                 string rule=ini.Get(section,"length_rule","");
                 if(rule.Length>0){int eq=rule.IndexOf('='),colon=rule.LastIndexOf(':');if(eq<=0||colon<=eq||!Int32.TryParse(rule.Substring(colon+1),NumberStyles.None,CultureInfo.InvariantCulture,out f.LengthRuleLimit))throw new FormatException(Msg.Key("err_ungueltige_length_rule", section));f.LengthRuleKey=rule.Substring(0,eq).Trim();f.LengthRuleValue=rule.Substring(eq+1,colon-eq-1).Trim();}
                 if(!Token(f.Id)||!Token(f.Key)||(scope=="keyed"||scope=="global")&&!Token(f.Section)||type=="choice"&&f.Choices.Length==0&&f.ChoicesSource.Length==0||s.Fields.Any(x=>x.Id.Equals(f.Id,StringComparison.OrdinalIgnoreCase)))throw new FormatException(Msg.Key("err_unvollstaendiges_detailfeld", section));
@@ -702,6 +715,11 @@ namespace TesmioAutoload
         public readonly Dictionary<string,string> Before=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);public readonly List<string> Notes=new List<string>();
         public readonly List<string> DisappearedExternal=new List<string>();
         public ResourceOverrideStore Overrides;string upstreamText,initialOverrides;readonly string localAtOpen;bool refreshUpstream;
+        // 0.4.80: baseText is the pristine original (package INI or the upstream copy); upstreamText is
+        // baseText plus the fragments of every provided content package, which the editor shows as
+        // originals. Only baseText is ever stored as the upstream copy.
+        string baseText="";public readonly List<ContentContribution> Content=new List<ContentContribution>();
+        void ComposeUpstream(){Content.Clear();upstreamText=ContentLayer.Merge(Spec,baseText,ContentLayer.Fragments(Build,Spec.Plugin),Content);}
         readonly Dictionary<string,byte[]> dependentWrites=new Dictionary<string,byte[]>(StringComparer.OrdinalIgnoreCase);
         // Package-backed editor (a keyed schema shipped in a Workshop package): the
         // baseline is the package's own INI, so a Steam update is the new original at
@@ -723,11 +741,11 @@ namespace TesmioAutoload
             Overrides=File.Exists(UserIni)?ResourceOverrideStore.Parse(SafeFiles.Text(UserIni)):new ResourceOverrideStore();
             if(package!=null)
             {
-                upstreamText=SafeFiles.Decode(package.DefaultsBytes);
-                refreshUpstream=!File.Exists(UpstreamFile)||SafeFiles.Text(UpstreamFile)!=upstreamText;
+                baseText=SafeFiles.Decode(package.DefaultsBytes);
+                refreshUpstream=!File.Exists(UpstreamFile)||SafeFiles.Text(UpstreamFile)!=baseText;
                 Notes.Add(Msg.Key("res_note_package_base", package.Version, "user_config\\"+Spec.Plugin+".editor.ini", "plugins\\"+Spec.ConfigName));
             }
-            else if(File.Exists(UpstreamFile)&&recorded==localHash)upstreamText=SafeFiles.Text(UpstreamFile);else
+            else if(File.Exists(UpstreamFile)&&recorded==localHash)baseText=SafeFiles.Text(UpstreamFile);else
             {
                 string previous=File.Exists(UpstreamFile)?SafeFiles.Text(UpstreamFile):"";var incoming=new LooseIni(localAtOpen);
                 // If somebody edited the effective file by hand, entries previously created by
@@ -738,17 +756,20 @@ namespace TesmioAutoload
                     string found=incoming.Get(Spec.ListSection,owned.Id);
                     if(found!=null&&found.Equals(owned.ListValue,StringComparison.OrdinalIgnoreCase))incoming.Remove(Spec.ListSection,owned.Id);
                 }
-                upstreamText=incoming.Render();refreshUpstream=true;
+                // Entries of provided content packages came from RMM as well; they stay a layer, not base.
+                baseText=ContentLayer.Strip(Spec,incoming.Render(),ContentLayer.Fragments(Build,Spec.Plugin));refreshUpstream=true;
                 if(previous.Length>0)
                 {
                     var priorIds=new HashSet<string>(new LooseIni(previous).Entries(Spec.ListSection).Select(x=>x.Key),StringComparer.OrdinalIgnoreCase);
-                    var nowIds=new HashSet<string>(new LooseIni(upstreamText).Entries(Spec.ListSection).Select(x=>x.Key),StringComparer.OrdinalIgnoreCase);
+                    var nowIds=new HashSet<string>(new LooseIni(baseText).Entries(Spec.ListSection).Select(x=>x.Key),StringComparer.OrdinalIgnoreCase);
                     DisappearedExternal.AddRange(priorIds.Where(x=>!nowIds.Contains(x)).OrderBy(x=>x,StringComparer.OrdinalIgnoreCase));
                     foreach(string missing in DisappearedExternal){ResourceItemOverride change;if(Overrides.Items.TryGetValue(missing,out change)&&!change.Owned)Overrides.Items.Remove(missing);}
                 }
                 Notes.Add(Msg.Key(File.Exists(UpstreamFile)?"res_note_external_update":"res_note_taken_as_base", Spec.ConfigName));
             }
+            ComposeUpstream();
             initialOverrides=Overrides.Render();Validate();Notes.Add(Msg.Key("res_note_originals_fixed"));
+            foreach(ContentContribution c in Content)if(c.Added.Count>0)Notes.Add(Msg.Key("res_note_content_added",c.PackageName,String.Join(", ",c.Added)));
         }
         Dictionary<string,string> UpstreamItems()
         {var result=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);if(Spec.IsSections){foreach(string section in new LooseIni(upstreamText).SectionNames()){if(Spec.IsReserved(section))continue;string id=section;ItemGroup extra=Spec.GroupOfId(section);if(extra!=null){if(!CollectionRules.SafeItem(section.Substring(extra.Prefix.Length).Trim()))throw new FormatException(Msg.Key("err_ungueltiger_abschnittsname", section));result.Add(section,"");continue;}if(Spec.SectionPrefix.Length>0){if(!section.StartsWith(Spec.SectionPrefix,StringComparison.OrdinalIgnoreCase))continue;id=section.Substring(Spec.SectionPrefix.Length).Trim();}if(!CollectionRules.SafeItem(id))throw new FormatException(Msg.Key("err_ungueltiger_abschnittsname", section));result.Add(id,"");}return result;}foreach(var pair in new LooseIni(upstreamText).Entries(Spec.ListSection)){if(!CollectionRules.SafeItem(pair.Key)||result.ContainsKey(pair.Key))throw new FormatException(Msg.Key("err_ungueltige_oder_doppelte_ressource_2", Spec.ListSection, pair.Key));result.Add(pair.Key,pair.Value);}return result;}
@@ -970,7 +991,7 @@ namespace TesmioAutoload
                     }
                     foreach(string id in ReferenceSets.IdsOf(field,Value(item.Id,field)))
                         if(!(own.Contains(id)||References.Contains(field.Reference,id)))
-                            throw new RuleException(field.Reference=="game_buildings"?"reference_building":field.Reference=="game_texts"?"reference_text":field.Reference=="resources"?"reference_resource":"reference_research",Spec.DisplayId(item.Id),(References.Language==null?field.Label:Spec.FieldLabel(References.Language,field)),id);
+                            throw new RuleException(field.Reference=="game_buildings"?"reference_building":field.Reference=="game_texts"?"reference_text":field.Reference=="resources"?"reference_resource":field.Reference=="game_donor"?"reference_donor":"reference_research",Spec.DisplayId(item.Id),(References.Language==null?field.Label:Spec.FieldLabel(References.Language,field)),id);
                 }
             }
         }
@@ -995,7 +1016,7 @@ namespace TesmioAutoload
         public void RehashShared(){if(Before.ContainsKey(LoaderIni))Before[LoaderIni]=SafeFiles.HashFile(LoaderIni);}
         public string Commit(Action guard)
         {
-            string mutexName="Local\\TesmioAutoload_"+SafeFiles.Hash(SafeFiles.Utf8.GetBytes(Build.ToUpperInvariant()));using(var mutex=new Mutex(false,mutexName)){bool held=false;try{try{held=mutex.WaitOne(0);}catch(AbandonedMutexException){held=true;}if(!held)throw new IOException(Msg.Key("err_ein_anderes_autoload_fenster"));guard();AssertUnchanged();ValidateAll();string effective=Effective(),personal=Overrides.Render();var writes=new Dictionary<string,byte[]>(dependentWrites,StringComparer.OrdinalIgnoreCase);writes[UserIni]=SafeFiles.Utf8.GetBytes(personal);if(!ExternalLoader&&LoaderChanged)writes[LoaderIni]=RenderLoaderIni();if(refreshUpstream||!File.Exists(UpstreamFile))writes[UpstreamFile]=SafeFiles.Utf8.GetBytes(upstreamText);writes[LocalIni]=SafeFiles.Utf8.GetBytes(effective);writes[Receipt]=SafeFiles.Utf8.GetBytes("[state]\r\nid = "+Spec.Id+"\r\neffective_hash = "+SafeFiles.Hash(SafeFiles.Utf8.GetBytes(effective))+"\r\nupstream_hash = "+SafeFiles.Hash(SafeFiles.Utf8.GetBytes(upstreamText))+"\r\nschema_hash = "+Spec.SchemaHash+"\r\n");string backup=Transaction.Apply(Build,Spec.Id,writes,Before,guard);foreach(string path in Before.Keys.ToList())Before[path]=SafeFiles.HashFile(path);initialOverrides=personal;dependentWrites.Clear();refreshUpstream=false;Generation++;return backup;}finally{if(held)mutex.ReleaseMutex();}}
+            string mutexName="Local\\TesmioAutoload_"+SafeFiles.Hash(SafeFiles.Utf8.GetBytes(Build.ToUpperInvariant()));using(var mutex=new Mutex(false,mutexName)){bool held=false;try{try{held=mutex.WaitOne(0);}catch(AbandonedMutexException){held=true;}if(!held)throw new IOException(Msg.Key("err_ein_anderes_autoload_fenster"));guard();AssertUnchanged();ValidateAll();string effective=Effective(),personal=Overrides.Render();var writes=new Dictionary<string,byte[]>(dependentWrites,StringComparer.OrdinalIgnoreCase);writes[UserIni]=SafeFiles.Utf8.GetBytes(personal);if(!ExternalLoader&&LoaderChanged)writes[LoaderIni]=RenderLoaderIni();if(refreshUpstream||!File.Exists(UpstreamFile))writes[UpstreamFile]=SafeFiles.Utf8.GetBytes(baseText);writes[LocalIni]=SafeFiles.Utf8.GetBytes(effective);writes[Receipt]=SafeFiles.Utf8.GetBytes("[state]\r\nid = "+Spec.Id+"\r\neffective_hash = "+SafeFiles.Hash(SafeFiles.Utf8.GetBytes(effective))+"\r\nupstream_hash = "+SafeFiles.Hash(SafeFiles.Utf8.GetBytes(upstreamText))+"\r\nschema_hash = "+Spec.SchemaHash+"\r\n");string backup=Transaction.Apply(Build,Spec.Id,writes,Before,guard);foreach(string path in Before.Keys.ToList())Before[path]=SafeFiles.HashFile(path);initialOverrides=personal;dependentWrites.Clear();refreshUpstream=false;Generation++;return backup;}finally{if(held)mutex.ReleaseMutex();}}
         }
     }
 

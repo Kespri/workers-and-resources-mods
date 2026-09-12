@@ -29,6 +29,33 @@ namespace TesmioAutoload
         static readonly Regex ItemName = new Regex("\\$ITEM_NAME\\s+\"([^\"]*)\"");
 
         // The game folder: walks up from the loader folder until media_soviet is found.
+        // 0.4.80: a clone's donor is a plain name under media_soviet\buildings_types; this is its
+        // building.ini path, and the lines the player can take over from it.
+        public static string DonorFile(string build, string donor)
+        {
+            string game = GameRoot(build);
+            if (game == null || String.IsNullOrWhiteSpace(donor) || !Regex.IsMatch(donor, "^[A-Za-z0-9._-]{1,64}$")) return null;
+            string path = Path.Combine(game, "media_soviet", "buildings_types", donor + ".ini");
+            return File.Exists(path) ? path : null;
+        }
+        public static List<string> DonorLines(string build, string donor)
+        {
+            var result = new List<string>(); string path = DonorFile(build, donor);
+            if (path == null) return result;
+            try
+            {
+                foreach (string raw in SafeFiles.Text(path).Replace("\r\n", "\n").Split('\n'))
+                {
+                    string line = raw.Trim();
+                    // A building.ini has no comment syntax; a line without a $TOKEN is a data line
+                    // of the token above it or one of the dashed separators the files are full of.
+                    if (line.Length == 0 || line.Length > 4096 || line.IndexOf('$') < 0) continue;
+                    if (!result.Contains(line, StringComparer.Ordinal)) result.Add(line);
+                }
+            }
+            catch (Exception) { }
+            return result;
+        }
         public static string GameRoot(string build)
         {
             try

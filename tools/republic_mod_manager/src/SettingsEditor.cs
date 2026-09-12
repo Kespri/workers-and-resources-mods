@@ -82,6 +82,26 @@ namespace TesmioAutoload
         void ShowInfo(string message) { var card=BeginCard(0); AddText(card,message,11,false,Theme.Muted); ResizeCards(); }
         // 0.4.55: an entry that cannot be shown gets a red box instead of grey text.
         void ShowProblem(string message) { var card=BeginCard(0); AddNotice(card,message,"error"); ResizeCards(); }
+        // 0.4.80: the page of a content package - its state, what it carries and which plugin takes each part.
+        void BuildContentPage()
+        {
+            Theme.DisposeChildren(tabStrip); Theme.DisposeChildren(content); setters.Clear(); origins.Clear(); resetButtons.Clear();
+            ContentSession c=contentSession; if(c==null) return;
+            var notes=BeginCard(0,language.T("notices"));
+            if(c.UpdatePending) AddNotice(notes,language.Format("content_update",c.ProvidedVersion,c.Package.Version),"info");
+            else AddText(notes,c.Provided?language.Format("content_state_provided",c.ProvidedVersion):language.T("content_state_absent"),10,false,c.Provided?Color.FromArgb(26,132,61):Theme.Muted);
+            foreach(string note in c.Notes) AddNotice(notes,language.Localize(note),"warning");
+            foreach(var pair in c.Skipped) if(pair.Value.Count>0) AddNotice(notes,language.Format("content_skipped",language.T("content_kind_"+pair.Key.ToLowerInvariant()),String.Join(", ",pair.Value)),"info");
+            var contents=BeginCard(0,language.T("content_card_contents"));
+            foreach(string key in ContentTargets.Keys)
+            {
+                string text; if(!c.Package.ContentFragments.TryGetValue(key,out text)) continue;
+                var ids=ContentTargets.IdsOf(key,text); string plugin; c.Targets.TryGetValue(key,out plugin); string list=ids.Count>0?String.Join(", ",ids):"-";
+                AddText(contents,!String.IsNullOrEmpty(plugin)?language.Format("content_target_line",language.T("content_kind_"+key),plugin,list):language.Format("content_target_none",language.T("content_kind_"+key),list),10,false,Theme.Ink);
+            }
+            if(c.Package.AssetFiles.Count>0) AddText(contents,language.Format("content_assets_count",c.Package.AssetFiles.Count,LocalEditorSpec.VfsRoot(state.Build)),10,false,Theme.Ink);
+            ResizeCards();
+        }
         // Everything a user should know about this entry before touching it: unmet
         // dependencies and double loading in red, the rest as quiet notes.
         void AddNotices()
@@ -396,8 +416,8 @@ namespace TesmioAutoload
         void UpdateStatus()
         {
             if(language==null) return;
-            bool available=session!=null||resourceSession!=null,valid=available; string error="";
-            if(valid) try {if(resourceSession!=null)resourceSession.ValidateAll();else Prospective();} catch(Exception e) {valid=false;error=ErrorText(e);}
+            bool available=session!=null||resourceSession!=null||contentSession!=null,valid=available; string error="";
+            if(valid) try {if(resourceSession!=null)resourceSession.ValidateAll();else if(contentSession==null)Prospective();} catch(Exception e) {valid=false;error=ErrorText(e);}
             // 0.4.51: three states in the heading - green saved and valid, amber unsaved, red invalid -
             // and the same state on the save button (primary only while there is something to save),
             // as a " *" on the page heading and as an amber dot at the list entry.

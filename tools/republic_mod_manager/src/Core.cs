@@ -1,4 +1,4 @@
-// Republic Mod Manager 0.4.79-beta: generic manifest/schema driven plugin deployment.
+// Republic Mod Manager 0.4.81-beta: generic manifest/schema driven plugin deployment.
 // Never loads a DLL during discovery and never edits Workshop defaults or loader code.
 // Since 0.9.0 a package needs only [mod] and [hooks] dll; everything Autoload used
 // to declare is derived by convention, and a plugin without a launcher schema gets
@@ -406,6 +406,8 @@ namespace TesmioAutoload
     {
         public string Root, Id, Name, Version, Target, ConfigName, DllPath, DefaultsPath, SchemaPath, EnabledField;
         public bool LocalCopyOffered; public string AssetsDir, AssetsFolder = ""; public readonly List<string> AssetFiles = new List<string>();
+        // 0.4.80: a content package's INI fragments by kind (resources, deposits, needs, buildings).
+        public readonly Dictionary<string, string> ContentFragments = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         // A keyed editor schema (editor_type = keyed_*) shipped in the package: the
         // master-detail editor owns the INI, Session only deploys DLL, assets and switches.
         public string EditorSchema; public bool EditorManaged;
@@ -466,6 +468,26 @@ namespace TesmioAutoload
             if (values.Length != length) throw new FormatException(Msg.Key("err_anzahl_passt_nicht_zu", section, key));
             return values;
         }
+        // [assets] dir of a plugin package (travels with the DLL) or [content] assets of a content
+        // package (copied into the loader's vfs): a folder of plain files, no executables.
+        static void LoadAssets(Package p, string declaredAssets)
+        {
+            if (declaredAssets.Length == 0) return;
+            p.AssetsDir = SafeFiles.Child(p.Root, declaredAssets);
+            if (!Directory.Exists(p.AssetsDir)) throw new FormatException(Msg.Key("err_deklarierter_assets_ordner_fehlt", declaredAssets));
+            p.AssetsFolder = Path.GetFileName(p.AssetsDir.TrimEnd('\\', '/'));
+            if (!SafeToken(p.AssetsFolder, 64) || p.AssetsFolder.Equals(p.Target + ".dll", StringComparison.OrdinalIgnoreCase)) throw new FormatException(Msg.Key("err_ungueltiger_assets_ordnername", p.AssetsFolder));
+            SafeFiles.NoLinks(p.AssetsDir);
+            foreach (string file in Directory.GetFiles(p.AssetsDir, "*", SearchOption.AllDirectories).OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
+            {
+                string relative = file.Substring(p.AssetsDir.Length).TrimStart('\\', '/');
+                if (relative.Split('\\', '/').Any(part => !SafeAssetName(part))) throw new FormatException(Msg.Key("err_ungueltiger_asset_dateiname", relative));
+                if (relative.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) || relative.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) throw new FormatException(Msg.Key("err_ausfuehrbare_dateien_gehoeren_nicht", relative));
+                if (new FileInfo(file).Length > 64L * 1024 * 1024) throw new FormatException(Msg.Key("err_asset_zu_gross", relative));
+                p.AssetFiles.Add(relative);
+            }
+            if (p.AssetFiles.Count > 512) throw new FormatException(Msg.Key("err_zu_viele_asset_dateien"));
+        }
         public static Package Load(string root)
         {
             var p = new Package(); p.Root = Path.GetFullPath(root); SafeFiles.NoLinks(p.Root);
@@ -496,9 +518,28 @@ namespace TesmioAutoload
             if (dlls.Count == 0)
             {
                 if (content.Count == 0) throw new FormatException(Msg.Key("err_manifest_ohne_hooks_dll"));
-                // A pure SML content mod: Soviet Mod Loader merges it at game start.
+                // A content package (the Soviet Mod Loader convention): SML merges it at game
+                // start; RMM provides it through the editors of the target plugins (0.4.80).
                 p.Kind = "content"; p.HasConfig = false; p.Target = ""; p.ConfigName = ""; p.Visible = false;
-                p.Hints.Add(Msg.Key("hint_sml_content_package", String.Join(", ", content)));
+                foreach (string key in ContentTargets.Keys)
+                {
+                    string relative = manifest.Get("content", key, ""); if (relative.Length == 0) continue;
+                    string path = SafeFiles.Child(p.Root, relative);
+                    if (!File.Exists(path)) throw new FormatException(Msg.Key("err_inhaltsdatei_fehlt", key, relative));
+                    byte[] bytes = SafeFiles.Read(path, 1024 * 1024); string text = SafeFiles.Decode(bytes);
+                    try { new LooseIni(text); } catch (Exception) { throw new FormatException(Msg.Key("err_inhaltsdatei_ungueltig", relative)); }
+                    p.ContentFragments[key] = text; p.InputHashes.Add(path, SafeFiles.Hash(bytes));
+                }
+                foreach (string key in content)
+                    if (!ContentTargets.Keys.Contains(key, StringComparer.OrdinalIgnoreCase) && !key.Equals("assets", StringComparison.OrdinalIgnoreCase)) p.Hints.Add(Msg.Key("hint_content_unknown_kind", key));
+                LoadAssets(p, manifest.Get("content", "assets", ""));
+                if (p.ContentFragments.Count == 0 && p.AssetFiles.Count == 0) throw new FormatException(Msg.Key("err_inhaltspaket_ohne_inhalt"));
+                foreach (string id in dependencies)
+                {
+                    if (!SafeToken(id, 160)) throw new FormatException(Msg.Key("err_ungueltige_abhaengigkeits_id", id));
+                    p.Dependencies.Add(new Dependency { Id = id, Constraint = manifest.Get("dependencies", id, "").Trim() });
+                }
+                p.Hints.Add(Msg.Key("hint_sml_content_package", String.Join(", ", p.ContentFragments.Keys.Concat(p.AssetFiles.Count > 0 ? new[] { "assets" } : new string[0]))));
                 p.Defaults = new Ini(""); p.Schema = new Ini("[launcher]\nlayout_version = 1\nvisible = 0\nid = " + p.Id + "\nconfig = none.ini\n");
                 return p;
             }
@@ -524,24 +565,7 @@ namespace TesmioAutoload
             // local_copy = 1: the author allows the package to be copied into plugins\ as a
             // whole ("Dateien nur lokal"); [assets] dir names a folder that travels with the DLL.
             p.LocalCopyOffered = manifest.Get("configuration", "local_copy", "0") == "1";
-            string declaredAssets = manifest.Get("assets", "dir", "");
-            if (declaredAssets.Length > 0)
-            {
-                p.AssetsDir = SafeFiles.Child(p.Root, declaredAssets);
-                if (!Directory.Exists(p.AssetsDir)) throw new FormatException(Msg.Key("err_deklarierter_assets_ordner_fehlt", declaredAssets));
-                p.AssetsFolder = Path.GetFileName(p.AssetsDir.TrimEnd('\\', '/'));
-                if (!SafeToken(p.AssetsFolder, 64) || p.AssetsFolder.Equals(p.Target + ".dll", StringComparison.OrdinalIgnoreCase)) throw new FormatException(Msg.Key("err_ungueltiger_assets_ordnername", p.AssetsFolder));
-                SafeFiles.NoLinks(p.AssetsDir);
-                foreach (string file in Directory.GetFiles(p.AssetsDir, "*", SearchOption.AllDirectories).OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
-                {
-                    string relative = file.Substring(p.AssetsDir.Length).TrimStart('\\', '/');
-                    if (relative.Split('\\', '/').Any(part => !SafeAssetName(part))) throw new FormatException(Msg.Key("err_ungueltiger_asset_dateiname", relative));
-                    if (relative.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) || relative.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) throw new FormatException(Msg.Key("err_ausfuehrbare_dateien_gehoeren_nicht", relative));
-                    if (new FileInfo(file).Length > 64L * 1024 * 1024) throw new FormatException(Msg.Key("err_asset_zu_gross", relative));
-                    p.AssetFiles.Add(relative);
-                }
-                if (p.AssetFiles.Count > 512) throw new FormatException(Msg.Key("err_zu_viele_asset_dateien"));
-            }
+            LoadAssets(p, manifest.Get("assets", "dir", ""));
             FormatException defaultsProblem = null;
             string declaredDefaults = manifest.Get("configuration", "defaults", "");
             p.DefaultsPath = declaredDefaults.Length > 0 ? SafeFiles.Child(p.Root, declaredDefaults) : Path.Combine(Path.GetDirectoryName(p.DllPath), p.ConfigName);
@@ -1291,7 +1315,7 @@ namespace TesmioAutoload
             try
             {
                 Package package=entry.Installed?InstalledPlugins.Load(build,entry.Target,Catalog.SchemaRoot):Package.Load(entry.Root);
-                if (package.Kind != "plugin") return false;
+                if (package.Kind != "plugin") return package.Kind == "content" && ContentSession.IsProvided(build, package.Id);
                 string root = Path.GetFullPath(build);
                 string dll = SafeFiles.Child(root, "plugins\\"+package.Target+".dll");
                 // Under SML a Workshop package's DLL is loaded from the package itself;
@@ -1361,7 +1385,7 @@ namespace TesmioAutoload
         {
             if(!d.Found||!d.VersionOk) return false;
             string build=session.Build; bool sml=Sml.Active(build);
-            if(d.Kind=="content") return sml;
+            if(d.Kind=="content") return sml||ContentSession.IsProvided(build,d.Id);
             if(sml||d.Target.Length==0) return true;
             if(session.BridgeActive&&d.Root.Length>0&&Bridge.Listed(build,Path.GetFileName(d.Root.TrimEnd('\\','/')))) return true;
             if(!File.Exists(SafeFiles.Child(build,"plugins\\"+d.Target+".dll"))) return false;
@@ -1395,7 +1419,7 @@ namespace TesmioAutoload
             }
             foreach(Dependency d in package.Dependencies)
             {
-                if(d.Kind=="content"){if(!sml)throw new IOException(Msg.Key("err_abhaengigkeit_ist_sml_inhalt", d.Id));continue;}
+                if(d.Kind=="content"){if(!sml&&!ContentSession.IsProvided(build,d.Id))throw new IOException(Msg.Key("err_abhaengigkeit_ist_sml_inhalt", d.Id));continue;}
                 if(sml||d.Target.Length==0)continue;      // SML loads hook packages itself
                 if(session.BridgeActive&&d.Root.Length>0&&Bridge.Listed(build,Path.GetFileName(d.Root.TrimEnd('\\','/'))))continue;   // the bridge loads it
                 if(!File.Exists(SafeFiles.Child(build,"plugins\\"+d.Target+".dll")))throw new IOException(Msg.Key("err_abhaengigkeit_ist_nicht_bereitgestellt", d.Id, d.Target));

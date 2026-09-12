@@ -18,6 +18,7 @@ This is the reference for plugin authors: what a Workshop package needs so that 
 8. [Languages](#8-languages)
 9. [Icons and path safety](#9-icons-and-path-safety)
 10. [How RMM provisions a package](#10-how-rmm-provisions-a-package)
+11. [Content packages (`[content]`)](#11-content-packages-content)
 
 ---
 
@@ -441,7 +442,12 @@ reference = game_research              ; section 7
 reference_format = requires
 reference_own = research
 picker = game_buildings                ; lines: building picker; game_research: research picker;
-                                       ; research_lines: lines of the entry's Vanilla block; files: file list
+                                       ; research_lines: lines of the entry's Vanilla block;
+                                       ; donor_lines: lines of the donor's building.ini (see game_donor);
+                                       ; files: file list; text: game_donor (a base-game building, one name)
+assigned_from = build:plugins\x.ids.ini|ids   ; text: empty = the plugin assigns the value itself and keeps
+                                       ; it in this INI under the entry's id; RMM shows it as a grey
+                                       ; placeholder in the field
 picker_format = line_edit              ; research_lines: line, line_edit, line_anchor, anchor_edit, edit
 picker_folders = package:hooks\x\assets | build:plugins\x\assets   ; files: first existing folder
 picker_pattern = *.dds
@@ -520,7 +526,7 @@ id_reference = game_research           ; the identifier of every own entry must 
 
 [detail:r_requires]
 type = lines
-reference = game_research              ; game_research, game_buildings, game_texts, resources, files
+reference = game_research              ; game_research, game_buildings, game_donor, game_texts, resources, files
 reference_format = requires            ; id (default): whole value / every line
                                        ; requires: "<predecessor> | before/after | <anchor>", both checked
                                        ; directive:$UNLOCK_RESEARCH: only line parts with this directive
@@ -568,3 +574,36 @@ Every save leaves a receipt under `user_config\.autoload\` with the package vers
 A changed package (new version, new DLL or default INI) shows the yellow "Update" marker; saving takes over the new version and keeps personal values. Under the bridge or SML only the default INI counts, because the game loads the DLL from the package anyway. Before every save RMM keeps one rolling restore point per plugin under `user_config\.autoload\backups\<package>\previous`; a pending marker protects against a half-written state after a crash.
 
 For the plugin `workshop_bridge` itself the `[packages]` lines in its overlay file survive every save and "Restore original".
+
+---
+
+## 11. Content packages (`[content]`)
+
+A package without `[hooks] dll` but with `[content]` is a content package: it ships no DLL, only sections for plugins that already exist. This is the same format the Soviet Mod Loader reads, so such a package works under both loaders.
+
+```ini
+[mod]
+id = example.salt
+name = Salt Resources
+version = 1.0.0
+enabled = 1
+
+[content]
+resources = tesmio\resources.ini       ; [list] and [custom:<id>] as in plugins\resources.ini
+deposits  = tesmio\deposits.ini        ; one section per deposit, as in deposits_plus.ini
+needs     = tesmio\needs.ini           ; [list] as in needs.ini
+buildings = tesmio\buildings.ini       ; one section per building, as in buildings_plus.ini
+assets    = assets                     ; folder whose layout starts at media_soviet\...
+```
+
+All five lines are optional on their own; at least one content file or the asset folder must be there. RMM reads the files loosely (repeated keys are allowed); a broken file rejects the whole package.
+
+**What RMM makes of it.** The package page has no settings, only the switch "Provide in the game". On save:
+
+- Every content file goes to the first plugin whose effective INI lies in `plugins\`: `resources` → resources, `deposits` → deposits_plus, else deposits, `needs` → needs, `buildings` → buildings_plus, else buildings. If the plugin is missing, the page says so and that part is left out.
+- The entries appear in that plugin's editor as originals: overridable, not deletable. An id that already exists there stays untouched and is named as skipped on the package page.
+- `assets` is copied to `tesmioloader\vfs`, path for path.
+- For deposits RMM assigns `type` itself (10 to 127, free against everything the plugin already knows) and sets `map = auto`; `component` is dropped. A number once assigned stays with its section.
+- A receipt under `user_config\.autoload\content\<mod id>\` records what is provided. If the package changes in the Workshop, the "Update" mark appears; saving takes over the new state.
+
+Switching off and saving takes entries and files out again; personal values and your own entries stay.

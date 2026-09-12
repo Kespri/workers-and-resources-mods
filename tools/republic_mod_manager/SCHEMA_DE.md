@@ -18,6 +18,7 @@ Das ist die Referenz für Plugin-Autoren: was ein Workshop-Paket braucht, damit 
 8. [Sprachen](#8-sprachen)
 9. [Symbole und Pfadsicherheit](#9-symbole-und-pfadsicherheit)
 10. [Wie RMM ein Paket bereitstellt](#10-wie-rmm-ein-paket-bereitstellt)
+11. [Inhaltspakete (`[content]`)](#11-inhaltspakete-content)
 
 ---
 
@@ -441,7 +442,12 @@ reference = game_research              ; Abschnitt 7
 reference_format = requires
 reference_own = research
 picker = game_buildings                ; lines: Gebäude-Auswahl; game_research: Forschungs-Auswahl;
-                                       ; research_lines: Zeilen des Vanilla-Blocks des Eintrags; files: Dateiliste
+                                       ; research_lines: Zeilen des Vanilla-Blocks des Eintrags;
+                                       ; donor_lines: Zeilen der building.ini des Spenders (siehe game_donor);
+                                       ; files: Dateiliste; text: game_donor (Grundspiel-Gebäude, ein Name)
+assigned_from = build:plugins\x.ids.ini|ids   ; text: leer = das Plugin vergibt den Wert selbst und merkt
+                                       ; ihn sich in dieser INI unter der Kennung des Eintrags; RMM zeigt
+                                       ; ihn als grauen Platzhalter im Feld
 picker_format = line_edit              ; research_lines: line, line_edit, line_anchor, anchor_edit, edit
 picker_folders = package:hooks\x\assets | build:plugins\x\assets   ; files: erster vorhandener Ordner
 picker_pattern = *.dds
@@ -520,7 +526,7 @@ id_reference = game_research           ; die Kennung jedes eigenen Eintrags muss
 
 [detail:r_requires]
 type = lines
-reference = game_research              ; game_research, game_buildings, game_texts, resources, files
+reference = game_research              ; game_research, game_buildings, game_donor, game_texts, resources, files
 reference_format = requires            ; id (Standard): ganzer Wert / jede Zeile
                                        ; requires: "<Vorgänger> | before/after | <Anker>", beide geprüft
                                        ; directive:$UNLOCK_RESEARCH: nur Zeilenteile mit dieser Direktive
@@ -568,3 +574,36 @@ Jedes Speichern hinterlässt unter `user_config\.autoload\` einen Beleg mit der 
 Ein geändertes Paket (neue Version, neue DLL oder Standard-INI) zeigt die gelbe Marke „Update“; Speichern übernimmt die neue Fassung und behält persönliche Werte. Unter Bridge oder SML zählt nur die Standard-INI, weil das Spiel die DLL ohnehin aus dem Paket lädt. Vor jedem Speichern hält RMM je Plugin genau einen rollierenden Wiederherstellungspunkt unter `user_config\.autoload\backups\<Paket>\previous`; ein Marker schützt nach einem Absturz vor einem halb geschriebenen Stand.
 
 Für das Plugin `workshop_bridge` selbst überleben die `[packages]`-Zeilen in seiner Overlay-Datei jedes Speichern und „Original wiederherstellen“.
+
+---
+
+## 11. Inhaltspakete (`[content]`)
+
+Ein Paket ohne `[hooks] dll`, aber mit `[content]`, ist ein Inhaltspaket: es bringt keine DLL mit, sondern Abschnitte für Plugins, die es schon gibt. Das ist dasselbe Format, das der Soviet Mod Loader liest, also läuft ein solches Paket unter beiden Ladern.
+
+```ini
+[mod]
+id = example.salt
+name = Salt Resources
+version = 1.0.0
+enabled = 1
+
+[content]
+resources = tesmio\resources.ini       ; [list] und [custom:<id>] wie in plugins\resources.ini
+deposits  = tesmio\deposits.ini        ; ein Abschnitt je Vorkommen, wie in deposits_plus.ini
+needs     = tesmio\needs.ini           ; [list] wie in needs.ini
+buildings = tesmio\buildings.ini       ; ein Abschnitt je Gebäude, wie in buildings_plus.ini
+assets    = assets                     ; Ordner, dessen Aufbau ab media_soviet\... gilt
+```
+
+Alle fünf Zeilen sind einzeln optional; mindestens eine Inhaltsdatei oder ein Asset-Ordner muss da sein. Die Dateien liest RMM tolerant (wiederholte Schlüssel sind erlaubt), eine kaputte Datei weist das ganze Paket ab.
+
+**Was RMM daraus macht.** Die Paketseite hat keine Einstellungen, nur den Schalter „Im Spiel bereitstellen“. Beim Speichern:
+
+- Jede Inhaltsdatei geht an das erste Plugin, dessen wirksame INI in `plugins\` liegt: `resources` → resources, `deposits` → deposits_plus, sonst deposits, `needs` → needs, `buildings` → buildings_plus, sonst buildings. Fehlt das Plugin, sagt die Seite das und lässt diesen Teil weg.
+- Die Einträge erscheinen im Editor des Plugins als Originale: überschreibbar, aber nicht löschbar. Eine Kennung, die es dort schon gibt, bleibt unangetastet und wird auf der Paketseite als übersprungen genannt.
+- `assets` wird nach `tesmioloader\vfs` kopiert, Pfad für Pfad.
+- Bei Vorkommen vergibt RMM `type` selbst (10 bis 127, frei gegenüber allem, was das Plugin schon kennt) und setzt `map = auto`; `component` entfällt. Eine einmal vergebene Nummer bleibt beim Abschnitt.
+- Ein Beleg unter `user_config\.autoload\content\<mod-id>\` hält fest, was bereitgestellt ist. Ändert sich das Paket im Workshop, erscheint die Marke „Update“; Speichern übernimmt den neuen Stand.
+
+Ausschalten und Speichern nimmt Einträge und Dateien wieder heraus; persönliche Werte und eigene Einträge bleiben.

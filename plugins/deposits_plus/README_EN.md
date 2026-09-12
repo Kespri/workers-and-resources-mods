@@ -1,4 +1,4 @@
-# 🏭 Deposits Plus 0.4.6
+# 🏭 Deposits Plus 0.4.7
 
 **Extension of the TesmioLoader plugin deposits**
 
@@ -231,7 +231,7 @@ radius = gravel
 icon = sand
 ; 1 = minimap button and layer (hover previews it, click keeps it), 0 = none
 minimap = 1
-; name of the editor brush, at most 7 characters, at most 4 with map = terrain (empty = no brush)
+; name of the editor brush, at most 31 characters (empty = no brush)
 editor = sand
 ; only for the depletion plugin: tonnes per saturated texel, 0 = infinite, empty = global figure
 ; deplete = 500
@@ -272,7 +272,7 @@ The DLL checks these limits. A value outside them switches generation off for th
 | `sand_surface_strength` | 0 to 1, otherwise the surface is off | 1.0 |
 | `type` | 10 to 127 | required |
 | `component` | 0 to 3 | required, except with auto |
-| `editor` | at most 7 characters, 4 with map = terrain | empty |
+| `editor` | at most 31 characters | empty |
 
 ---
 
@@ -528,6 +528,7 @@ MyGame\
 
 - **Within the 0.4 series:** updates carry save games and `tesmio_deposits.bin` over automatically; type numbers, map slots and tokens of running save games stay off limits (see above)
 - **With Deposit Depletion:** keeps working as before; the key `deplete` is passed on to the depletion plugin
+- **0.4.7:** the brush name may now be up to 31 characters. Existing names and the two PNG files stay as they are
 
 ---
 
@@ -631,5 +632,5 @@ A: No. Republic Mod Manager shows every setting with a description, checks the v
 
 ---
 
-**Last update:** Deposits Plus 0.4.0  
+**Last update:** Deposits Plus 0.4.7  
 **For:** WRSR 1.1.1.9 | TesmioLoader API 4

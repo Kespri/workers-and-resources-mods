@@ -51,6 +51,10 @@ Einstellungen, Ein- und Ausschalten und Laden deiner TesmioLoader-Plugins in ein
 
 Lädt die Plugin-Pakete, die du im Republic Mod Manager eingeschaltet hast, direkt aus dem Steam-Workshop-Ordner. Ohne Soviet Mod Loader. Die Liste der Pakete pflegt der Manager, du musst nichts von Hand eintragen.
 
+### 🏭 Buildings Plus (`plugins\buildings_plus.dll`)
+
+Neue Gebäude aus einer Erklärung: Du nennst ein Spendergebäude des Spiels und die Zeilen, die anders sein sollen, und beim Spielstart entsteht daraus ein vollständiges Workshop-Objekt unter `media_soviet\workshop_wip`. Gebraucht für neue Ressourcen, die eine Mine oder Fabrik brauchen. Liegt nach der Installation ausgeschaltet bereit; im Manager unter „Buildings Plus“ einschalten und Gebäude anlegen.
+
 ### 📄 Einstellungsseiten (`settings_schemas\`)
 
 Deutsche und englische Einstellungsseiten für die Plugins, die mit dem TesmioLoader kommen: Accumulator, Cities, Day and Night, Depletion, Deposits, Easy Start, Needs, Resources, Walking Distance und die Workshop Bridge.
@@ -120,7 +124,9 @@ Die Datei `Manual Installation\WOHIN.txt` wiederholt diese Schritte.
 │       ├── settings_schemas\
 │       └── plugins\
 │           ├── workshop_bridge.dll
-│           └── workshop_bridge.ini
+│           ├── workshop_bridge.ini
+│           ├── buildings_plus.dll
+│           └── buildings_plus.ini
 ├── workshopconfig.ini              (Steam-Workshop-Eintrag)
 ├── previewimage.png
 ├── LICENSE
@@ -137,7 +143,9 @@ SovietRepublic\tesmioloader\
 │   ├── settings_schemas\
 │   ├── plugins\
 │   │   ├── workshop_bridge.dll
-│   │   └── workshop_bridge.ini
+│   │   ├── workshop_bridge.ini
+│   │   ├── buildings_plus.dll
+│   │   └── buildings_plus.ini
 │   ├── user_config\                (deine persönlichen Werte, vom Manager geschrieben)
 │   └── logs\                       (Detail-Protokolle der Plugins)
 └── rmm_install_backup\<Datum>\     (nur, wenn der Installer Dateien ersetzt hat)

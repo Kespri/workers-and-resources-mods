@@ -46,7 +46,7 @@ if (-not (Test-Path -LiteralPath (Join-Path $source 'rmm.exe') -PathType Leaf)) 
 }
 $files = Get-ChildItem -LiteralPath $source -Recurse -File | ForEach-Object { $_.FullName.Substring($source.Length + 1) }
 # Files with the player's own values: written once, never overwritten by an update.
-$keep = @('rmm.ini', 'plugins\workshop_bridge.ini')
+$keep = @('rmm.ini', 'plugins\workshop_bridge.ini', 'plugins\buildings_plus.ini')
 
 # ---------------------------------------------------------------- game folder
 function SteamLibraries() {

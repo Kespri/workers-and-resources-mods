@@ -205,7 +205,7 @@ namespace TesmioAutoload
         readonly Timer searchTimer = new Timer { Interval = 150 };
         static readonly Dictionary<string, List<BuildingEntry>> cache = new Dictionary<string, List<BuildingEntry>>(StringComparer.OrdinalIgnoreCase);
         public List<string> Result;
-        bool loading;
+        bool loading; readonly bool single;
         // Reads the building list on a background thread so the first picker opens without the wait (0.4.73).
         public static void Prime(string build, string workshopRoot)
         {
@@ -219,10 +219,17 @@ namespace TesmioAutoload
         }
 
         public BuildingPickerWindow(Language language, string build, string workshopRoot, IEnumerable<string> current, IDictionary<string, string> used, Font font, Icon icon)
+            : this(language, build, workshopRoot, current, used, font, icon, false) { }
+        // 0.4.80: donorsOnly restricts the list to the base game's buildings_types (the only buildings
+        // a clone can start from) and works with their plain names; picking one replaces the choice.
+        public BuildingPickerWindow(Language language, string build, string workshopRoot, IEnumerable<string> current, IDictionary<string, string> used, Font font, Icon icon, bool donorsOnly)
         {
-            this.language = language; initial = current.Select(x => x.Trim()).Where(x => x.Length > 0).ToList(); usedElsewhere = new Dictionary<string, string>(used ?? new Dictionary<string, string>(), StringComparer.OrdinalIgnoreCase);
+            this.language = language; this.single = donorsOnly; initial = current.Select(x => x.Trim()).Where(x => x.Length > 0).ToList(); usedElsewhere = new Dictionary<string, string>(used ?? new Dictionary<string, string>(), StringComparer.OrdinalIgnoreCase);
             string cacheKey = (build ?? "") + "|" + (workshopRoot ?? "");
             lock (cache) { if (!cache.TryGetValue(cacheKey, out all)) { all = GameBuildings.Scan(build, workshopRoot); cache[cacheKey] = all; } }
+            // A donor is addressed by its plain name, so the name becomes the identity here.
+            if (donorsOnly) all = all.Where(e => e.Origin == "game" && e.Target.StartsWith("buildings_types\\", StringComparison.OrdinalIgnoreCase))
+                .Select(e => new BuildingEntry { Target = e.Name, Name = e.Name, Type = e.Type, Origin = e.Origin, OriginLabel = e.OriginLabel, Obsolete = e.Obsolete }).ToList();
             foreach (BuildingEntry entry in all) byTarget[entry.Target] = entry;
             foreach (string target in initial) if (!byTarget.ContainsKey(target)) { var missing = new BuildingEntry { Target = target, Name = target, Type = "", Origin = "missing", OriginLabel = "" }; all = all.Concat(new[] { missing }).ToList(); byTarget[target] = missing; }
             chosen.AddRange(initial.Where(t => byTarget.ContainsKey(t)).Distinct(StringComparer.OrdinalIgnoreCase));
@@ -323,6 +330,7 @@ namespace TesmioAutoload
         void Select(string target)
         {
             if (chosen.Contains(target, StringComparer.OrdinalIgnoreCase)) return;
+            if (single) foreach (string other in chosen.ToList()) Unselect(other);
             chosen.Add(target); BuildingEntry e = byTarget[target];
             available.SetVisible(target, false); selected.AddItem(e.Origin == "missing" ? "missing" : e.Type, target, ItemText(e), true, true, target, tips);
             available.Relayout(); selected.Relayout(); UpdateCounter();
@@ -342,5 +350,66 @@ namespace TesmioAutoload
         internal void TestSelect(string target) { Select(target); }
         internal void TestUnselect(string target) { Unselect(target); }
         internal List<string> TestResult() { return new List<string>(chosen); }
+    }
+
+    // 0.4.80: the lines of a clone's donor building.ini, to take one over and change it. Every line
+    // with a $TOKEN is offered; the chosen one lands in the edit box, where the numbers are adjusted
+    // before it goes into the rule set.
+    sealed class DonorLinesWindow : Form
+    {
+        readonly ListBox lines = new ListBox(); readonly TextBox edit = new TextBox(); readonly TextBox search = new TextBox();
+        readonly List<string> all;
+        public string Result { get; private set; }
+        public DonorLinesWindow(Language language, string build, string donor, Font font, Icon icon)
+        {
+            all = GameBuildings.DonorLines(build, donor);
+            Text = language.T("donor_lines_title"); Font = font; Icon = icon; Size = new Size(860, 660); MinimumSize = new Size(640, 460); StartPosition = FormStartPosition.CenterParent; ShowInTaskbar = false; BackColor = Color.White;
+            Theme.ApplyWindowChrome(this);
+            var shell = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, Padding = new Padding(12) };
+            Controls.Add(shell);
+            Action<Control, RowStyle> row = (control, style) => { shell.RowStyles.Add(style); control.Dock = DockStyle.Fill; shell.Controls.Add(control, 0, shell.RowStyles.Count - 1); };
+            var header = Theme.Label(donor + (all.Count > 0 ? "" : "  ·  " + language.T("donor_lines_none")), 12, true); header.Margin = new Padding(0, 0, 0, 6);
+            if (all.Count == 0) header.ForeColor = Theme.Danger;
+            row(header, new RowStyle(SizeType.AutoSize));
+            var searchRow = new TableLayoutPanel { ColumnCount = 2, Margin = Padding.Empty, AutoSize = true };
+            searchRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); searchRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            var searchLabel = Theme.Label(language.T("picker_search"), 10, false); searchLabel.Margin = new Padding(0, 10, 8, 0); searchRow.Controls.Add(searchLabel, 0, 0);
+            search.AccessibleName = "donor-search"; Control searchHost = Fields.Wrap(search); searchHost.Dock = DockStyle.Top; searchRow.Controls.Add(searchHost, 1, 0);
+            search.TextChanged += delegate { Refill(); };
+            row(searchRow, new RowStyle(SizeType.AutoSize));
+            lines.Font = new Font("Consolas", 10f); lines.IntegralHeight = false; lines.BorderStyle = BorderStyle.FixedSingle; lines.AccessibleName = "donor-lines";
+            lines.SelectedIndexChanged += delegate { if (lines.SelectedItem != null) edit.Text = Convert.ToString(lines.SelectedItem); };
+            lines.DoubleClick += delegate { Apply(); };
+            row(lines, new RowStyle(SizeType.Percent, 100));
+            var editLabel = Theme.Label(language.T("donor_lines_new"), 10, true); editLabel.Margin = new Padding(0, 8, 0, 2);
+            row(editLabel, new RowStyle(SizeType.AutoSize));
+            edit.Font = new Font("Consolas", 10f); edit.AccessibleName = "donor-new";
+            Control host = Fields.Wrap(edit); host.Dock = DockStyle.Top; row(host, new RowStyle(SizeType.AutoSize));
+            var buttons = new FlowLayoutPanel { FlowDirection = FlowDirection.RightToLeft, WrapContents = false, Margin = new Padding(0, 10, 0, 0) };
+            var cancel = Theme.Button(language.T("cancel"), () => { DialogResult = DialogResult.Cancel; Close(); }, false); cancel.Margin = new Padding(8, 0, 0, 0);
+            var apply = Theme.Button(language.T("apply"), Apply, true);
+            buttons.Controls.Add(cancel); buttons.Controls.Add(apply);
+            row(buttons, new RowStyle(SizeType.AutoSize));
+            AcceptButton = apply; CancelButton = cancel;
+            Refill();
+        }
+        void Refill()
+        {
+            string query = search.Text.Trim();
+            lines.BeginUpdate();
+            try { lines.Items.Clear(); foreach (string line in all) if (query.Length == 0 || line.IndexOf(query, StringComparison.CurrentCultureIgnoreCase) >= 0) lines.Items.Add(line); }
+            finally { lines.EndUpdate(); }
+        }
+        void Apply()
+        {
+            string value = edit.Text.Trim();
+            if (value.Length == 0) { DialogResult = DialogResult.Cancel; Close(); return; }
+            Result = value; DialogResult = DialogResult.OK; Close();
+        }
+        // Test hooks.
+        internal int LineCount { get { return lines.Items.Count; } }
+        internal void TestSearch(string text) { search.Text = text; }
+        internal void TestChoose(int index, string text)
+        { if (index >= 0 && index < lines.Items.Count) lines.SelectedIndex = index; if (text != null) edit.Text = text; Apply(); }
     }
 }

@@ -22,6 +22,8 @@ und tesmioloader.ini. Ohne ihn läuft nichts.
       tesmioloader\build\settings_schemas\             Einstellungsseiten der Plugins
       tesmioloader\build\plugins\workshop_bridge.dll   laedt Workshop-Pakete
       tesmioloader\build\plugins\workshop_bridge.ini   ihre Grundeinstellungen
+      tesmioloader\build\plugins\buildings_plus.dll    neue Gebäude aus einer Erklärung
+      tesmioloader\build\plugins\buildings_plus.ini    seine Grundeinstellungen
 
 3. Die Datei tesmioloader\build\tesmioloader.ini mit dem Editor öffnen und
    im Abschnitt [plugins] diese Zeile ergänzen (oder auf 1 stellen):

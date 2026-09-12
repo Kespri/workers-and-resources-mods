@@ -2823,15 +2823,25 @@ static bool BuildDepositTools(void* self)
             BYTE* tool = g_toolPool[k][i];
             memcpy(tool, mask ? rock[i] : src[i], TOOL_STRIDE);
 
+            // The name in the descriptor is an internal registry key and nothing
+            // else: the button's picture is bound below from a path of our own,
+            // its hover text comes from TOOL_CAPTION, and the paint hook matches
+            // the active tool by pointer. It used to be "<verb>_<editor key>",
+            // which had to fit the string it overwrites - seven characters
+            // against `paint_bauxite`, four against `paint_rock`. Writing a
+            // short key built from the deposit's type number instead lifts that
+            // limit from the configured name entirely: "paint_t127" is ten
+            // characters, which fits the shorter of the two donors as well, and
+            // the type is unique per deposit and does not move when the file is
+            // reordered. The icon path keeps the configured name, so the two
+            // PNGs a deposit ships are named as they always were.
             char name[64], icon[MAX_PATH];
-            _snprintf_s(name, sizeof(name), _TRUNCATE, "%s_%s", kVerb[i], d->editor);
-            _snprintf_s(icon, sizeof(icon), _TRUNCATE, "editor/tool_%s.png", name);
+            _snprintf_s(name, sizeof(name), _TRUNCATE, "%s_t%d", kVerb[i], d->type);
+            _snprintf_s(icon, sizeof(icon), _TRUNCATE, "editor/tool_%s_%s.png", kVerb[i], d->editor);
 
-            // The name has to fit in the one it replaces, so the editor key is
-            // capped at seven characters against bauxite's `paint_bauxite` and
-            // at **four** against rock's `paint_rock`. Refusing one tool but
-            // keeping the other would leave a brush that paints but cannot be
-            // turned off, so this drops the whole pair.
+            // Cannot fail with the generated key, and stays as the guard that
+            // says so: refusing one tool but keeping the other would leave a
+            // brush that paints but cannot be turned off, so this drops the pair.
             if (!ReplaceInlineString(tool, TOOL_NAME, name, "tool name"))
             {
                 d->editorColumn = -1;
@@ -3360,7 +3370,7 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
 {
     TsmBind(host);
     info->name    = "deposits_plus";
-    info->version = "0.4.6";
+    info->version = "0.4.7";
 
     // deposits_plus is a fork of the upstream deposits plugin: same code sites,
     // same service name, same save file. Both loaded at once would double the

@@ -21,7 +21,9 @@ namespace TesmioAutoload
     {
         // resources (0.4.41): the base game's 57 resource names plus what plugins\resources.ini
         // registers ([list] with hook = 2) - the names a plugin can resolve at world load.
-        public static readonly string[] Names = { "game_research", "game_buildings", "game_texts", "resources" };
+        // game_donor (0.4.80): a base-game building a clone can start from - a plain name under
+        // media_soviet\buildings_types, which must have its .ini there.
+        public static readonly string[] Names = { "game_research", "game_buildings", "game_texts", "resources", "game_donor" };
         public static bool Known(string name) { return Names.Contains(name); }
 
         readonly string build, workshopRoot, game, code;
@@ -58,6 +60,7 @@ namespace TesmioAutoload
                 case "game_research": { var ids = Research(); return ids == null || ids.Contains(id); }
                 case "game_texts": { var ids = Texts(); int number; return ids == null || Int32.TryParse(id, NumberStyles.None, CultureInfo.InvariantCulture, out number) && ids.Contains(number); }
                 case "game_buildings": return BuildingFile(id);
+                case "game_donor": return game == null || GameBuildings.DonorFile(build, id) != null;
                 case "resources": return Resources().Contains(id);
                 default: return true;
             }

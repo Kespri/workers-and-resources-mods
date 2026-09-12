@@ -20,7 +20,7 @@ Quelltext, wie es die GNU GPL v3 verlangt; fertige DLLs liegen hier nicht.
 
 | Plugin | Version | Was es macht |
 |---|---|---|
-| [Deposits Plus](plugins/deposits_plus) | 0.4.6 | Neue Vorkommenstypen, natürliche Verteilung, sandige Wiese, Arbeitsfahrzeuge |
+| [Deposits Plus](plugins/deposits_plus) | 0.4.7 | Neue Vorkommenstypen, natürliche Verteilung, sandige Wiese, Arbeitsfahrzeuge |
 | [Depletion](plugins/depletion) | 1.1.2 | Vorkommen, die zur Neige gehen, mit Anzeige im Minenfenster |
 | [Localization](plugins/localization) | 0.4.0 | Übersetzungsdienst: Textpakete werden zu erweiterten Sprachdateien |
 | [Rail Physics Fix](plugins/rail_physics_fix) | 1.3.5 | Zugphysik: Antrieb, Bremsen, Steigungen, Kurven- und Bahnhofslimits, Verbrauch |
@@ -28,6 +28,7 @@ Quelltext, wie es die GNU GPL v3 verlangt; fertige DLLs liegen hier nicht.
 | [Resources Button Fix](plugins/resources_button_fix) | 0.4.0 | Kompakte Werkzeugraster im Geländeeditor |
 | [Technical Service Storage](plugins/technical_service_storage) | 0.3.3 | Streugutlager, Materialprioritäten und Schneepflugtanks |
 | [UI Layout Fixes](plugins/ui_layout_fixes) | 0.3.0 | Zeilenabstand im Zollhaus, Textumbruch in Info-Fenstern |
+| [Buildings Plus](plugins/buildings_plus) | 0.1.2 | Neue Gebäude aus einer Erklärung: Spendergebäude plus geänderte Zeilen, beim Spielstart erzeugt |
 | [Vanilla Buildings](plugins/vanilla_buildings) | 0.4.3 | Vorübergehende Änderungen an Gebäudedateien, ohne die Originale anzufassen |
 | [Vehicle Materials](plugins/vehicle_materials) | 0.4.0 | Zusätzliche Materialien für die Fahrzeugproduktion |
 | [Weather Roads](plugins/weather_roads) | 0.3.3 | Straßenschnee, Schmelze und Schutz nach dem Räumen |
@@ -46,7 +47,7 @@ der Plugins nach `tesmioloader\build\logs\`.
 
 | Werkzeug | Version | Was es macht |
 |---|---|---|
-| [Republic Mod Manager](tools/republic_mod_manager) | 0.4.79 | Windows-Programm: Einstellungen, Ein- und Ausschalten und Laden der Plugins; sein Workshop-Objekt bringt den Installer und die Workshop Bridge mit |
+| [Republic Mod Manager](tools/republic_mod_manager) | 0.4.81 | Windows-Programm: Einstellungen, Ein- und Ausschalten und Laden der Plugins; sein Workshop-Objekt bringt den Installer und die Workshop Bridge mit |
 
 ## Installation
 

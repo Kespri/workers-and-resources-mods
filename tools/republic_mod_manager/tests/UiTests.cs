@@ -42,7 +42,7 @@ static class UiTests
             using(var form=new MainForm(store.Load(defaults,notes),store,true))
             {
                 HiddenShow(form);
-                Check(form.ModCount==6,"startup lists Workshop packages and the schema-driven local Resources, Needs and Deposits editors");
+                Check(form.ModCount==7,"startup lists Workshop packages and the schema-driven local Resources, Needs, Deposits and Buildings Plus editors");
                 Check(form.SelectedSource==package&&form.HasEditor,"remembered package opens directly without package-specific code");
                 Check(form.TabCount==4&&form.ActionCount==3,"tabs come from schema and footer keeps exactly three actions");
                 Check(form.DisplayedValue("resources/count")=="0"&&form.DisplayedValue("general/enabled")=="0","Vehicle Materials starts disabled with an empty user-owned collection");Check(form.SwitchVisible&&!form.SwitchChecked&&form.SwitchNote.Contains("tesmioloader.ini"),"single plugin switch shows off while the INI switch is 0");
@@ -178,6 +178,20 @@ static class UiTests
                     picker.TestSelect("dlc3\\buildings\\ts_small\\building.ini");picker.TestUnselect("2496571917\\gone\\building.ini");
                     var result=picker.TestResult();Check(result.Count==2&&result[0]=="buildings_types\\cement_plant_v3.ini"&&result[1]=="dlc3\\buildings\\ts_small\\building.ini","selection keeps the existing order and appends new targets");
                 }
+                // 0.4.80: the donor variant - base-game buildings_types only, by plain name, one choice.
+                using(var donors=new BuildingPickerWindow(new Language("de"),fakeBuild,"",new[]{"cement_plant_v3"},null,new Font("Segoe UI",10),null,true))
+                {
+                    Check(donors.Total==3&&donors.SelectedCount==1&&donors.TestResult()[0]=="cement_plant_v3","the donor picker lists only base-game buildings, by plain name");
+                    donors.TestSelect("flat");var chosen=donors.TestResult();
+                    Check(chosen.Count==1&&chosen[0]=="flat","picking a second donor replaces the first one");
+                }
+                // 0.4.80: the lines of a donor building.ini, for taking one over.
+                using(var lines=new DonorLinesWindow(new Language("de"),fakeBuild,"cement_plant_v3",new Font("Segoe UI",10),null))
+                {
+                    Check(lines.LineCount==1,"the donor line window lists the donor's token lines");
+                    lines.TestSearch("nothing");Check(lines.LineCount==0,"the search narrows the donor lines");lines.TestSearch("");
+                    lines.TestChoose(0,"$TYPE_FACTORY_X");Check(lines.Result=="$TYPE_FACTORY_X","the edited line is what the field receives");
+                }
             }
             // 0.4.21: the game-text picker on a synthetic language file.
             {
@@ -232,6 +246,52 @@ static class UiTests
                 form.PendingPrompt=()=>DialogResult.Cancel;Check(!form.TestResolvePending()&&form.DirtyCount==2,"cancelling the unsaved-changes question keeps every parked edit");
                 form.PendingPrompt=()=>DialogResult.No;Check(form.TestResolvePending()&&!form.IsDirty&&form.DirtyCount==0&&form.DirtyMarks==0,"discarding drops the parked edits and reloads the shown entry");
                 form.TestSearch("Sample");form.SelectIndex(0);Application.DoEvents();Check(form.DisplayedValue("general/limit")=="9","a discarded parked edit is gone when the entry is shown again");
+            }
+            // 0.4.80: a content package has no editor - one switch provides its entries through the
+            // target editors and its files into the vfs, and takes everything back again.
+            string contentPkg=Path.Combine(collection,"salt_content");
+            Write(Path.Combine(contentPkg,"soviet.mod.ini"),"[mod]\nid=example.uisalt\nname=AAA Salt Content\nversion=2.0\nenabled=1\n[content]\nresources=tesmio\\resources.ini\nassets=assets\n");
+            Write(Path.Combine(contentPkg,"tesmio","resources.ini"),"[list]\nraw_salt = rawgravel, Raw Salt\n\n[custom:raw_salt]\ncargo = bulk\n");
+            Write(Path.Combine(contentPkg,"assets","media_soviet","resources","raw_salt.png"),"png");
+            using(var form=new MainForm(new UiState{Build=loader,WorkshopRoot=collection,SelectedSource=contentPkg,Language="de"},null,false))
+            {
+                HiddenShow(form);
+                string vfsPng=Path.Combine(LocalEditorSpec.VfsRoot(loader),"media_soviet","resources","raw_salt.png");
+                Check(form.SelectedSource==contentPkg&&form.HasEditor&&form.SwitchVisible&&!form.SwitchChecked&&!form.ContentProvided,"a content package opens with its provide switch off");
+                Check(Children(form).OfType<Label>().Any(x=>x.Text.Contains("Plugin resources"))&&Children(form).OfType<Label>().Any(x=>x.Text.Contains("raw_salt")),"the page names the target plugin and the entries the package carries");
+                form.TestSwitch(true);Application.DoEvents();
+                Check(form.IsDirty&&form.DirtyCount==1&&form.SaveEnabled&&form.StatusValid,"switching the package on counts as an unsaved change");
+                Check(form.TestSaveAll(()=>{}),"saving provides the content package");
+                Check(form.ContentProvided&&!form.IsDirty&&File.Exists(vfsPng),"the receipt records the package and its file landed in the vfs");
+                string providedIni=SafeFiles.Text(resourceIni);
+                Check(providedIni.Contains("raw_salt = rawgravel, Raw Salt")&&providedIni.Contains("[custom:raw_salt]")&&providedIni.Contains("glass=aluminium, Glass"),"the entries are merged into the Resources INI beside the existing ones");
+                form.TestSearch("Resources");form.SelectIndex(0);Application.DoEvents();
+                Check(form.HasLocalResourceEditor&&form.LocalResourceCount==4&&!form.IsDirty,"the Resources editor shows the provided entry as an original");
+                form.TestSearch("AAA Salt");form.SelectIndex(0);Application.DoEvents();
+                form.TestSwitch(false);Application.DoEvents();Check(form.IsDirty&&form.SaveEnabled,"switching the package off counts as an unsaved change");
+                Check(form.TestSaveAll(()=>{}),"saving removes the content package");
+                string removedIni=SafeFiles.Text(resourceIni);
+                Check(!form.ContentProvided&&!File.Exists(vfsPng)&&!removedIni.Contains("raw_salt")&&removedIni.Contains("glass=aluminium, Glass"),"removing takes entries and files away and leaves the rest untouched");
+            }
+            // 0.4.81: --save runs the Save button's path headlessly and declines every question.
+            using(var form=new MainForm(new UiState{Build=loader,WorkshopRoot=collection,SelectedSource=simple,Language="de"},null,false))
+            {
+                HiddenShow(form);
+                // With the DLL gone from plugins\ this save would have to write it, which is the one
+                // thing the window asks about - so the headless save refuses instead.
+                File.Delete(Path.Combine(plugins,"sample_plugin.dll"));
+                form.TestEdit("general/limit","7");
+                string dllAnswer=form.CliSave(()=>{});Check(dllAnswer.StartsWith("FAIL"),"--save refuses a save that would copy a DLL into plugins ["+dllAnswer+"]");
+            }
+            using(var form=new MainForm(new UiState{Build=loader,WorkshopRoot=collection,SelectedSource=collection,Language="de"},null,false))
+            {
+                HiddenShow(form);
+                form.TestSearch("Needs");form.SelectIndex(0);Application.DoEvents();
+                Check(form.HasLocalResourceEditor&&form.CliSave(()=>{}).StartsWith("PASS"),"--save on an unchanged entry says there is nothing to do");
+                form.TestSetGlobal("max_demands","5");
+                string answer=form.CliSave(()=>{});
+                Check(answer.StartsWith("PASS")&&!form.IsDirty&&new LooseIni(SafeFiles.Text(Path.Combine(plugins,"needs.ini"))).Get("needs","max_demands")=="5","--save writes the change like the button does ["+answer+"]");
+                Check(form.CliSave(()=>{}).StartsWith("PASS")&&SafeFiles.Text(Path.Combine(plugins,"needs.ini")).Contains("max_demands = 5"),"a second --save finds nothing to do and writes nothing new");
             }
             Console.WriteLine("RESULT "+passed+" UI assertions passed. "+root);return 0;
         }

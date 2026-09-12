@@ -14,14 +14,15 @@ Republic Mod Manager (RMM for short) is one window for all your TesmioLoader plu
 4. [Save and start](#-save-and-start)
 5. [The "Notes" card](#-the-notes-card)
 6. [How a plugin gets into the game](#-how-a-plugin-gets-into-the-game)
-7. [Files local only](#-files-local-only)
-8. [The log window](#-the-log-window)
-9. [Profiles and restore points](#-profiles-and-restore-points)
-10. [List editors: Resources, Needs, Deposits and package editors](#-list-editors)
-11. [Game version and rmm.ini](#-game-version-and-rmmini)
-12. [Where your files are](#-where-your-files-are)
-13. [When something does not work](#-when-something-does-not-work)
-14. [For plugin authors](#-for-plugin-authors)
+7. [Content packages](#-content-packages-resources-deposits-buildings)
+8. [Files local only](#-files-local-only)
+9. [The log window](#-the-log-window)
+10. [Profiles and restore points](#-profiles-and-restore-points)
+11. [List editors: Resources, Needs, Deposits and package editors](#-list-editors)
+12. [Game version and rmm.ini](#-game-version-and-rmmini)
+13. [Where your files are](#-where-your-files-are)
+14. [When something does not work](#-when-something-does-not-work)
+15. [For plugin authors](#-for-plugin-authors)
 
 ---
 
@@ -68,7 +69,7 @@ The switch in the header decides whether the plugin runs on the next game start.
 - **TesmioLoader:** the switch is the TesmioLauncher's checkbox, the entry `[plugins] <name>` in `tesmioloader.ini`. When switching on, RMM also sets the `enabled` field in the plugin's INI to 1, if there is one, so the DLL does not refuse right away.
 - **Soviet Mod Loader:** SML loads every subscribed package itself. The switch then only sets the `enabled` field in the INI. If the INI has no such field, the switch is missing and a note says that only unsubscribing turns the package off.
 
-The switch shows "on" only when everything fits, just like the green dot in the list. Pure content packages for the Soviet Mod Loader (resources, buildings without a DLL) have no switch; RMM only lists them.
+The switch shows "on" only when everything fits, just like the green dot in the list. Content packages without a DLL (resources, deposits, buildings) carry the switch "Provide in the game" instead.
 
 ---
 
@@ -112,6 +113,24 @@ The TesmioLoader alone loads only DLLs from `tesmioloader\build\plugins`. For Wo
 3. **TesmioLoader classic:** without bridge and SML, RMM copies DLL and INI to `plugins\` and switches the plugin on in `tesmioloader.ini`.
 
 The Workshop Bridge appears as a plugin in the list itself. Its card has the "Bridge active" switch, the Workshop folder (normally "auto" = your game's Steam Workshop folder), the rule which packages are loaded, and a button "Tidy up now" that removes entries of packages you no longer have. You never edit the package list by hand; the "Plugin active" switch of the packages does that.
+
+---
+
+## 📦 Content packages (resources, deposits, buildings)
+
+Some Workshop packages ship no DLL, only content: new resources, deposits, needs or buildings as INI sections, plus files such as icons and models. You recognise them in the list because their page has no settings, just a switch called "Provide in the game".
+
+Switching on and saving does three things:
+
+- The entries go into the INIs of the plugins in charge: resources to **Resources**, deposits to **Deposits Plus**, needs to **Needs**, buildings to **Buildings Plus**.
+- The files that came with the package land under `tesmioloader\vfs`, where the game reads them instead of its own.
+- For deposits RMM assigns the type number itself, so it can never clash with another deposit. A number once assigned stays.
+
+In the editors the entries appear as originals with a lock: you can override their values for yourself, but you cannot delete the entry. An entry that already exists is left untouched, and the package page says which one was skipped.
+
+Switching off and saving takes entries and files out again. Your own entries and your overrides stay. If the package changes in the Workshop, the yellow "Update" mark appears in the list; saving once takes over the new state.
+
+If a plugin is not set up, the package page says so (for example "No matching plugin is set up for buildings") and skips that part. Under Soviet Mod Loader you do not need the switch: SML merges such packages itself at game start.
 
 ---
 
@@ -178,6 +197,13 @@ On start RMM reads the build stamp of `SOVIET64.exe`. If it belongs to no game v
 | `[settings] tesmiolauncher_window` | 1 shows the TesmioLauncher window on "Save + Start". |
 
 What you set in the window takes priority over the file.
+**Saving without the window.** For maintenance from the command line:
+
+```bash
+rmm.exe --save --build "<game>\tesmioloader\build" --package "<folder of the plugin or package>"
+```
+
+This is the same path as the Save button, with the same checks: the game and the TesmioLauncher must be closed and every value valid. Any question the window would ask is declined instead of answered, so a DLL never moves into `plugins\` without you. The answer is one line beginning with PASS or FAIL.
 
 ---
 
@@ -188,7 +214,8 @@ SovietRepublic\tesmioloader\build\
 ├── rmm.exe, rmm.ini                    RMM and its base settings
 ├── settings_schemas\                   settings pages for the loader plugins
 ├── plugins\                            DLLs and effective INIs of the plugins
-│   └── workshop_bridge.dll, .ini       the Workshop Bridge
+│   ├── workshop_bridge.dll, .ini       the Workshop Bridge
+│   └── buildings_plus.dll, .ini        Buildings Plus (new buildings from a declaration)
 ├── user_config\
 │   ├── <name>.ini                      your personal values per plugin
 │   ├── workshop_bridge.ini             package list of the bridge

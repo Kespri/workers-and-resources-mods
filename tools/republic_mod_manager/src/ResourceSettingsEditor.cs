@@ -529,6 +529,23 @@ namespace TesmioAutoload
             }
             return groups;
         }
+        // 0.4.80: the donor an entry names, for the line picker of that entry.
+        string DonorOf(string itemId)
+        {
+            LocalDetailField donor=localSpec.ItemFields(localSpec.GroupOfId(itemId)).FirstOrDefault(x=>x.Picker=="game_donor");
+            return donor==null?"":resourceSession.Value(itemId,donor).Trim();
+        }
+        // 0.4.80: what the plugin assigned to this entry, read from the INI named by assigned_from.
+        string AssignedValue(LocalDetailField field,string itemId)
+        {
+            try
+            {
+                string path=localSpec.ResolvePath(field.AssignedFrom,state.Build);
+                if(!File.Exists(path))return "";
+                return (new LooseIni(SafeFiles.Text(path)).Get(field.AssignedSection,localSpec.DisplayId(itemId))??"").Trim();
+            }
+            catch(Exception){return "";}
+        }
         Control ItemFieldInput(LocalDetailField field,string value,Action<string> apply,string itemId=null,Action<string> stage=null)
         {Control input=ItemFieldInputCore(field,value,apply,itemId,stage);RangeTip(input,localSpec.FieldDescription(language,field),field.Type,field.Minimum,field.Maximum);return input;}
         Control ItemFieldInputCore(LocalDetailField field,string value,Action<string> apply,string itemId=null,Action<string> stage=null)
@@ -536,8 +553,8 @@ namespace TesmioAutoload
             if(field.Type=="lines")
             {
                 // One INI line per row; the plugin repeats the key for every row.
-                LocalDetailField captured=field;bool buildings=field.Picker=="game_buildings",research=field.Picker=="game_research",lineList=field.Picker=="research_lines",picker=buildings||research||lineList;
-                var box=new LinesBox(picker,language.T(research?"pick_research":lineList?"pick_line":"pick_buildings"),language.T("lines_expand")){MaximumLines=field.MaximumLines,AccessibleName="item:"+field.Id};
+                LocalDetailField captured=field;bool buildings=field.Picker=="game_buildings",research=field.Picker=="game_research",lineList=field.Picker=="research_lines",donorLines=field.Picker=="donor_lines",picker=buildings||research||lineList||donorLines;
+                var box=new LinesBox(picker,language.T(research?"pick_research":lineList||donorLines?"pick_line":"pick_buildings"),language.T("lines_expand")){MaximumLines=field.MaximumLines,AccessibleName="item:"+field.Id};
                 string countLabel=localSpec.FieldCountLabel(language,field);box.CountText=n=>(countLabel.Length>0?countLabel:language.T("lines_count"))+": "+n;
                 box.Text=value.Replace("\n","\r\n");
                 string heightKey=(itemId??"")+"/"+field.Id;int remembered;if(linesHeights.TryGetValue(heightKey,out remembered))box.BoxHeight=remembered;
@@ -558,6 +575,15 @@ namespace TesmioAutoload
                     if(itemId==null)throw new InvalidOperationException(language.T("research_lines_no_entry"));
                     var own=resourceSession.Items().Where(i=>localSpec.GroupOfId(i.Id)!=null).Select(i=>localSpec.DisplayId(i.Id)).ToList();string display=localSpec.DisplayId(itemId);
                     using(var window=new ResearchLinesWindow(language,state.Build,display,FindResearch(display),captured.PickerFormat,own,Font,Icon))
+                        if(window.ShowDialog(this)==DialogResult.OK&&!String.IsNullOrEmpty(window.Result)){string existing=box.Text.Trim();box.Text=(existing.Length>0?existing+"\r\n":"")+window.Result;apply(box.Text);}
+                });
+                else if(donorLines)box.Pick=()=>Run(()=>
+                {
+                    // 0.4.80: a line out of the donor's building.ini - the donor comes from the entry's own donor field.
+                    if(itemId==null)throw new InvalidOperationException(language.T("donor_lines_no_entry"));
+                    string donor=DonorOf(itemId);
+                    if(donor.Length==0)throw new InvalidOperationException(language.T("donor_lines_no_donor"));
+                    using(var window=new DonorLinesWindow(language,state.Build,donor,Font,Icon))
                         if(window.ShowDialog(this)==DialogResult.OK&&!String.IsNullOrEmpty(window.Result)){string existing=box.Text.Trim();box.Text=(existing.Length>0?existing+"\r\n":"")+window.Result;apply(box.Text);}
                 });
                 else if(picker)box.Pick=()=>Run(()=>
@@ -594,6 +620,21 @@ namespace TesmioAutoload
                 return Fields.Host(picker);
             }
             var text=new TextBox{Text=value,Height=Fields.Height,AccessibleName="item:"+field.Id};if(stage!=null)text.TextChanged+=(s,e)=>{if(text.Focused)stage(text.Text);};text.Leave+=(s,e)=>apply(text.Text);
+            // 0.4.80: the plugin assigns the value itself when the field stays empty - show what it
+            // assigned as the placeholder, so the number of an existing entry is never a mystery.
+            if(field.AssignedFrom.Length>0&&itemId!=null){string assigned=AssignedValue(field,itemId);if(assigned.Length>0)Cue.Set(text,language.Format("assigned_value",assigned));}
+            // 0.4.80: picker = game_donor - the building window restricted to the base game's
+            // buildings_types, single choice, giving back the plain name a clone needs.
+            if(field.Picker=="game_donor")
+            {
+                var choose=Theme.Button(language.T("pick_donor"),()=>Run(()=>
+                {
+                    using(var window=new BuildingPickerWindow(language,state.Build,state.WorkshopRoot,new[]{text.Text.Trim()},null,Font,Icon,true))
+                        if(window.ShowDialog(this)==DialogResult.OK&&window.Result!=null&&window.Result.Count>0){text.Text=window.Result[0];apply(text.Text);}
+                }),false);
+                choose.AccessibleName="item:"+field.Id+":pick";
+                return new PickRow(text,choose);
+            }
             if(field.Suffix.Length==0)return Fields.Wrap(text);
             // suffix = .name (0.4.31): the fixed tail of a key in a locked box, the item id as placeholder
             // - "[quartz_smasher].[name]" - so only the middle part is ever typed.

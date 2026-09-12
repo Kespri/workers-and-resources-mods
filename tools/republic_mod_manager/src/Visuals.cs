@@ -204,7 +204,7 @@ namespace TesmioAutoload
                 e.DrawFocusRectangle();
             };
         }
-        public static TextBox Inner(Control input) { var box = input as FieldBox; if (box != null) return box.Input; var number = input as NumberInput; return number != null ? number.Input : null; }
+        public static TextBox Inner(Control input) { var box = input as FieldBox; if (box != null) return box.Input; var row = input as PickRow; if (row != null) return row.Input; var number = input as NumberInput; return number != null ? number.Input : null; }
         // Editable combo boxes (typed value plus suggestions) keep their font-high edit area at the
         // top when the control is made taller, so they are hosted in a bordered panel that centres
         // them instead (0.4.17). Fixed lists are drawn tall directly.
@@ -214,6 +214,24 @@ namespace TesmioAutoload
             return new ComboHost(combo);
         }
         public static ComboBox ComboOf(Control input) { var host = input as ComboHost; return host != null ? host.Combo : input as ComboBox; }
+    }
+    // 0.4.80: a text field with a picker button beside it (the donor of a cloned building). Text is
+    // passed through to the box, because the add dialog reads its values that way.
+    sealed class PickRow : TableLayoutPanel
+    {
+        public readonly TextBox Input;
+        public PickRow(TextBox box, Button button)
+        {
+            Input = box; Dock = DockStyle.Top; AutoSize = true; Margin = Padding.Empty; AccessibleName = box.AccessibleName;
+            ColumnCount = 2; ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            var wrap = new FieldBox(box) { Dock = DockStyle.Fill, Margin = Padding.Empty };
+            button.AutoSize = false; button.MinimumSize = Size.Empty; button.Height = Fields.Height; button.Margin = new Padding(8, 0, 0, 0);
+            // The button's own font is still the default here; the form's font arrives with the parent.
+            // Measure with the font it will actually paint in, or the caption is cut off.
+            button.Width = TextRenderer.MeasureText(button.Text, new Font("Segoe UI", 10f)).Width + 36;
+            Controls.Add(wrap, 0, 0); Controls.Add(button, 1, 0);
+        }
+        public override string Text { get { return Input.Text; } set { Input.Text = value; } }
     }
     sealed class FieldBox : Panel
     {
