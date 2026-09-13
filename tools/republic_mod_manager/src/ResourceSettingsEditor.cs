@@ -717,24 +717,28 @@ namespace TesmioAutoload
             // Compare the normalised text: a lines box hands back CRLF while the store keeps LF, so a
             // plain comparison rebuilt the editor on every focus change of a multi-line field (0.4.26).
             Func<string,bool> isPersonal=v=>item.Owned?v.Length>0:!v.Equals(baselineValue,StringComparison.Ordinal);
+            string emptyHint=localSpec.FieldEmptyHint(language,field);
             Func<string,string> describe=v=>{bool personal=isPersonal(v);string source=baselineValue.Length>0?language.T("list_original_value")+": "+baselineValue:language.T("resource_no_entry");if(personal)source=language.T("personal")+"  ·  "+source;
                 // A personal entry has no original to compare with: "Persönlich" when the field is set, nothing when it is empty (0.4.37).
                 if(item.Owned)source=personal?language.T("personal"):"";
                 // Lines fields carry their own counter; the original lines would only be cut off after a few entries (0.4.25).
                 if(field.Type=="lines")source=personal?language.T("personal"):"";
                 // A switch shows its state itself; no "no entry" line under it (0.4.32).
-                if(field.Type=="boolean")source=personal?language.T("personal"):"";return source;};
+                if(field.Type=="boolean")source=personal?language.T("personal"):"";
+                // 0.4.85: an empty field with an empty_hint says what empty means instead of showing nothing.
+                if(v.Trim().Length==0&&emptyHint.Length>0)source=language.T("field_default")+": "+emptyHint;return source;};
+            Func<string,bool> hinted=v=>v.Trim().Length==0&&emptyHint.Length>0;
             Panel row=null;
             // apply (field left): only when the text differs from what the row shows, and only after the focus
             // change has finished (Later). The row's note and reset button are updated in place; nothing is
             // redrawn, so the detail area neither flashes nor jumps. Rebuilding inside Leave destroyed the
             // control that was about to receive the focus and left the page collapsed.
-            Action<string> apply=v=>{bool same=false;try{same=captured.Normalize(v??"")==captured.Normalize(value);}catch(FormatException){}if(same)return;Later(content,()=>Run(()=>{resourceSession.SetField(item.Id,captured,v);string now=resourceSession.Value(item.Id,captured);value=now;UpdateRow(row,describe(now),isPersonal(now));if(detailsList!=null&&!detailsList.IsDisposed)detailsList.Refresh();UpdateStatus();}));};
+            Action<string> apply=v=>{bool same=false;try{same=captured.Normalize(v??"")==captured.Normalize(value);}catch(FormatException){}if(same)return;Later(content,()=>Run(()=>{resourceSession.SetField(item.Id,captured,v);string now=resourceSession.Value(item.Id,captured);value=now;UpdateRow(row,describe(now),isPersonal(now),hinted(now));if(detailsList!=null&&!detailsList.IsDisposed)detailsList.Refresh();UpdateStatus();}));};
             Action<string> stage=v=>{try{if(captured.Normalize(v??"")==resourceSession.Value(item.Id,captured))return;resourceSession.SetField(item.Id,captured,v);}catch(Exception){}UpdateStatus();};
             Control input=ItemFieldInput(field,value,apply,item.Id,stage);
             string heading=localSpec.FieldHeading(language,field);if(heading.Length>0)AddLocalHeading(grid,heading);
             Action reset=()=>{resourceSession.SetField(item.Id,captured,"");RefreshLocalDetails(item.Id);};
-            row=LocalInput(input,describe(value),reset,isPersonal(value));
+            row=LocalInput(input,describe(value),reset,isPersonal(value),hinted(value));
             AddLocalRow(grid,LocalLabel(localSpec.FieldLabel(language,field),localSpec.FieldDescription(language,field)),row);
         }
         // [picture:<id>] rows (0.4.35): preview of the entry's picture plus "Insert picture...", which
@@ -861,9 +865,16 @@ namespace TesmioAutoload
         {var box=new TableLayoutPanel{ColumnCount=1,AutoSize=true,Dock=DockStyle.Top,Margin=new Padding(0,4,16,17)};box.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));var label=Theme.Label(title,10,true);AddRow(box,label);if(help.Length>0){var descriptionLabel=Theme.Label(help,8,false);descriptionLabel.ForeColor=Theme.Muted;descriptionLabel.MaximumSize=new Size(300,0);AddRow(box,descriptionLabel);box.SizeChanged+=(s,e)=>{int w=Math.Max(120,box.ClientSize.Width);if(descriptionLabel.MaximumSize.Width!=w)descriptionLabel.MaximumSize=new Size(w,0);};}return box;}
         // The note and reset button of a row, kept on the row panel so a field edit can update them
         // in place instead of redrawing the detail area (which flashed white and lost the scroll position).
-        sealed class RowNote{public Label Note;public VectorButton Reset;}
-        static void UpdateRow(Panel row,string origin,bool resetVisible){var state=row==null||row.IsDisposed?null:row.Tag as RowNote;if(state==null)return;state.Note.Text=origin;if(state.Reset!=null)state.Reset.Visible=resetVisible;}
-        Panel LocalInput(Control input,string origin,Action reset,bool resetVisible=true)
+        sealed class RowNote{public Label Note;public VectorButton Reset;public Font Plain,Strong;}
+        // strong (0.4.85): the note line carries the meaning of the empty field ("Standard: ...") and is
+        // drawn bold and in the normal ink colour, so it reads as a statement and not as a faded remark.
+        static void UpdateRow(Panel row,string origin,bool resetVisible,bool strong=false)
+        {
+            var state=row==null||row.IsDisposed?null:row.Tag as RowNote;if(state==null)return;
+            state.Note.Text=origin;if(state.Plain!=null)state.Note.Font=strong?state.Strong:state.Plain;state.Note.ForeColor=strong?Theme.Ink:Theme.Muted;
+            if(state.Reset!=null)state.Reset.Visible=resetVisible;
+        }
+        Panel LocalInput(Control input,string origin,Action reset,bool resetVisible=true,bool strong=false)
         {
             // Input on the left, the reset button in its own column on the right at the input's
             // height - the column is always reserved so rows line up whether or not the button
@@ -880,7 +891,8 @@ namespace TesmioAutoload
             input.SizeChanged+=(s,e)=>{int h=Math.Max(29,input.Height);if(panel.Height!=panelHeight(h)){panel.Height=panelHeight(h);note.Location=new Point(0,noteTop(h));}};
             VectorButton button=null;
             if(reset!=null){button=new VectorButton{Symbol="reset",Primary=true,BackColor=Theme.Blue,ForeColor=Color.White,GlyphScale=1.05f,Size=new Size(Fields.Reset,Fields.Reset),Location=new Point(panel.Width-Fields.Reset,Math.Max(0,(inputHeight-Fields.Reset)/2)),Anchor=AnchorStyles.Left|AnchorStyles.Top,AccessibleName=language.T("reset")};button.Click+=(s,e)=>Run(reset);button.Visible=resetVisible;panel.Controls.Add(button);}
-            panel.Tag=new RowNote{Note=note,Reset=button};
+            panel.Tag=new RowNote{Note=note,Reset=button,Plain=note.Font,Strong=new Font(note.Font,FontStyle.Bold)};
+            if(strong){note.Font=((RowNote)panel.Tag).Strong;note.ForeColor=Theme.Ink;}
             EventHandler fit=(s,e)=>{int w=panel.ClientSize.Width;if(toggle)input.Left=Math.Max(0,w-reserve-input.Width);else input.Width=Math.Max(120,w-reserve);note.Width=Math.Max(120,w);if(button!=null)button.Left=w-Fields.Reset;};
             panel.SizeChanged+=fit;fit(panel,EventArgs.Empty);return panel;
         }

@@ -1,4 +1,4 @@
-// Republic Mod Manager 0.4.81-beta: generic manifest/schema driven plugin deployment.
+// Republic Mod Manager 0.4.85-beta: generic manifest/schema driven plugin deployment.
 // Never loads a DLL during discovery and never edits Workshop defaults or loader code.
 // Since 0.9.0 a package needs only [mod] and [hooks] dll; everything Autoload used
 // to declare is derived by convention, and a plugin without a launcher schema gets
@@ -791,6 +791,10 @@ namespace TesmioAutoload
         static readonly Regex Level = new Regex(@"^\[[^\]]*\]\s*(?:\S+\s+)?(INFO|WARN(?:ING)?|ERROR|FATAL|DEBUG|TRACE)\b:?", RegexOptions.IgnoreCase);
         static readonly Regex ErrorCount = new Regex(@"\b[1-9]\d*\s+(?:fatal )?error\(s\)|\b(?:errors|fatal)=[1-9]\d*", RegexOptions.IgnoreCase);
         static readonly Regex WarningCount = new Regex(@"\b[1-9]\d*\s+warning\(s\)|\bwarnings=[1-9]\d*", RegexOptions.IgnoreCase);
+        // 0.4.83: loader lines carry no level ("buildings_plus  2 generated, ... 0 failed ... 0 error(s)").
+        // A word that a number introduces is a counter, not a complaint: a counter above zero decides,
+        // a counter at zero is struck out before the keywords are looked at.
+        static readonly Regex ZeroCount = new Regex(@"\b0\s+(?:fatal\s+)?[a-z_]+(?:\(s\))?|\b[a-z_]+=0\b", RegexOptions.IgnoreCase);
         static readonly Regex Stamp = new Regex(@"^\[[^\]]*\]\s*");
         public static List<Source> Sources(string build)
         {
@@ -841,8 +845,11 @@ namespace TesmioAutoload
             string subject = SubjectOf(line);
             if (subject.EndsWith(".ERROR", StringComparison.OrdinalIgnoreCase) || subject.EndsWith(".FATAL", StringComparison.OrdinalIgnoreCase)) return Kind.Problem;
             if (subject.EndsWith(".WARN", StringComparison.OrdinalIgnoreCase) || subject.EndsWith(".WARNING", StringComparison.OrdinalIgnoreCase)) return Kind.Warning;
-            if (Problem.IsMatch(line)) return Kind.Problem;
-            if (Warning.IsMatch(line)) return Kind.Warning;
+            if (ErrorCount.IsMatch(line)) return Kind.Problem;
+            if (WarningCount.IsMatch(line)) return Kind.Warning;
+            string residue = ZeroCount.Replace(line, " ");
+            if (Problem.IsMatch(residue)) return Kind.Problem;
+            if (Warning.IsMatch(residue)) return Kind.Warning;
             return Kind.Plain;
         }
         // The first word after the time stamp: "plugin", "bridge", "hook", a plugin's own name, "game.ERROR".
@@ -1857,6 +1864,36 @@ namespace TesmioAutoload
         private static void Replace(string source, string destination)
         {
             if (File.Exists(destination)) File.Replace(source, destination, null); else File.Move(source, destination);
+        }
+    }
+
+    // Steam's own note of who is logged in on this machine. A game started
+    // outside Steam - which is what the TesmioLauncher does - reads exactly this
+    // to attach to the client, and aborts with its own Steam error when no user
+    // is in it. The usual way into that state is uploading a Workshop item:
+    // SteamCMD logs in with the same account, Steam replaces the client's
+    // session and deliberately does not reconnect it.
+    public static class SteamSession
+    {
+        public enum State { Unknown, LoggedOut, Ready }
+        const string Key = @"HKEY_CURRENT_USER\Software\Valve\Steam\ActiveProcess";
+        public static State Check()
+        {
+            try
+            {
+                object user = Registry.GetValue(Key, "ActiveUser", null);
+                object pid = Registry.GetValue(Key, "pid", null);
+                // No values at all: another Steam build, another platform, or no
+                // Steam. Never block on a guess.
+                if (!(user is int) || !(pid is int)) return State.Unknown;
+                if ((int)user == 0 || (int)pid == 0) return State.LoggedOut;
+                // A left-over entry of a client that is gone counts as logged out.
+                try { using (Process p = Process.GetProcessById((int)pid)) if (!p.ProcessName.Equals("steam", StringComparison.OrdinalIgnoreCase)) return State.LoggedOut; }
+                catch (ArgumentException) { return State.LoggedOut; }
+                catch (InvalidOperationException) { return State.LoggedOut; }
+                return State.Ready;
+            }
+            catch (Exception) { return State.Unknown; }
         }
     }
 

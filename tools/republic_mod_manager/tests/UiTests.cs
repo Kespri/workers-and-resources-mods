@@ -293,6 +293,17 @@ static class UiTests
                 Check(answer.StartsWith("PASS")&&!form.IsDirty&&new LooseIni(SafeFiles.Text(Path.Combine(plugins,"needs.ini"))).Get("needs","max_demands")=="5","--save writes the change like the button does ["+answer+"]");
                 Check(form.CliSave(()=>{}).StartsWith("PASS")&&SafeFiles.Text(Path.Combine(plugins,"needs.ini")).Contains("max_demands = 5"),"a second --save finds nothing to do and writes nothing new");
             }
+            // 0.4.82: --activate moves the header switch headlessly, so --save can commit it.
+            using(var form=new MainForm(new UiState{Build=loader,WorkshopRoot=collection,SelectedSource=contentPkg,Language="de"},null,false))
+            {
+                HiddenShow(form);
+                string switchPng=Path.Combine(LocalEditorSpec.VfsRoot(loader),"media_soviet","resources","raw_salt.png");
+                Check(form.CliActivate(false)==null&&!form.IsDirty,"--activate off on an entry that is already off changes nothing");
+                Check(form.CliActivate(true)==null&&form.IsDirty&&form.SwitchChecked,"--activate on stages the provide switch");
+                string provideAnswer=form.CliSave(()=>{});
+                Check(provideAnswer.StartsWith("PASS")&&form.ContentProvided&&File.Exists(switchPng),"--save then provides the content package ["+provideAnswer+"]");
+                Check(form.CliActivate(false)==null&&form.CliSave(()=>{}).StartsWith("PASS")&&!form.ContentProvided&&!File.Exists(switchPng),"--activate off followed by --save takes it away again");
+            }
             Console.WriteLine("RESULT "+passed+" UI assertions passed. "+root);return 0;
         }
         catch(Exception e){Console.Error.WriteLine(e);return 1;}

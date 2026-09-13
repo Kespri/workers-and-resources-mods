@@ -22,6 +22,9 @@ namespace TesmioAutoload
             {
                 Package package;
                 try{package=Package.Load(entry.Root);}catch{continue;}
+                // A content package brings no DLL and no INI of its own, so it has neither a target nor a
+                // config name; building plugins\<name> from an empty name would be an invalid path.
+                if(package.Kind=="content")continue;
                 if(seen.Add(package.Id))yield return package;
             }
         }

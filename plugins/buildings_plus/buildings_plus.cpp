@@ -74,12 +74,26 @@
 #include <vector>
 #include <cstdint>
 
-#define PLUGIN_VERSION    "0.1.2"
+// Optional text service. A `name =` that looks like a localisation key is
+// resolved to the text id the game's own $NAME takes, so a generated building
+// takes its caption from the Localization pack like a base-game one. Without
+// the service the name stays a literal and nothing is lost.
+#ifndef TSM_SERVICE_LOCALIZATION
+#define TSM_SERVICE_LOCALIZATION "localization"
+#define TSM_LOCALIZATION_VERSION 1u
+typedef struct TsmLocalizationApi
+{
+    int (*resolve)(const char* nameSpace, const char* key);
+    int (*resolveFull)(const char* fullyQualifiedKey);
+} TsmLocalizationApi;
+#endif
+
+#define PLUGIN_VERSION    "0.1.3"
 #define PLUGIN_INI        "plugins\\buildings_plus.ini"
 #define PLUGIN_LOG_NAME   "tesmioloader.buildings_plus.log"
 #define STAMP_NAME        "tesmioloader.stamp"
 #define STAMP_MARK        "buildings_plus generated this folder"
-#define GENERATOR_VERSION 3
+#define GENERATOR_VERSION 4
 #define MAX_DECLS         256
 #define MAX_LINES         512
 #define MAX_LINE_LEN      4096
@@ -103,7 +117,8 @@ struct Decl
     std::string id;        // the Workshop item id, and the folder name
     std::string object;    // the object subfolder, named by $OBJECT_BUILDING
     std::string donor;     // a base-game buildings_types name, no extension
-    std::string name;      // $NAME_STR, and the Workshop item name
+    std::string name;      // a caption or a localisation key; also the Workshop item name
+    std::string nameLine;  // what that becomes: $NAME <id> or $NAME_STR "..."
     std::string desc;      // the Workshop description, lines joined with \n
     int  life = 3000;      // renderconfig LIFE
     bool enabled = true;
@@ -118,6 +133,9 @@ static std::vector<Decl> g_decls;
 static bool g_enabled = true;
 static bool g_always  = false;   // regenerate even when the stamp matches
 static bool g_verbose = false;   // one detail-log line per copied file and dropped donor line
+// Consumed in the start phase, when every plugin's init has run. Null is the
+// normal case for anyone without the Localization plugin.
+static const TsmLocalizationApi* g_localization = NULL;
 static bool g_prune   = false;   // remove our stamped folders whose declaration is gone
 static std::wstring g_outDir = L"media_soviet\\workshop_wip";
 static std::wstring g_gameDir;
@@ -260,6 +278,56 @@ static void Error(const char* fmt, ...)
     g_errors++;
     DetailLine("ERROR: ", s);
     Logf("buildings_plus  ERROR: %s", s.c_str());
+}
+
+// ---------------------------------------------------------------- the name
+
+// A name that is a localisation key rather than a caption: at least one dot and
+// nothing but the characters a key may carry. "Large Medicine Factory" can
+// never be one because of the spaces, "localization.lang.medicine" is one.
+static bool LooksLikeKey(const std::string& s)
+{
+    if (s.empty() || s.find('.') == std::string::npos) return false;
+    for (size_t i = 0; i < s.size(); i++)
+    {
+        char c = s[i];
+        bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+                  c == '.' || c == '_' || c == '-';
+        if (!ok) return false;
+    }
+    return s[0] != '.' && s[s.size() - 1] != '.';
+}
+
+// What a key that cannot be resolved falls back to: the part after the last
+// dot. A build menu reading "medicine_factory" is poor; one reading the whole
+// key is worse, and an empty name would look like a broken building.
+static std::string KeyTail(const std::string& s)
+{
+    size_t dot = s.rfind('.');
+    return dot == std::string::npos ? s : s.substr(dot + 1);
+}
+
+// The one name line a declaration produces, or nothing when it declares no
+// name. $NAME takes an id into the language files and is what every base-game
+// building uses; $NAME_STR takes a literal. Never both: the game's parser reads
+// each of them into the same field and which one would win is not established.
+// Resolution happens once per generation, never while the game draws.
+static std::string NameLine(const Decl& d)
+{
+    if (d.name.empty()) return std::string();
+    if (!LooksLikeKey(d.name)) return "$NAME_STR \"" + d.name + "\"";
+
+    int id = 0;
+    if (g_localization && g_localization->resolveFull) id = g_localization->resolveFull(d.name.c_str());
+    if (id >= 2000000 && id <= 2999999)
+    {
+        char buf[32];
+        _snprintf_s(buf, sizeof(buf), _TRUNCATE, "%d", id);
+        return "$NAME " + std::string(buf);
+    }
+    Warn("[%s] name '%s' did not resolve%s - using \"%s\"", d.section.c_str(), d.name.c_str(),
+         g_localization ? "" : " (no localization plugin)", KeyTail(d.name).c_str());
+    return "$NAME_STR \"" + KeyTail(d.name) + "\"";
 }
 
 // ---------------------------------------------------------------- files
@@ -479,7 +547,7 @@ static bool WriteBuildingIni(const Decl& d, const std::wstring& donorIni, const 
     out += "; generated by TesmioLoader plugins\\buildings_plus.dll - section [" + d.section + "]\r\n";
     out += "; donor: media_soviet\\buildings_types\\" + d.donor + ".ini\r\n";
     out += "; edits here are overwritten on the next launch - change buildings_plus.ini instead\r\n\r\n";
-    if (!d.name.empty()) out += "$NAME_STR \"" + d.name + "\"\r\n";
+    if (!d.nameLine.empty()) out += d.nameLine + "\r\n";
     for (size_t i = 0; i < d.lines.size(); i++) out += d.lines[i] + "\r\n";
     out += "\r\n";
     std::vector<std::string> lines = SplitLines(text);
@@ -555,7 +623,9 @@ static unsigned long long DeclHash(const Decl& d)
     h = HashStr(h, d.id);
     h = HashStr(h, d.object);
     h = HashStr(h, d.donor);
-    h = HashStr(h, d.name);
+    // The line that really goes into the file, not the declared value: when a
+    // key resolves to a different id than last time, the folder is rewritten.
+    h = HashStr(h, d.nameLine);
     h = HashStr(h, d.desc);
     h = HashBytes(h, &d.life, sizeof(d.life));
     for (size_t i = 0; i < d.lines.size(); i++) h = HashStr(h, d.lines[i]);
@@ -1075,6 +1145,10 @@ static int Run(const std::string& configText, const char* configName)
     }
     Info("configuration: %s; %u section(s); out = %s", configName, (unsigned)g_decls.size(), Narrow(OutRoot()).c_str());
     AssignIds();
+    // Once per run, so a key that cannot be resolved is reported once and both
+    // the hash and the written file see the same line.
+    for (size_t i = 0; i < g_decls.size(); i++)
+        if (g_decls[i].valid && g_decls[i].enabled) g_decls[i].nameLine = NameLine(g_decls[i]);
 
     std::vector<std::string> keep;
     int generated = 0, upToDate = 0, skipped = 0, failed = 0;
@@ -1114,6 +1188,21 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
     info->version = PLUGIN_VERSION;
     g_detail = TsmOpenLog(PLUGIN_LOG_NAME);
     Note("TesmioLoader buildings_plus %s starting; detail log: logs\\%s", PLUGIN_VERSION, PLUGIN_LOG_NAME);
+    // The folders are written in the start phase, not here: a `name =` that is
+    // a localisation key needs the Localization service, and a service only
+    // exists once every plugin's init has run.
+    return 0;
+}
+
+// Second phase. Nothing here hooks the game - the work is reading the INI and
+// writing folders under media_soviet, which the game only scans later.
+extern "C" __declspec(dllexport) int TsmPluginStart(void)
+{
+    if (H && H->consume)
+        g_localization = (const TsmLocalizationApi*)H->consume(TSM_SERVICE_LOCALIZATION,
+                                                              TSM_LOCALIZATION_VERSION);
+    if (g_localization && g_localization->resolveFull)
+        Info("localization service available; a name with dots is resolved as a key");
 
     std::wstring cfg = ConfigPath();
     std::string text;
@@ -1134,6 +1223,14 @@ BOOL APIENTRY DllMain(HMODULE, DWORD, LPVOID) { return TRUE; }
 
 static void TestLog(const char* fmt, ...) { va_list ap; va_start(ap, fmt); vprintf(fmt, ap); va_end(ap); printf("\n"); }
 static long TestFault(const char*, void*) { return EXCEPTION_EXECUTE_HANDLER; }
+
+// A stand-in for the Localization plugin: exactly one key resolves.
+static int TestResolveFull(const char* key)
+{
+    return (key && strcmp(key, "localization.lang.medicine_factory") == 0) ? 2000123 : 0;
+}
+static int TestResolve(const char*, const char*) { return 0; }
+static const TsmLocalizationApi kTestLocalization = { TestResolve, TestResolveFull };
 
 static bool Has(const std::string& text, const char* wanted) { return text.find(wanted) != std::string::npos; }
 static int g_failed = 0;
@@ -1297,6 +1394,28 @@ int wmain(int argc, wchar_t** argv)
     Run(ini5, "test");
     Check(g_warnings == 1 && g_errors == 0 && DirExists(out + L"\\9300000011\\auto_two") && DirExists(out + L"\\9300000009\\grabber"),
           "an explicit id wins over the catalog and the displaced section is renumbered with a warning");
+
+    // 0.1.3: a name that is a localisation key becomes the id the game's own
+    // $NAME takes; a caption stays a literal; an unresolvable key falls back.
+    std::string ini6 =
+        "[buildings_plus]\nenabled = 1\n\n"
+        "[plain_name]\nid = 9300000020\ndonor = donor_mine\nobject = Plain\nname = Large Medicine Factory\n\n"
+        "[key_name]\nid = 9300000021\ndonor = donor_mine\nobject = Keyed\nname = localization.lang.medicine_factory\n\n"
+        "[key_missing]\nid = 9300000022\ndonor = donor_mine\nobject = Missing\nname = localization.lang.nothing_here\n";
+    g_warnings = 0; g_errors = 0;
+    g_localization = &kTestLocalization;
+    Run(ini6, "test");
+    g_localization = NULL;
+    std::string plainIni, keyIni, missIni;
+    Check(ReadTextFile(out + L"\\9300000020\\Plain\\building.ini", &plainIni) &&
+              Has(plainIni, "$NAME_STR \"Large Medicine Factory\"") && !Has(plainIni, "$NAME 6160"),
+          "a plain name stays a literal and replaces the donor's numbered name");
+    Check(ReadTextFile(out + L"\\9300000021\\Keyed\\building.ini", &keyIni) &&
+              Has(keyIni, "$NAME 2000123") && !Has(keyIni, "$NAME_STR") && !Has(keyIni, "localization.lang"),
+          "a name that is a localisation key becomes $NAME with the resolved id, never both lines");
+    Check(ReadTextFile(out + L"\\9300000022\\Missing\\building.ini", &missIni) &&
+              Has(missIni, "$NAME_STR \"nothing_here\"") && g_warnings == 1,
+          "an unresolvable key falls back to the part after the last dot and warns once");
 
     printf(g_failed ? "RESULT %d check(s) FAILED\n" : "RESULT all buildings_plus self-tests passed\n", g_failed);
     return g_failed ? 1 : 0;

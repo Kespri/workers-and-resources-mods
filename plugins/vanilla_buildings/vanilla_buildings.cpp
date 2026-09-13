@@ -21,6 +21,20 @@
 #include <climits>
 #include <exception>
 
+// Optional text service. A `name =` that looks like a localisation key becomes
+// the id the game's own $NAME takes, so a renamed base-game building follows
+// the game language. Without the service the name stays a literal.
+#ifndef TSM_SERVICE_LOCALIZATION
+#define TSM_SERVICE_LOCALIZATION "localization"
+#define TSM_LOCALIZATION_VERSION 1u
+typedef struct TsmLocalizationApi
+{
+    int (*resolve)(const char* nameSpace, const char* key);
+    int (*resolveFull)(const char* fullyQualifiedKey);
+} TsmLocalizationApi;
+#endif
+static const TsmLocalizationApi* g_localization = NULL;
+
 static const size_t MAX_FILE_BYTES = 4u * 1024u * 1024u;
 static const size_t MAX_OUTPUT_BYTES = 8u * 1024u * 1024u;
 static const size_t MAX_CONFIG_LINE = 4096;
@@ -30,7 +44,7 @@ static const size_t MAX_OPERATIONS = 512;
 
 #define SYM_READ_FILE "?C3DHelp_ReadFileIntoBuffer@@YAHPEBDPEAPEADPEAI_N@Z"
 
-#define PLUGIN_VERSION "0.4.3"
+#define PLUGIN_VERSION "0.4.4"
 #define PLUGIN_INI "plugins\\vanilla_buildings.ini"
 #define PLUGIN_LOG_NAME "tesmioloader.vanilla_buildings.log"
 
@@ -96,9 +110,13 @@ struct Decl
     bool valid;
     std::string error;
     std::string errorContext;
+    std::string name;      // optional: replaces whatever $NAME line the target carries
+    std::string nameLine;  // what that becomes, resolved once per declaration
+    bool nameExpanded;     // the synthesised replace was already added
     std::vector<Operation> operations;
 
-    Decl() : targetKind(0), openedLogged(0), unavailableLogged(0), enabled(true), valid(true) {}
+    Decl() : targetKind(0), openedLogged(0), unavailableLogged(0), enabled(true), valid(true),
+             nameExpanded(false) {}
 };
 
 static std::vector<Decl> g_decl;
@@ -1368,7 +1386,15 @@ static bool ParseRegistryText(const std::string& text, RegistryConfig* output)
         if (!current)
             return ConfigError(lineNo + 1, "outside-section", "assignment outside a section");
         bool targetKey = key == "target" || key == "target1" || key == "target2" || key == "target3";
-        if (key == "enabled" || targetKey)
+        if (key == "name")
+        {
+            if (!buildingKeys.insert(key).second)
+            { Fail(current, "name is specified more than once"); continue; }
+            if (value.empty() || value.size() > 128 || value.find('"') != std::string::npos)
+                Fail(current, "name must be plain text without quotes (at most 128 characters)");
+            else current->name = value;
+        }
+        else if (key == "enabled" || targetKey)
         {
             if (key == "enabled")
             {
@@ -1511,6 +1537,80 @@ static void ValidateTargets(std::vector<Decl>* declarations)
     }
 }
 
+// ---------------------------------------------------------------- the name
+
+// A name that is a localisation key rather than a caption: at least one dot and
+// nothing but the characters a key may carry, so a caption with spaces can
+// never be mistaken for one.
+static bool LooksLikeKey(const std::string& s)
+{
+    if (s.empty() || s.find('.') == std::string::npos) return false;
+    for (size_t i = 0; i < s.size(); ++i)
+    {
+        char c = s[i];
+        bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+                  c == '.' || c == '_' || c == '-';
+        if (!ok) return false;
+    }
+    return s[0] != '.' && s[s.size() - 1] != '.';
+}
+
+static std::string KeyTail(const std::string& s)
+{
+    size_t dot = s.rfind('.');
+    return dot == std::string::npos ? s : s.substr(dot + 1);
+}
+
+// The one line `name =` produces: $NAME with a resolved id for a localisation
+// key, $NAME_STR with a literal otherwise. An unresolved key falls back to the
+// part after the last dot, so a missing text never leaves a building nameless.
+static std::string NameLineFor(const Decl& d)
+{
+    if (!LooksLikeKey(d.name)) return "$NAME_STR \"" + d.name + "\"";
+    int id = 0;
+    if (g_localization && g_localization->resolveFull) id = g_localization->resolveFull(d.name.c_str());
+    if (id >= 2000000 && id <= 2999999) return "$NAME " + std::to_string(id);
+    Report("WARN", d.section.c_str(), "name-key",
+        "[%s] name '%s' did not resolve%s - using \"%s\"", d.section.c_str(), d.name.c_str(),
+        g_localization ? "" : " (Localization is not loaded, or it loads after this plugin)",
+        KeyTail(d.name).c_str());
+    return "$NAME_STR \"" + KeyTail(d.name) + "\"";
+}
+
+// `name =` becomes an ordinary replace of the single $NAME or $NAME_STR line the
+// target carries. Going through the normal operation list keeps every existing
+// guarantee: the unique-match rule, overlap detection against your own rules and
+// the per-target error reporting. The caller never has to know the old line.
+static bool ExpandNameOperation(Decl* d, const std::vector<std::string>& lines)
+{
+    if (d->nameExpanded) return true;
+    if (d->nameLine.empty()) d->nameLine = NameLineFor(*d);
+    int found = -1, count = 0;
+    for (size_t i = 0; i < lines.size(); ++i)
+    {
+        std::string token = TokenOf(lines[i]);
+        if (token == "$NAME" || token == "$NAME_STR") { ++count; if (found < 0) found = (int)i; }
+    }
+    if (count != 1)
+    {
+        Fail(d, "name: the target has " + std::to_string(count) + " $NAME lines instead of exactly one");
+        return false;
+    }
+    d->nameExpanded = true;
+    if (Trimmed(lines[found]) == Trimmed(d->nameLine)) return true;   // already exactly this name
+    if (d->operations.size() >= MAX_OPERATIONS)
+    {
+        Fail(d, "name: this section already has the maximum number of rules");
+        return false;
+    }
+    Operation op;
+    op.kind = OP_REPLACE;
+    op.field.push_back(Trimmed(lines[found]));
+    op.field.push_back(d->nameLine);
+    d->operations.insert(d->operations.begin(), op);
+    return true;
+}
+
 static bool BuildOverlay(Decl* d, const char* tempDir, size_t index)
 {
     const char* root = WorkshopTarget(d->canonical) ? g_workshopDir : g_mediaDir;
@@ -1539,6 +1639,13 @@ static bool BuildOverlay(Decl* d, const char* tempDir, size_t index)
     }
     bool bom = false;
     std::vector<std::string> lines = SplitLines(raw.empty() ? "" : raw.data(), raw.size(), &bom);
+    if (!d->name.empty() && !ExpandNameOperation(d, lines))
+    {
+        Report("ERROR", PLUGIN_INI, "name-target",
+            "[%s] target=%s was rejected: %s. Action: check the target's name line",
+            d->section.c_str(), d->target.c_str(), d->error.c_str());
+        return false;
+    }
     if (!ValidateOperations(d, lines))
     {
         Report("ERROR", PLUGIN_INI, "rules-invalid",
@@ -1863,6 +1970,12 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
             LogSummary("Initialization", false);
             return 1;
         }
+        // Optional and never fatal: a `name =` with dots is resolved through it.
+        // The Workshop Bridge loads Localization before this plugin, so the
+        // service is already on the noticeboard here.
+        if (host->consume)
+            g_localization = (const TsmLocalizationApi*)host->consume(TSM_SERVICE_LOCALIZATION,
+                                                                     TSM_LOCALIZATION_VERSION);
         if (!BuildOverlays())
         {
             if (!g_enabledSectionCount)
@@ -2002,6 +2115,14 @@ static bool Has(const std::string& text, const char* wanted)
     return text.find(wanted) != std::string::npos;
 }
 
+// A stand-in for the Localization plugin: exactly one key resolves.
+static int TestResolveFull(const char* key)
+{
+    return (key && strcmp(key, "localization.lang.medicine_factory") == 0) ? 2000123 : 0;
+}
+static int TestResolve(const char*, const char*) { return 0; }
+static const TsmLocalizationApi kTestLocalization = { TestResolve, TestResolveFull };
+
 static int RunSelfTests(void)
 {
     int failed = 0;
@@ -2132,6 +2253,56 @@ static int RunSelfTests(void)
         "$CONNECTION_WATERPIPE_OUTPUT", "-7 -3 33", "14.5 -2 2"));
     if (ValidateOperations(&movedOccupied, lines)) { fprintf(stderr,
         "FATAL: self-test [moved-occupied] Occupied new point was accepted. Action: correct validation\n"); failed++; }
+
+    // 0.4.4: `name =` replaces whatever $NAME line the target carries, without
+    // the caller knowing the old line.
+    Decl plainName;
+    plainName.section = "name_plain";
+    plainName.name = "Medicine Factory";
+    if (!ExpandNameOperation(&plainName, lines) || !ValidateOperations(&plainName, lines))
+    { fprintf(stderr, "FATAL: self-test [name-plain] %s. Action: correct the name expansion\n", plainName.error.c_str()); failed++; }
+    else
+    {
+        std::string out = ApplyOperations(plainName, lines, false);
+        if (!Has(out, "$NAME_STR \"Medicine Factory\"") || Has(out, "$NAME_STR sample"))
+        { fprintf(stderr, "FATAL: self-test [name-plain-output] Output mismatch\n%s\n", out.c_str()); failed++; }
+    }
+    // A key is resolved through the service and becomes the numbered form.
+    Decl keyName;
+    keyName.section = "name_key";
+    keyName.name = "localization.lang.medicine_factory";
+    g_localization = &kTestLocalization;
+    bool keyOk = ExpandNameOperation(&keyName, lines) && ValidateOperations(&keyName, lines);
+    g_localization = NULL;
+    if (!keyOk)
+    { fprintf(stderr, "FATAL: self-test [name-key] %s. Action: correct the name expansion\n", keyName.error.c_str()); failed++; }
+    else
+    {
+        std::string out = ApplyOperations(keyName, lines, false);
+        if (!Has(out, "$NAME 2000123") || Has(out, "$NAME_STR") || Has(out, "localization.lang"))
+        { fprintf(stderr, "FATAL: self-test [name-key-output] Output mismatch\n%s\n", out.c_str()); failed++; }
+    }
+    // Without the service the key falls back to the part after the last dot.
+    Decl keyMissing;
+    keyMissing.section = "name_missing";
+    keyMissing.name = "localization.lang.medicine_factory";
+    if (!ExpandNameOperation(&keyMissing, lines) || !ValidateOperations(&keyMissing, lines))
+    { fprintf(stderr, "FATAL: self-test [name-fallback] %s\n", keyMissing.error.c_str()); failed++; }
+    else
+    {
+        std::string out = ApplyOperations(keyMissing, lines, false);
+        if (!Has(out, "$NAME_STR \"medicine_factory\""))
+        { fprintf(stderr, "FATAL: self-test [name-fallback-output] Output mismatch\n%s\n", out.c_str()); failed++; }
+    }
+    // A source without a name line is rejected instead of silently gaining one.
+    const char* noName = "$PRODUCTION plastic 0.11\n$WORKERS_NEEDED 10\nend\n";
+    bool nb = false;
+    std::vector<std::string> noNameLines = SplitLines(noName, strlen(noName), &nb);
+    Decl nameless;
+    nameless.section = "name_absent";
+    nameless.name = "Whatever";
+    if (ExpandNameOperation(&nameless, noNameLines))
+    { fprintf(stderr, "FATAL: self-test [name-absent] A target without a $NAME line was accepted\n"); failed++; }
 
     if (!failed) printf("INFO: self-test [summary] All vanilla_buildings self-tests passed\n");
     return failed ? 1 : 0;

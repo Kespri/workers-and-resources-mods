@@ -199,6 +199,9 @@ static class CoreTests
         string contentRoot=Path.Combine(root,"content-package");Write(Path.Combine(contentRoot,"tesmio","resources.ini"),"[list]\ncount = 0\n");Write(Path.Combine(contentRoot,"tesmio","deposits.ini"),"[gas]\ntoken = $TYPE_MINE_GAS\ntype = 20\n");Write(Path.Combine(contentRoot,"tesmio","buildings.ini"),"[gas_well]\ndonor = oil_well\n");Write(Path.Combine(contentRoot,"assets","media_soviet","resources","gas.png"),"png");
         Write(Path.Combine(contentRoot,"soviet.mod.ini"),"[mod]\nid = tesmioloader.naturalgas\nname = Natural Gas Industry\nversion = 1.0.1\nenabled = 1\npriority = 0\ntesmio_api_min = 4\ntesmio_api_max = 4\n\n; Dependencies are mod id = semantic-version constraint.\n[dependencies]\n; org.example.shared-library = >=1.2.0\n\n[content]\nresources = tesmio\\resources.ini\ndeposits = tesmio\\deposits.ini\nbuildings = tesmio\\buildings.ini\nassets = assets\n\n[hooks]\n; dll = hooks\\simple_hook.dll\n");
         Test("SML content package is listed without editor or deployment",()=>{Package c=Package.Load(contentRoot);Check(c.Kind=="content"&&!c.HasConfig&&c.Hints.Any(h=>Msg.Plain(h).Contains("resources")));var scan=Catalog.Scan(root,new List<string>());var entry=scan.Single(e=>e.Root.Equals(contentRoot,StringComparison.OrdinalIgnoreCase));Check(entry.Supported&&entry.Kind=="content"&&entry.Problem.Length==0&&entry.Status=="SML-Inhalt");Check(!RuntimeStatus.ConfiguredActive(entry,plainBuild));});
+        // 0.4.83: a content package carries no DLL, so it has no target and no config name; the check has
+        // to skip it instead of building the invalid relative path "plugins\" out of the empty name.
+        Test("the consistency check skips content packages instead of building an invalid path",()=>{var mixed=new[]{new CatalogEntry{Root=contentRoot,Id="tesmioloader.naturalgas",Name="Natural Gas Industry",Version="1.0.1",Supported=true}};Check(ResourceConsistency.ValidateReferences(resourceBuild,mixed).Count==0);});
         string multiRoot=Path.Combine(root,"multi-package");CopyTree(plainRoot,multiRoot);Write(Path.Combine(multiRoot,"soviet.mod.ini"),"[mod]\nid=example.multi\nname=Multi\nversion=1\n[hooks]\ndll=hooks\\plain_plugin.dll\ndll=hooks\\second.dll\n");
         Test("repeated hook DLLs are refused with a precise reason",()=>{string reason="";try{Package.Load(multiRoot);}catch(Exception e){reason=Msg.Plain(e.Message);}Check(reason.Contains("err_mehrere_native_hooks"));});
         string mismatchRoot=Path.Combine(root,"mismatch-package");CopyTree(plainRoot,mismatchRoot);Write(Path.Combine(mismatchRoot,"soviet.mod.ini"),"[mod]\nid=example.mismatch\nname=Mismatch\nversion=1\n[hooks]\ndll=hooks\\plain_plugin.dll\n[autoload]\nformat=1\nkind=plugin\ntarget=other_name\n");
@@ -436,6 +439,10 @@ string b3=MakeBuild(root,"bridge-build-3");File.WriteAllBytes(Path.Combine(b3,"p
         Test("a changed DLL counts only where this program copied it",()=>{File.WriteAllBytes(Path.Combine(upRoot,"hooks","plain_plugin.dll"),simple.Dll.Concat(new byte[]{0,0,0,0}).ToArray());Package p3=Package.Load(upRoot);var u=new Session(p3,upBuild);Check(u.Update.Pending&&u.Update.DllChanged);u.Commit(true,NoGame);Check(!new Session(p3,upBuild).Update.Pending);File.WriteAllBytes(Path.Combine(upBuild,"plugins","workshop_bridge.dll"),simple.Dll);var b=new Session(p3,upBuild);Check(b.BridgeActive&&b.RemoveOwnDll);b.Commit(true,NoGame);File.WriteAllBytes(Path.Combine(upRoot,"hooks","plain_plugin.dll"),simple.Dll);Check(!new Session(Package.Load(upRoot),upBuild).Update.DllChanged);});
 
         // ---- 0.16.0: log viewer ----
+        // 0.4.84: reads Steam's own login record. It must answer for whatever this
+        // machine looks like and never throw; a missing or foreign entry is Unknown,
+        // which never blocks a launch.
+        Test("the Steam session check answers without throwing",()=>{var state=SteamSession.Check();Check(state==SteamSession.State.Ready||state==SteamSession.State.LoggedOut||state==SteamSession.State.Unknown);});
         Test("empty INI values are accepted and lenient text fields keep them",()=>{var blank=new Ini("[railspeed]\nspeed = 330\nspeed_concrete =\nspeed_121 =   ; (stock 121)\n");Check(blank.Get("railspeed","speed_concrete")==""&&blank.Get("railspeed","speed")=="330"&&blank.Get("railspeed","speed_121")=="; (stock 121)");bool emptyKeyRefused=false;try{new Ini("[a]\n = 1\n");}catch(FormatException){emptyKeyRefused=true;}Check(emptyKeyRefused);var lenientText=new Field{Section="railspeed",Key="speed_concrete",Label="Concrete",Type="text",Lenient=true};Check(lenientText.Normalize("")=="");bool strictRefused=false;try{new Field{Section="a",Key="b",Label="B",Type="text"}.Normalize("");}catch(FormatException){strictRefused=true;}Check(strictRefused);});
         Test("log lines are classified and attributed to their subject",()=>{Check(GameLogs.Classify("[19:58:53.317] vehicle_materials  INFO: - [status] Initialization was skipped because the plugin is disabled after 0 ms; 0 warning(s), 0 error(s), 0 fatal error(s)")==GameLogs.Kind.Plain);Check(GameLogs.Classify("[19:43:46.115] hook ok      C3DLog_PrintError      orig=00007FF8A7A5C8E0")==GameLogs.Kind.Plain);Check(GameLogs.Classify("[20:41:46.323] bridge   fixture_vehicle_materials   vehicle_materials.dll declined to install (1)")==GameLogs.Kind.Warning);Check(GameLogs.Classify("[19:43:46.914] game.ERROR setfocus")==GameLogs.Kind.Problem);
             // 0.4.78: the printed level decides; counters of zero never raise an INFO line, counters above zero do.
@@ -445,6 +452,12 @@ string b3=MakeBuild(root,"bridge-build-3");File.WriteAllBytes(Path.Combine(b3,"p
             Check(GameLogs.Classify("[04:24:35.502] weather_roads  INFO  Startup [active] duration_ms=0 warnings=3 errors=0 fatal=0")==GameLogs.Kind.Warning);
             Check(GameLogs.Classify("[04:24:35.483] research_expansion  WARN: C:\\x\\icon.png [icon-invalid] wrong size")==GameLogs.Kind.Warning);
             Check(GameLogs.Classify("[04:24:36.181] game.WARN 1")==GameLogs.Kind.Warning);
+            // 0.4.83: loader lines print no level; a word introduced by a zero is a counter, not a complaint.
+            Check(GameLogs.Classify("[01:55:40.975] buildings_plus  2 generated, 1 up to date, 0 skipped, 0 failed, 0 pruned; 0 warning(s), 0 error(s)")==GameLogs.Kind.Plain);
+            Check(GameLogs.Classify("[01:55:41.263] bridge   10 hook(s) loaded, 0 skipped, 10 package(s) with hooks")==GameLogs.Kind.Plain);
+            Check(GameLogs.Classify("[01:55:40.975] buildings_plus  0 generated, 0 up to date, 1 skipped, 2 failed; 0 warning(s), 2 error(s)")==GameLogs.Kind.Problem);
+            Check(GameLogs.Classify("[01:55:40.975] buildings_plus  3 generated, 1 skipped, 0 failed; 0 error(s)")==GameLogs.Kind.Warning);
+            Check(GameLogs.Classify("[01:55:41.213] editor   FAILED  tool name: paint_rocksalt longer than paint_bauxite")==GameLogs.Kind.Problem);
             // 0.4.79: detail logs put the level right after the stamp, without a subject.
             Check(GameLogs.Classify("[2026-09-12 04:53:48.614] INFO  Init [ready] duration_ms=0 warnings=0 errors=0 fatal=0 (this phase)")==GameLogs.Kind.Plain);
             Check(GameLogs.Classify("[2026-09-12 04:53:48.614] INFO: - [status] Startup failed after 0 ms; 0 warning(s), 1 error(s), 1 fatal error(s)")==GameLogs.Kind.Problem);
@@ -621,6 +634,22 @@ string b3=MakeBuild(root,"bridge-build-3");File.WriteAllBytes(Path.Combine(b3,"p
             string bad=Path.Combine(root,"donor-bad","bad.launcher.ini");string text=SafeFiles.Text(schema);
             Write(bad,text.Replace("type = text\r\nmaximum_length = 64\r\npicker = game_donor","type = lines\r\nmaximum_length = 64\r\npicker = game_donor").Replace("type = text\nmaximum_length = 64\npicker = game_donor","type = lines\nmaximum_length = 64\npicker = game_donor"));Check(!SafeFiles.Text(bad).Contains("type = text\r\nmaximum_length = 64\r\npicker = game_donor")&&!SafeFiles.Text(bad).Contains("type = text\nmaximum_length = 64\npicker = game_donor"));Reject(()=>LocalEditorSpec.Load(bad));
             Write(bad,text.Replace("assigned_from = build:plugins\\buildings_plus.ids.ini|ids","assigned_from = build:plugins\\buildings_plus.ids.ini"));Reject(()=>LocalEditorSpec.Load(bad));
+        });
+
+        // 0.4.85: empty_hint / empty_hint_key - what an empty field means, shown in place of the origin line.
+        Test("empty_hint says what an empty field means and is translated (0.4.85)",()=>
+        {
+            string folder=Path.Combine(root,"empty-hint"),schema=Path.Combine(folder,"sample.launcher.ini");
+            Write(schema,"[launcher]\neditor_type=keyed_sections\nlayout_version=1\nid=x\nname=X\nlanguage_directory=languages\n[editor]\nplugin=x\nconfig=x.ini\nmaximum_items=8\n"+
+                "[detail:vb_name]\nscope=item\nkey=name\ntype=text\nlabel=Name\nempty_hint=empty = the game's own id\nempty_hint_key=vb.item_name.empty\n"+
+                "[detail:bare]\nscope=item\nkey=bare\ntype=text\nlabel=Plain\n");
+            Write(Path.Combine(folder,"languages","de.ini"),"[strings]\nvb.item_name.empty = leer = Spieleigene ID\n");
+            var spec=LocalEditorSpec.Load(schema);
+            LocalDetailField named=spec.Fields.Single(x=>x.Id=="vb_name"),bare=spec.Fields.Single(x=>x.Id=="bare");
+            Check(named.EmptyHint=="empty = the game's own id"&&named.EmptyHintKey=="vb.item_name.empty"&&bare.EmptyHint.Length==0);
+            // The key wins where a translation exists; English falls back to the literal in the schema.
+            // (A Language of its own needs the embedded UI texts, which the test EXE does not carry.)
+            Check(spec.LanguageDirectory=="languages"&&SafeFiles.Text(Path.Combine(folder,"languages","de.ini")).Contains("vb.item_name.empty = leer = Spieleigene ID"));
         });
 
         Console.WriteLine("RESULT "+passed+" passed, "+failed+" failed; fixtures: "+root);return failed==0?0:1;

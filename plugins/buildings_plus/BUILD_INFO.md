@@ -1,13 +1,29 @@
 # Buildings Plus – build notes
 
 Target: WRSR 1.1.1.9, TesmioLoader API 4. Build: the standard line (`cl /O2 /MT /W3 /EHsc /std:c++17 /LD
-... /link kernel32.lib`); exports TsmPluginApiVersion/TsmPluginInit. Self-test: the same file with
+... /link kernel32.lib`); exports TsmPluginApiVersion/TsmPluginInit/TsmPluginStart. Self-test: the same file with
 `/DBUILDINGS_PLUS_TEST` as an executable, `buildings_plus_test.exe <fresh scratch folder>` builds a fake
 game folder and checks generation, replacement rules, material rewrite, stamp, prune, refusal of foreign
 folders, the object rename and the id catalog. `buildings_plus_test.exe --run <ini> <game folder> <out
 folder>` generates the sections of a real INI from a real game folder into an out folder of your choice,
 so a declaration can be checked before it goes into the game (the game folder is only read; the catalog
 goes to `<out>\plugins`). History newest first.
+
+## 0.1.3 (2026-09-13)
+
+- `name =` may hold a localisation key instead of a caption. A value with at least one dot and
+  nothing but letters, digits, dot, underscore and hyphen is handed to the Localization service; a
+  resolved id is written as `$NAME <id>`, everything else stays `$NAME_STR "..."`. Exactly one of
+  the two lines is ever written: the game's parser reads both into the same field and which one
+  would win is not established. An unresolved key falls back to the part after the last dot and
+  warns once, so a missing text never leaves a building without a name.
+- Generation moved from `TsmPluginInit` to a new `TsmPluginStart`. A service only exists once every
+  plugin's init has run, and buildings_plus loads before localization. Nothing here hooks the game,
+  and the folders under `media_soviet\workshop_wip` are only scanned by the game much later.
+- GENERATOR_VERSION 4, so every folder is rewritten once. The hash covers the name line that really
+  goes into the file, so a key that resolves to a different id regenerates the folder.
+- Three self-tests with a stand-in localisation service: a plain name stays literal, a key becomes
+  `$NAME` with the id and never both lines, an unknown key falls back and warns once.
 
 ## 0.1.2 (2026-09-12)
 

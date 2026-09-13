@@ -205,6 +205,14 @@ rmm.exe --save --build "<Spiel>\tesmioloader\build" --package "<Ordner des Plugi
 
 Das ist derselbe Weg wie der Knopf Speichern, mit denselben Prüfungen: Spiel und TesmioLauncher müssen zu sein, alle Werte gültig. Jede Rückfrage, die das Fenster stellen würde, wird abgelehnt statt beantwortet; eine DLL wandert also nie ohne dich nach `plugins\`. Die Antwort ist eine Zeile, die mit PASS oder FAIL beginnt.
 
+Den Kopfschalter legt `--activate` um, bevor gespeichert wird:
+
+```bash
+rmm.exe --activate on --save --build "<Spiel>\tesmioloader\build" --package "<Ordner>"
+```
+
+`on` schaltet ein, `off` aus. Das ist derselbe Klick wie im Fenster, nur ohne Maus: bei einem Inhaltspaket heißt das "Im Spiel bereitstellen", bei einem Plugin "Plugin aktiv". Geschrieben wird erst durch `--save`; ohne `--save` weist RMM die Option ab.
+
 ---
 
 ## 📦 Wo deine Dateien liegen

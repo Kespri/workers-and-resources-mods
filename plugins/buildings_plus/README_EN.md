@@ -1,4 +1,4 @@
-# 🏭 Buildings Plus 0.1.2
+# 🏭 Buildings Plus 0.1.3
 
 **TesmioLoader plugin for new buildings from a configuration file**
 
@@ -160,6 +160,18 @@ The donor sets the shape: a mine wants a mine as donor (conveyor, animation), a 
 
 **Workshop id:** just leave `id` out. At game start the plugin looks for the highest number between 9300000000 and 9399999999 (in the catalog, in the INI and among the folders under workshop_wip, foreign ones included) and assigns the next one. The number then lives in `plugins\buildings_plus.ids.ini` under the section name and stays there for good, because saved games know the building by its folder `workshop_wip\<number>`. A renamed section is a new building with a new number; a deleted section does not free its number. An explicit `id` (9000000000 to 9999999999) still works and wins. Keep the catalog file together with your saved games; profiles in Republic Mod Manager include it.
 
+**A name from the text pack.** Normally you just write the name down, `name = Salt Mine`. It then sits in the file and reads the same in every game language.
+
+With the Localization plugin running you may write a translation key instead:
+
+```ini
+name = localization.lang.salt_mine
+```
+
+Buildings Plus looks the key up at game start and writes the id it finds into building.ini, exactly the way the base game does it for its own buildings. The caption then comes from the Localization pack: in the game language when the pack carries it, in its fallback language otherwise. A value counts as a key when it holds at least one dot and nothing but letters, digits, dot, underscore and hyphen, so a name with spaces can never be mistaken for one.
+
+Without Localization, or with a key it does not know, Buildings Plus uses the part after the last dot as the name, here `salt_mine`, and writes one warning into the log. The building still works.
+
 ---
 
 ## 🛠️ Replacement rules
@@ -186,7 +198,7 @@ The donor's building.ini is taken over line by line. A donor line is dropped onl
 | building sections | at most 256 |
 | `id` | optional; number from 9000000000 to 9999999999, unique in the file; assigned from 9300000000 when absent |
 | `donor`, `object`, section name | letters, digits, `_` and `-`, at most 64 characters |
-| `name` | at most 128 characters, no quotes |
+| `name` | at most 128 characters, no quotes; with dots it is a translation key |
 | `desc` | at most 4096 characters, no quotes |
 | `life` | 1 to 1000000 |
 | `line` per section | at most 512, each at most 4096 characters, each with a `$TOKEN` |
@@ -221,6 +233,7 @@ A mod with `[content] buildings = tesmio\buildings.ini` in its soviet.mod.ini ru
 Resources in `$PRODUCTION`, `$CONSUMPTION` and `$STORAGE_*` must exist in the game (base game or the Resources plugin). Deposits for mines come from Deposits Plus. Vanilla Buildings changes existing buildings, Buildings Plus adds new ones.
 
 ### Version compatibility
+- **0.1.3:** `name` may be a translation key; the name is then written as `$NAME` with the resolved id and the caption comes from the Localization pack
 - **0.1.2:** first published version
 
 ---
@@ -332,5 +345,5 @@ A: With `prune = 1` the generated folder disappears at the next start; otherwise
 
 ---
 
-**Last update:** Buildings Plus 0.1.2  
+**Last update:** Buildings Plus 0.1.3  
 **For:** WRSR 1.1.1.9 | TesmioLoader API 4

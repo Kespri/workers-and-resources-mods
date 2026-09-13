@@ -11,9 +11,9 @@ using System.Windows.Forms;
 [assembly: System.Reflection.AssemblyTitle("Republic Mod Manager")]
 [assembly: System.Reflection.AssemblyProduct("Republic Mod Manager (RMM)")]
 [assembly: System.Reflection.AssemblyDescription("Plugin manager for TesmioLoader - Workers & Resources: Soviet Republic")]
-[assembly: System.Reflection.AssemblyVersion("0.4.79.0")]
-[assembly: System.Reflection.AssemblyFileVersion("0.4.79.0")]
-[assembly: System.Reflection.AssemblyInformationalVersion("0.4.79-beta")]
+[assembly: System.Reflection.AssemblyVersion("0.4.85.0")]
+[assembly: System.Reflection.AssemblyFileVersion("0.4.85.0")]
+[assembly: System.Reflection.AssemblyInformationalVersion("0.4.85-beta")]
 
 namespace TesmioAutoload
 {
@@ -40,7 +40,7 @@ namespace TesmioAutoload
             try
             {
                 string directory = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\');
-                var defaults = new UiState { Build = directory }; string legacy = "", screenshot = null, snapshotSize = null, snapshotWindow = null; bool saveMode = false;
+                var defaults = new UiState { Build = directory }; string legacy = "", screenshot = null, snapshotSize = null, snapshotWindow = null; bool saveMode = false; bool? activate = null;
                 if (!File.Exists(Path.Combine(defaults.Build, "tesmioloader.dll"))) try
                 {
                     foreach (string library in Discovery.SteamLibraries())
@@ -78,6 +78,7 @@ namespace TesmioAutoload
                     if (key == "--build") state.Build = value;
                     else if (key == "--workshop") { state.WorkshopRoot = Catalog.NormalizeRoot(value); state.SelectedId = ""; state.SelectedSource = ""; }
                     else if (key == "--package") { state.WorkshopRoot = Catalog.NormalizeRoot(value); state.SelectedId = ""; state.SelectedSource = Path.GetFullPath(value); }
+                    else if (key == "--activate") { if (value != "on" && value != "off") throw new ArgumentException(Msg.Key("err_unbekanntes_argument", key + " " + value)); activate = value == "on"; }
                     else if (key == "--language") state.Language = value;
                     else if (key == "--ui-snapshot") screenshot = value;
                     else if (key == "--size") snapshotSize = value;      // WxH, snapshot mode only
@@ -85,6 +86,8 @@ namespace TesmioAutoload
                     else if (key == "--window") snapshotWindow = value;   // profiles or points, buildings or add: snapshot of that window instead
                     else throw new ArgumentException(Msg.Key("err_unbekanntes_argument", key));
                 }
+                // --activate only makes sense together with --save: it stages the switch, --save writes it.
+                if (activate.HasValue && !saveMode) throw new ArgumentException(Msg.Key("err_unbekanntes_argument", "--activate (only together with --save)"));
                 // One window at a time: two instances would race for the same files and
                 // block every installer. A second start only brings the first window up.
                 bool first = true; Mutex instance = null;
@@ -102,6 +105,11 @@ namespace TesmioAutoload
                     {
                         form.ShowInTaskbar = false; form.StartPosition = FormStartPosition.Manual; form.Location = new Point(-20000, -20000);
                         form.Show(); form.PerformLayout(); Application.DoEvents();
+                        if (activate.HasValue)
+                        {
+                            string moved = form.CliActivate(activate.Value);
+                            if (moved != null) { Console.WriteLine(moved); Console.Out.Flush(); form.PendingPrompt = () => DialogResult.No; form.Close(); return 1; }
+                        }
                         string result = form.CliSave();
                         Console.WriteLine(result); Console.Out.Flush();
                         // Closing asks about anything still unsaved, and there is nobody to answer:
@@ -168,7 +176,7 @@ namespace TesmioAutoload
             catch (Exception e)
             {
                 // A command-line run must never wait for a click: it writes the reason and ends.
-                if (args.Contains("--ui-snapshot") || args.Contains("--save")) { Console.Error.WriteLine(e); Console.Error.Flush(); }
+                if (args.Contains("--ui-snapshot") || args.Contains("--save") || args.Contains("--activate")) { Console.Error.WriteLine(e); Console.Error.Flush(); }
                 else { var fallback = new Language("auto"); MessageWindow.Show(null, fallback, "Republic Mod Manager", fallback.Localize(e.Message), MessageWindow.Kind.Error, DialogResult.OK); }
                 return 1;
             }

@@ -1,4 +1,4 @@
-# 🏗️ Vanilla Buildings 0.4.3
+# 🏗️ Vanilla Buildings 0.4.4
 
 **TesmioLoader-Plugin für temporäre Änderungen an Gebäudedateien**
 
@@ -254,6 +254,7 @@ Das Plugin ändert Gebäudedefinitionen, keine gespeicherten Gebäude. Neue Lage
 Andere Plugins, die dieselbe Gebäudedatei ersetzen, werden nicht mit diesen Änderungen zusammengeführt. Für Materialien aus Vehicle Materials liefert dieses Plugin die passende `$STORAGE_IMPORT_SPECIAL`-Zeile in den Fahrzeugfabriken.
 
 ### Versionskompatibilität
+- **0.4.4:** neuer Schlüssel `name` je Regelsatz: ersetzt die vorhandene `$NAME`- oder `$NAME_STR`-Zeile jeder Zieldatei, ohne dass du die alte kennen musst; mit Punkten darin ein Übersetzungsschlüssel über das Plugin Localization
 - **0.4.3:** einpunktige Anschlüsse wie `$CONNECTION_ROAD_DEAD` lassen sich mit `add_connection`, `replace_connection` und `remove_connection` bearbeiten (Token | Punkt)
 - **0.4.2:** `replace_connection` nimmt hinter dem neuen Token wahlweise zwei neue Punkte und verschiebt den Anschluss dabei
 - **0.4.1:** `insert` nimmt als Anker auch Zeilen, die frühere Befehle desselben Regelsatzes erzeugen
@@ -349,5 +350,5 @@ A: Nein. Republic Mod Manager zeigt die Regelsätze als Liste mit Zielen und Bef
 
 ---
 
-**Letzte Aktualisierung:** Vanilla Buildings 0.4.3  
+**Letzte Aktualisierung:** Vanilla Buildings 0.4.4  
 **Für:** WRSR 1.1.1.9 | TesmioLoader API 4

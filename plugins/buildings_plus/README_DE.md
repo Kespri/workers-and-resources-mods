@@ -1,4 +1,4 @@
-# 🏭 Buildings Plus 0.1.2
+# 🏭 Buildings Plus 0.1.3
 
 **TesmioLoader-Plugin für neue Gebäude aus einer Konfigurationsdatei**
 
@@ -160,6 +160,18 @@ Der Spender gibt die Form vor: Eine Mine will eine Mine als Spender (Förderband
 
 **Workshop-ID:** Lass `id` einfach weg. Beim Spielstart sucht das Plugin die höchste Nummer zwischen 9300000000 und 9399999999 (im Katalog, in der INI und unter den Ordnern in workshop_wip, auch fremden) und vergibt die nächste. Die Nummer steht danach in `plugins\buildings_plus.ids.ini` unter dem Abschnittsnamen und bleibt dort für immer, weil Spielstände das Gebäude über den Ordner `workshop_wip\<Nummer>` kennen. Ein umbenannter Abschnitt ist ein neues Gebäude mit neuer Nummer; ein gelöschter Abschnitt gibt seine Nummer nicht frei. Eine eigene `id` (9000000000 bis 9999999999) gilt weiterhin und geht vor. Sichere die Katalogdatei zusammen mit deinen Spielständen; Profile im Republic Mod Manager nehmen sie mit.
 
+**Name aus dem Textpaket.** Normalerweise schreibst du den Namen einfach hin, `name = Salt Mine`. Er steht dann fest in der Datei und ist in jeder Spielsprache gleich.
+
+Läuft das Plugin Localization mit, darfst du stattdessen einen Übersetzungsschlüssel eintragen:
+
+```ini
+name = localization.lang.salt_mine
+```
+
+Buildings Plus schlägt den Schlüssel beim Spielstart nach und schreibt die gefundene Nummer in die building.ini, genau so, wie das Grundspiel es bei seinen eigenen Gebäuden macht. Den Text liefert danach das Localization-Paket: in der Spielsprache, wenn das Paket sie mitbringt, sonst in seiner Rückfallsprache. Als Schlüssel gilt alles, was mindestens einen Punkt enthält und nur aus Buchstaben, Ziffern, Punkt, Unterstrich und Bindestrich besteht. Ein Name mit Leerzeichen kann also nie versehentlich als Schlüssel gelten.
+
+Fehlt Localization oder kennt es den Schlüssel nicht, nimmt Buildings Plus den Teil nach dem letzten Punkt als Namen, hier also `salt_mine`, und schreibt eine Warnung ins Protokoll. Das Gebäude funktioniert trotzdem.
+
 ---
 
 ## 🛠️ Ersetzungsregeln
@@ -186,7 +198,7 @@ Die building.ini des Spenders wird Zeile für Zeile übernommen. Eine Spenderzei
 | Gebäudeabschnitte | höchstens 256 |
 | `id` | optional; Zahl von 9000000000 bis 9999999999, in der Datei eindeutig; ohne Angabe automatisch ab 9300000000 |
 | `donor`, `object`, Abschnittsname | Buchstaben, Ziffern, `_` und `-`, höchstens 64 Zeichen |
-| `name` | höchstens 128 Zeichen, keine Anführungszeichen |
+| `name` | höchstens 128 Zeichen, keine Anführungszeichen; mit Punkten ein Übersetzungsschlüssel |
 | `desc` | höchstens 4096 Zeichen, keine Anführungszeichen |
 | `life` | 1 bis 1000000 |
 | `line` je Abschnitt | höchstens 512, je höchstens 4096 Zeichen, jede mit einem `$TOKEN` |
@@ -221,6 +233,7 @@ Ein Mod mit `[content] buildings = tesmio\buildings.ini` in seiner soviet.mod.in
 Ressourcen aus `$PRODUCTION`, `$CONSUMPTION` und `$STORAGE_*` müssen im Spiel existieren (Grundspiel oder Resources-Plugin). Vorkommen für Minen kommen aus Deposits Plus. Vanilla Buildings ändert bestehende Gebäude, Buildings Plus legt neue an.
 
 ### Versionskompatibilität
+- **0.1.3:** `name` darf ein Übersetzungsschlüssel sein; der Name wird dann als `$NAME` mit der aufgelösten Nummer geschrieben und der Text kommt aus dem Localization-Paket
 - **0.1.2:** erste veröffentlichte Fassung
 
 ---
@@ -332,5 +345,5 @@ A: Mit `prune = 1` verschwindet der erzeugte Ordner beim nächsten Start, sonst 
 
 ---
 
-**Letzte Aktualisierung:** Buildings Plus 0.1.2  
+**Letzte Aktualisierung:** Buildings Plus 0.1.3  
 **Für:** WRSR 1.1.1.9 | TesmioLoader API 4

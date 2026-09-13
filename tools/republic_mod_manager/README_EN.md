@@ -205,6 +205,14 @@ rmm.exe --save --build "<game>\tesmioloader\build" --package "<folder of the plu
 
 This is the same path as the Save button, with the same checks: the game and the TesmioLauncher must be closed and every value valid. Any question the window would ask is declined instead of answered, so a DLL never moves into `plugins\` without you. The answer is one line beginning with PASS or FAIL.
 
+`--activate` moves the header switch before the save:
+
+```bash
+rmm.exe --activate on --save --build "<game>\tesmioloader\build" --package "<folder>"
+```
+
+`on` switches it on, `off` off. It is the same click as in the window, only without a mouse: on a content package that switch reads "Provide in the game", on a plugin "Plugin active". Nothing is written until `--save` runs; without `--save` the option is refused.
+
 ---
 
 ## 📦 Where your files are

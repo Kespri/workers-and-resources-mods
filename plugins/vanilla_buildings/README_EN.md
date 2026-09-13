@@ -1,4 +1,4 @@
-# 🏗️ Vanilla Buildings 0.4.3
+# 🏗️ Vanilla Buildings 0.4.4
 
 **TesmioLoader plugin for temporary changes to building files**
 
@@ -254,6 +254,7 @@ The plugin changes building definitions, not saved buildings. New storages apply
 Other plugins that replace the same building file are not merged with these changes. For materials from Vehicle Materials this plugin provides the matching `$STORAGE_IMPORT_SPECIAL` line in the vehicle factories.
 
 ### Version compatibility
+- **0.4.4:** new per-section key `name`: replaces the existing `$NAME` or `$NAME_STR` line of every target without you knowing the old one; with dots in it a translation key through the Localization plugin
 - **0.4.3:** one-point connections such as `$CONNECTION_ROAD_DEAD` can be edited with `add_connection`, `replace_connection` and `remove_connection` (token | point)
 - **0.4.2:** `replace_connection` optionally takes two new points after the new token and moves the connection
 - **0.4.1:** `insert` also accepts lines produced by earlier commands of the same rule set as anchors
@@ -349,5 +350,5 @@ A: No. Republic Mod Manager shows the rule sets as a list with targets and comma
 
 ---
 
-**Last update:** Vanilla Buildings 0.4.3  
+**Last update:** Vanilla Buildings 0.4.4  
 **For:** WRSR 1.1.1.9 | TesmioLoader API 4

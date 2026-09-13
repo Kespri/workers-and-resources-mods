@@ -433,6 +433,8 @@ dialog = 1                             ; Teil des +-Dialogs
 default = {name}                       ; Vorgabe im Dialog; {name} = Name des neuen Eintrags
 maximum_length = 7
 length_rule = map=terrain:4            ; kürzer, solange ein anderer Schlüssel diesen Wert hat
+empty_hint = leer = Spieleigene ID     ; steht fett unter dem leeren Feld als "Standard: <Text>";
+empty_hint_key = x.feld.empty          ; verschwindet, sobald ein Wert drinsteht
 suffix = .name                         ; gesperrtes Kästchen mit dem Suffix hinter dem Feld, Kennung als Platzhalter
 position = above_id                    ; Feld über der Kennungszeile
 heading_key = ...

@@ -1,8 +1,8 @@
-# Workers & Resources: Soviet Republic – TesmioLoader plugins
+﻿# Workers & Resources: Soviet Republic â€“ TesmioLoader plugins
 
 **English** | [Deutsch](README_DE.md)
 
-## 🤖 Attention, comrade: an AI helped build this
+## ðŸ¤– Attention, comrade: an AI helped build this
 
 These plugins were written with the help of an artificial intelligence. The five-year plans
 behind them were still drawn up, tested and sworn at by a human every time the game crashed.
@@ -28,8 +28,8 @@ GNU GPL v3 requires; there are no ready-made DLLs here.
 | [Resources Button Fix](plugins/resources_button_fix) | 0.4.0 | Compact tool grids in the terrain editor |
 | [Technical Service Storage](plugins/technical_service_storage) | 0.3.3 | Grit storages, material priorities and snowplow tanks |
 | [UI Layout Fixes](plugins/ui_layout_fixes) | 0.3.0 | Row spacing in the customs house, text wrapping in info windows |
-| [Buildings Plus](plugins/buildings_plus) | 0.1.2 | New buildings from a declaration: donor building plus changed lines, generated at game start |
-| [Vanilla Buildings](plugins/vanilla_buildings) | 0.4.3 | Temporary changes to building files without touching the originals |
+| [Buildings Plus](plugins/buildings_plus) | 0.1.3 | New buildings from a declaration: donor building plus changed lines, generated at game start |
+| [Vanilla Buildings](plugins/vanilla_buildings) | 0.4.4 | Temporary changes to building files without touching the originals |
 | [Vehicle Materials](plugins/vehicle_materials) | 0.4.0 | Extra materials for vehicle production |
 | [Weather Roads](plugins/weather_roads) | 0.3.3 | Road snow, melting and protection after plowing |
 | [Workshop Bridge](plugins/workshop_bridge) | 0.2.0 | Loads Workshop packages without the Soviet Mod Loader |
@@ -46,7 +46,7 @@ carries one local change: `TsmOpenLog` writes the plugin detail logs into `tesmi
 
 | Tool | Version | What it does |
 |---|---|---|
-| [Republic Mod Manager](tools/republic_mod_manager) | 0.4.81 | Windows program: settings, switching and loading of the plugins; its Workshop item brings the installer and the Workshop Bridge |
+| [Republic Mod Manager](tools/republic_mod_manager) | 0.4.85 | Windows program: settings, switching and loading of the plugins; its Workshop item brings the installer and the Workshop Bridge |
 
 ## Installing
 

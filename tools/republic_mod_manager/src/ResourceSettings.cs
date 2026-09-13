@@ -73,6 +73,10 @@ namespace TesmioAutoload
         // an INI of its own ("<path>|<section>", the entry id as key). The editor shows the assigned
         // value as the field's placeholder, so nobody has to open that file.
         public string AssignedFrom="",AssignedSection="";
+        // 0.4.85: empty_hint / empty_hint_key - what an empty field means. While the field carries no
+        // value the detail panel writes it in place of the origin line as "Standard: <hint>", in bold,
+        // so a field that may stay empty says so instead of showing nothing at all.
+        public string EmptyHint="",EmptyHintKey="";
         // 0.4.48: picker = files on a text field - a grouped list of the files under picker_folders (path specs
         // like [folder:], "|"-separated, first hit wins) matching picker_pattern; the value is the relative path.
         public string[] PickerFolders=new string[0]; public string PickerPattern="*";
@@ -472,6 +476,7 @@ namespace TesmioAutoload
                 f.PickerFolders=ini.Get(section,"picker_folders","").Split('|').Select(x=>x.Trim()).Where(x=>x.Length>0).ToArray();f.PickerPattern=ini.Get(section,"picker_pattern","*").Trim();
                 foreach(string spec in f.PickerFolders)s.ResolvePath(spec,Path.GetTempPath());   // syntax check only
                 string position=ini.Get(section,"position","").Trim();if(position.Length>0&&(position!="above_id"||scope!="item"))throw new FormatException(Msg.Key("err_ungueltiges_detailfeld", section));f.AboveId=position=="above_id";
+                f.EmptyHint=ini.Get(section,"empty_hint","");f.EmptyHintKey=ini.Get(section,"empty_hint_key","");
                 f.Suffix=ini.Get(section,"suffix","").Trim();if(f.Suffix.Length>0&&(type!="text"||scope!="item"))throw new FormatException(Msg.Key("err_ungueltiges_detailfeld", section));
                 f.Group=ini.Get(section,"group","").Trim();if(f.Group.Length>0&&(scope!="item"||!s.ExtraGroups.Any(x=>x.Id.Equals(f.Group,StringComparison.OrdinalIgnoreCase))))throw new FormatException(Msg.Key("err_ungueltiges_detailfeld", section));
                 // reference (0.4.40): the value must name something the game knows; checked in Validate.
@@ -546,6 +551,7 @@ namespace TesmioAutoload
         // A literal \n in a field description becomes a line break, as it already does for list columns.
         public string FieldDescription(Language language,LocalDetailField field){return Text(language,field.DescriptionKey,field.Description).Replace("\\n","\n");}
         public string FieldHeading(Language language,LocalDetailField field){return Text(language,field.HeadingKey,field.Heading);}
+        public string FieldEmptyHint(Language language,LocalDetailField field){return Text(language,field.EmptyHintKey,field.EmptyHint);}
         public string FieldCountLabel(Language language,LocalDetailField field){return Text(language,field.CountLabelKey,field.CountLabel);}
         public string ColumnLabel(Language language,ListColumn column){return Text(language,column.LabelKey,column.Label);}
         public string ColumnHeading(Language language,ListColumn column){return Text(language,column.HeadingKey,column.Heading);}

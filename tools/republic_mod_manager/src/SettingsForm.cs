@@ -59,13 +59,14 @@ namespace TesmioAutoload
         bool selecting, initialized, refreshing, viewWarning, resizing;
         string lastConsistencyAlert="";
         internal Func<DialogResult> PendingPrompt = null;
+        bool cliMode; string cliError="";
         internal Func<string,DialogResult> ResourceRemovePrompt = null;
 
         public MainForm(UiState initial, UiStateStore store, bool saveUi)
         {
             state = initial.Copy(); stateStore = store; persistUi = saveUi; language = new Language(state.Language); Theme.CopyMenuLabel=()=>language.T("copy_text");
             mods.Cache=icons; icons.Warning=message=>Report(language.T("icon_warning")+" "+message); icons.LoaderExe=()=>Path.Combine(state.Build,"tesmiolauncher.exe");
-            Text = "Republic Mod Manager 0.4.81-beta  ·  "+language.T("app_dependency"); Font = new Font("Segoe UI",10); ForeColor = Theme.Ink; BackColor = Color.White;Theme.ApplyWindowChrome(this);
+            Text = "Republic Mod Manager 0.4.85-beta  ·  "+language.T("app_dependency"); Font = new Font("Segoe UI",10); ForeColor = Theme.Ink; BackColor = Color.White;Theme.ApplyWindowChrome(this);
             AutoScaleDimensions = new SizeF(96,96); AutoScaleMode = AutoScaleMode.Dpi; Size = new Size(1600,1000); MinimumSize = new Size(1560,760); StartPosition = FormStartPosition.CenterScreen;   // 0.4.36: minimum 1560 - the section editors' detail panel needs it; RestoreWindowSize caps it to the screen
             Load += (s,e) => RestoreWindowSize();
             using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Tesmio.icon")) using (var icon = new Icon(stream)) Icon = (Icon)icon.Clone();
@@ -209,7 +210,7 @@ namespace TesmioAutoload
             }
             return language.Format(rule.TranslationKey,rule.TranslationArguments);
         }
-        void ShowError(Exception e) { string detail=ErrorText(e);Report(detail); MessageWindow.Show(this,language,Text,language.T("failed")+"\n\n"+language.T("technical")+":\n"+detail,MessageWindow.Kind.Error,DialogResult.OK); }
+        void ShowError(Exception e) { string detail=ErrorText(e);Report(detail); if(cliMode){cliError=detail;return;} MessageWindow.Show(this,language,Text,language.T("failed")+"\n\n"+language.T("technical")+":\n"+detail,MessageWindow.Kind.Error,DialogResult.OK); }
         public void Report(string text) { journal.AppendLine(DateTime.Now.ToString("HH:mm:ss")+"  "+language.Localize(text)); }
         public void InitializeCatalog() { initialized=true; Scan(false); BuildingPickerWindow.Prime(state.Build,state.WorkshopRoot); }
         void Scan(bool ask)
@@ -598,8 +599,20 @@ namespace TesmioAutoload
             if(!ConfirmGameVersion()) return;
             if(resourceSession!=null) LocalResourceGuard.Check(resourceSession); else if(session!=null) RuntimeGuard.Check(session);
             EnsureGlobalResourceConsistency();
+            if(!ConfirmSteamSession()) return;
             string build=Path.GetFullPath(state.Build);
             Process.Start(new ProcessStartInfo(SafeFiles.Child(build,"tesmiolauncher.exe")){Arguments=LauncherOptions.Arguments,WorkingDirectory=build,UseShellExecute=true});Report(language.T("launched"));Close();
+        }
+        // The game is started outside Steam, so it needs the client's own record
+        // of a logged-in user. Without it the game shows its own Steam error and
+        // nothing says why; this asks first instead.
+        bool ConfirmSteamSession()
+        {
+            if(SteamSession.Check()!=SteamSession.State.LoggedOut) return true;
+            Report(language.T("steam_logged_out"));
+            return MessageWindow.Show(this,language,Text,
+                language.T("steam_logged_out")+"\n\n"+language.T("steam_logged_out_hint"),
+                MessageWindow.Kind.Warning,DialogResult.Yes,DialogResult.No)==DialogResult.Yes;
         }
         void InspectStartupConsistency()
         {
@@ -615,7 +628,7 @@ namespace TesmioAutoload
                 { try { var check=new LocalResourceSession(LocalEditorSpec.Load(local.Root),state.Build);if(check.DisappearedExternal.Count>0)messages.Add(local.Name+": "+language.Format("resource_external_disappeared",String.Join(", ",check.DisappearedExternal))); } catch(IOException) { } }
                 messages.AddRange(ResourceConsistency.ValidateReferences(state.Build,entries).Select(language.Localize));
             }
-            catch(Exception e){messages.Add(e.Message);}
+            catch(Exception e){messages.Add(ErrorText(e));}
             if(messages.Count==0&&startup.Count==0){lastConsistencyAlert="";return;}
             var parts=new List<string>(); if(startup.Count>0) parts.Add(language.T("startup_warnings")+"\n\n"+String.Join("\n",startup.Distinct())); if(messages.Count>0) parts.Add(language.T("resource_consistency_failed")+"\n\n"+String.Join("\n",messages.Distinct()));
             string text=String.Join("\n\n",parts);foreach(string message in startup.Concat(messages))Report(message);
@@ -716,6 +729,21 @@ namespace TesmioAutoload
         internal bool TestSaveAll(Action guard) {return SaveAll(guard,()=>true);}
         // 0.4.81: --save. The Save button's own path with the real runtime checks; every question
         // the button would ask is declined, because nobody is there to answer it. Returns one line.
+        // 0.4.82: --activate. Moves the header switch exactly like a click does, so that a
+        // following --save writes what the Save button would write. Returns null when the
+        // switch stands where it should, otherwise a FAIL line.
+        internal string CliActivate(bool on)
+        {
+            if(current==null) return "FAIL no entry selected (use --package or --workshop)";
+            if(!activation.Enabled) return "FAIL "+current.Name+": this entry has no switch";
+            if(activation.Checked==on) return null;
+            cliMode=true; cliError="";
+            try { activation.Checked=on; }
+            finally { cliMode=false; }
+            if(cliError.Length>0) return "FAIL "+current.Name+": "+Msg.Plain(cliError);
+            if(activation.Checked!=on) return "FAIL "+current.Name+": the switch did not move";
+            return null;
+        }
         internal string CliSave() { return CliSave(null); }
         // guard = null takes the real runtime checks (game closed, loader files present); the UI
         // tests hand in their own, because their fixture is a folder and not a game.

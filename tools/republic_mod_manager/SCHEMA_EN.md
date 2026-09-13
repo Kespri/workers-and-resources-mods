@@ -433,6 +433,8 @@ dialog = 1                             ; part of the + dialog
 default = {name}                       ; dialog default; {name} = name of the new entry
 maximum_length = 7
 length_rule = map=terrain:4            ; shorter while another key has this value
+empty_hint = empty = the game's own id ; shown in bold under the empty field as "Default: <text>";
+empty_hint_key = x.field.empty         ; it disappears as soon as the field carries a value
 suffix = .name                         ; locked box with the suffix behind the field, identifier as placeholder
 position = above_id                    ; field above the identifier line
 heading_key = ...

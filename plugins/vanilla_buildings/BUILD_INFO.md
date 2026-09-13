@@ -4,6 +4,23 @@ Target: WRSR 1.1.1.9, TesmioLoader API 4. Build: the standard line (`cl /O2 /MT 
 ... /link kernel32.lib`); exports TsmPluginApiVersion/TsmPluginInit/TsmPluginStart. History
 newest first.
 
+## 0.4.4 (2026-09-13)
+
+- New per-section key `name =`. It replaces whatever `$NAME` or `$NAME_STR` line every target of
+  the section carries, so the old line never has to be looked up; a target without exactly one
+  name line is rejected and named. A value that looks like a localisation key (at least one dot,
+  only letters, digits, dot, underscore, hyphen) is resolved through the Localization service and
+  written as `$NAME <id>`, everything else becomes `$NAME_STR "..."`. An unresolved key falls back
+  to the part after the last dot and warns once.
+- The key is expanded into an ordinary `replace` at overlay-build time, once the target's own
+  lines are known. Every existing guarantee therefore applies unchanged: the unique-match rule,
+  overlap detection against the section's own rules, and the per-target rejection.
+- The Localization service is consumed in the init phase. The Workshop Bridge loads Localization
+  before this plugin, so it is on the noticeboard in time. In a local-copy install that loads this
+  plugin first, a key falls back with the warning above instead of failing.
+- Four self-tests: a literal name, a resolved key, the fallback without the service, and a source
+  without a name line, which must be rejected.
+
 ## 0.4.3 (2026-09-12)
 
 - One-point connections. The game writes dead ends such as `$CONNECTION_ROAD_DEAD` either inline
