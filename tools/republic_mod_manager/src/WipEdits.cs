@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace TesmioAutoload
 {
@@ -19,9 +20,19 @@ namespace TesmioAutoload
     {
         public string Kind = "replace";   // replace | remove | add
         public string Anchor = "", Value = "";
+        // 0.5.6: for the eye only. The game's building.ini aligns its values with runs of spaces,
+        // and a replacement shows the line twice - squeezed into one row that is unreadable. The
+        // stored Anchor and Value keep every space: the anchor has to match the generated line
+        // exactly, or the change would no longer find its place after a regeneration.
+        public static string Squeeze(string line)
+        {
+            return String.IsNullOrEmpty(line) ? "" : Regex.Replace(line.Trim(), "[ \t]{2,}", " ");
+        }
         public override string ToString()
         {
-            return Kind == "add" ? "+ " + Value : Kind == "remove" ? "- " + Anchor : "~ " + Anchor + "  ->  " + Value;
+            return Kind == "add" ? "+ " + Squeeze(Value)
+                 : Kind == "remove" ? "- " + Squeeze(Anchor)
+                 : "~ " + Squeeze(Anchor) + "  ->  " + Squeeze(Value);
         }
     }
 

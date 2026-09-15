@@ -74,16 +74,20 @@ namespace TesmioAutoload
             buttons.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); buttons.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             var resetButton = Button("wip_edit_reset", "wip-reset", AskReset); buttons.Controls.Add(resetButton, 0, 0);
             var right2 = new FlowLayoutPanel { FlowDirection = FlowDirection.RightToLeft, WrapContents = false, Dock = DockStyle.Fill };
-            var cancel = Theme.Button(language.T("cancel"), () => { DialogResult = DialogResult.Cancel; Close(); }, false); cancel.Margin = new Padding(8, 0, 0, 0);
-            var apply = Theme.Button(language.T("apply"), () => { DialogResult = DialogResult.OK; Close(); }, true); apply.AccessibleName = "wip-apply";
+            var cancel = Button("cancel", "wip-cancel", () => { DialogResult = DialogResult.Cancel; Close(); }, false); cancel.Margin = new Padding(8, 0, 0, 0);
+            var apply = Button("apply", "wip-apply", () => { DialogResult = DialogResult.OK; Close(); }, true); apply.Margin = Padding.Empty;
             right2.Controls.Add(apply); right2.Controls.Add(cancel); buttons.Controls.Add(right2, 1, 0);
             row(buttons, new RowStyle(SizeType.Absolute, 52)); AcceptButton = apply; CancelButton = cancel;
             FillLines(); FillChanges();
         }
 
-        Button Button(string key, string name, Action action)
+        Button Button(string key, string name, Action action) { return Button(key, name, action, false); }
+        // Every button of this window is the same height. Theme.Button carries MinimumSize 80x38
+        // and grows with its own text, so a long caption ("Abbrechen") came out taller than a
+        // short one - the row looked ragged.
+        Button Button(string key, string name, Action action, bool primary)
         {
-            var button = Theme.Button(language.T(key), action, false);
+            var button = Theme.Button(language.T(key), action, primary);
             button.AutoSize = false; button.MinimumSize = Size.Empty; button.Height = Fields.Height;
             button.Width = TextRenderer.MeasureText(button.Text, new Font("Segoe UI", 10)).Width + 30;
             button.Margin = new Padding(0, 0, 8, 0); button.AccessibleName = name; return button;
@@ -91,6 +95,21 @@ namespace TesmioAutoload
         static void Style(ListBox list, string name)
         {
             list.Font = new Font("Consolas", 10f); list.IntegralHeight = false; list.AccessibleName = name; list.BorderStyle = BorderStyle.FixedSingle;
+            // A building.ini line is wider than any sensible window, so the lists scroll sideways
+            // instead of cutting the end off. The extent has to be set by hand after every fill -
+            // a ListBox does not measure its own items.
+            list.HorizontalScrollbar = true;
+        }
+        static void Extent(ListBox list)
+        {
+            int widest = 0;
+            using (Graphics g = list.CreateGraphics())
+                foreach (object item in list.Items)
+                {
+                    int width = TextRenderer.MeasureText(g, Convert.ToString(item), list.Font, new Size(Int32.MaxValue, Int32.MaxValue), TextFormatFlags.NoPadding).Width;
+                    if (width > widest) widest = width;
+                }
+            list.HorizontalExtent = widest + 12;
         }
         // A line the player already touched is marked, so the list of the generator's lines still
         // says what has been done to it.
@@ -104,13 +123,13 @@ namespace TesmioAutoload
                 bool touched = edit.Operations.Any(o => o.Kind != "add" && o.Anchor.Trim() == line.Trim());
                 lines.Items.Add((touched ? "* " : "  ") + line);
             }
-            lines.EndUpdate();
+            lines.EndUpdate(); Extent(lines);
         }
         void FillChanges()
         {
             changes.BeginUpdate(); changes.Items.Clear();
             foreach (WipOperation op in edit.Operations) changes.Items.Add(op.ToString());
-            changes.EndUpdate(); FillLines();
+            changes.EndUpdate(); Extent(changes); FillLines();
         }
         string Selected()
         {
@@ -172,6 +191,8 @@ namespace TesmioAutoload
         // Test hooks.
         internal int LineCount { get { return lines.Items.Count; } }
         internal int ChangeCount { get { return changes.Items.Count; } }
+        internal string ChangeText(int index) { return index >= 0 && index < changes.Items.Count ? Convert.ToString(changes.Items[index]) : null; }
+        internal int ChangeExtent { get { return changes.HorizontalExtent; } }
         internal void TestReplace(int index, string value) { lines.SelectedIndex = index; text.Text = value; Replace(); }
         internal void TestRemove(int index) { lines.SelectedIndex = index; Remove(); }
         internal void TestAdd(string value) { text.Text = value; Add(); }
