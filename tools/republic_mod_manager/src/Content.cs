@@ -186,7 +186,10 @@ namespace TesmioAutoload
             foreach(string key in ContentTargets.Keys)
             {
                 if(!package.ContentFragments.ContainsKey(key))continue;
-                string found="";foreach(string plugin in ContentTargets.PluginsFor(key))if(File.Exists(SafeFiles.Child(Build,"plugins\\"+plugin+".ini"))){found=plugin;break;}
+                // 0.5.3: under SML its own embedded component is the target - it writes
+                // plugins\buildings.ini, so naming buildings_plus here would be wrong.
+                string found=Sml.Hosts(Build,key)?key:"";
+                if(found.Length==0)foreach(string plugin in ContentTargets.PluginsFor(key))if(File.Exists(SafeFiles.Child(Build,"plugins\\"+plugin+".ini"))){found=plugin;break;}
                 Targets[key]=found;
                 if(found.Length==0)Notes.Add(Msg.Key("content_missing_target",key,String.Join(", ",ContentTargets.PluginsFor(key))));
             }
@@ -208,6 +211,33 @@ namespace TesmioAutoload
             foreach(var pair in r.Entries("assets"))CopiedAssets.Add(pair.Value);
             foreach(var pair in r.Entries("skipped"))Skipped[pair.Key]=pair.Value.Split('|').Select(x=>x.Trim()).Where(x=>x.Length>0).ToList();
             foreach(var pair in r.Entries("added"))Added[pair.Key]=pair.Value.Split('|').Select(x=>x.Trim()).Where(x=>x.Length>0).ToList();
+        }
+        // 0.5.3: Soviet Mod Loader merges a package with [content] itself and keeps no receipt of
+        // ours. The honest question is not who wrote the entries but whether they stand in the
+        // effective INIs of the target plugins - so that is what is asked, id by id. Under SML the
+        // target is its own embedded component (buildings, not buildings_plus), because that is
+        // the file it writes.
+        public static bool MergedByLoader(string build,Package package)
+        {
+            if(package==null||package.Kind!="content"||!Sml.Active(build))return false;
+            try
+            {
+                bool any=false;
+                foreach(var pair in package.ContentFragments)
+                {
+                    var wanted=ContentTargets.IdsOf(pair.Key,pair.Value);if(wanted.Count==0)continue;
+                    string plugin=Sml.Hosts(build,pair.Key)?pair.Key:"";
+                    if(plugin.Length==0)foreach(string candidate in ContentTargets.PluginsFor(pair.Key))if(File.Exists(SafeFiles.Child(build,"plugins\\"+candidate+".ini"))){plugin=candidate;break;}
+                    if(plugin.Length==0)return false;
+                    string target=SafeFiles.Child(build,"plugins\\"+plugin+".ini");
+                    if(!File.Exists(target))return false;
+                    var present=new HashSet<string>(ContentTargets.IdsOf(pair.Key,SafeFiles.Text(target)),StringComparer.OrdinalIgnoreCase);
+                    foreach(string id in wanted)if(!present.Contains(id))return false;
+                    any=true;
+                }
+                return any;
+            }
+            catch(Exception){return false;}
         }
         public static bool IsProvided(string build,string packageId)
         {
@@ -256,12 +286,44 @@ namespace TesmioAutoload
             }
             return doc.Render();
         }
+        // 0.4.87: ids of this package that a target plugin already knows from somewhere else -
+        // the player's own entry, the plugin's shipped INI, another package. Those never lose:
+        // an id that is in the way stops the whole package from being provided, so nothing is
+        // written and no file lands in the vfs. The player removes his own entry and switches
+        // the package on again. Ids this package provided itself (the receipt knows them) are
+        // not conflicts, otherwise a package could never be saved twice.
+        public Dictionary<string,List<string>> Conflicts(Func<string,LocalResourceSession> sessionFor)
+        {
+            var result=new Dictionary<string,List<string>>(StringComparer.OrdinalIgnoreCase);
+            if(sessionFor==null)return result;
+            foreach(var pair in Package.ContentFragments)
+            {
+                string plugin;if(!Targets.TryGetValue(pair.Key,out plugin)||plugin.Length==0)continue;
+                LocalResourceSession session;try{session=sessionFor(plugin);}catch(Exception){continue;}
+                if(session==null)continue;
+                List<string> mine;Added.TryGetValue(pair.Key,out mine);
+                var known=new HashSet<string>(session.Items().Select(x=>x.Id),StringComparer.OrdinalIgnoreCase);
+                var clash=ContentTargets.IdsOf(pair.Key,pair.Value)
+                    .Where(id=>known.Contains(id)&&(mine==null||!mine.Contains(id,StringComparer.OrdinalIgnoreCase)))
+                    .ToList();
+                if(clash.Count>0)result[pair.Key]=clash;
+            }
+            return result;
+        }
         // Writes the switch state. sessionFor(plugin) opens the keyed editor of a target plugin,
         // or returns null when it is not available; every editor that gets a session writes its
         // effective INI once more, with or without this package's entries.
         public string Commit(Action guard,Func<string,LocalResourceSession> sessionFor)
         {
             guard();AssertUnchanged();
+            if(PendingOn)
+            {
+                foreach(var clash in Conflicts(sessionFor))
+                {
+                    string plugin;Targets.TryGetValue(clash.Key,out plugin);
+                    throw new RuleException("content_conflict",Package.Name,String.Join(", ",clash.Value),plugin??"",clash.Key);
+                }
+            }
             bool on=PendingOn;var writes=new Dictionary<string,byte[]>(StringComparer.OrdinalIgnoreCase);
             string vfs=LocalEditorSpec.VfsRoot(Build);var assets=new List<string>();
             foreach(string old in CopiedAssets)writes[SafeFiles.Child(vfs,old)]=null;

@@ -1,4 +1,4 @@
-# 🏭 Buildings Plus 0.1.3
+# 🏭 Buildings Plus 0.1.8
 
 **TesmioLoader-Plugin für neue Gebäude aus einer Konfigurationsdatei**
 
@@ -103,7 +103,7 @@ tesmio\buildings.ini läuft unter SML und unter Republic Mod Manager gleich.
 
 Das Paket enthält im Ordner `config` ein Editor-Schema. Republic Mod Manager zeigt Buildings Plus in zwei Reitern, deutsch und englisch:
 
-- **Allgemein:** Hinweise, Anleitungen und die Schalter Ausführliches Protokoll, Aufräumen (prune) und Immer neu schreiben (always)
+- **Allgemein:** Hinweise, Anleitungen und die Schalter Besitzer-ID nachtragen, Aufräumen (prune), Immer neu schreiben (always) und Ausführliches Protokoll
 - **Gebäude:** links die Abschnitte, rechts das gewählte Gebäude mit Schalter, Workshop-ID, Spender, Objektname, Name, Beschreibung, Lebensdauer, den Zeilen der building.ini und den Zeilen, die aus dem Spender entfernt werden sollen. Der Plus-Knopf fragt Spender und Workshop-ID ab; die ID darf leer bleiben.
 
 Persönliche Gebäude liegen in `user_config\buildings_plus.editor.ini`, die wirksame Datei ist `plugins\buildings_plus.ini`; die INI im Paket bleibt unverändert.
@@ -132,6 +132,8 @@ prune = 0
 always = 0
 ; 1 protokolliert jede kopierte Datei und jede entfernte Spenderzeile
 verbose = 0
+; 1 trägt die Steam-ID auch in erzeugte Ordner anderer Generatoren nach
+repair_owner_ids = 1
 ```
 
 ### Gebäude: ein Abschnitt je Gebäude
@@ -156,7 +158,35 @@ line = $STORAGE_EXPORT RESOURCE_TRANSPORT_OPEN 20
 strip = $WORKERS_NEEDED
 ```
 
+**Mehrzeilige Angaben.** Manche Token der building.ini tragen ihre Werte in den Zeilen darunter — ein Anschluss seine Punkte, eine Warenanzeige ihre Lage. Eine `line` ohne `$TOKEN` gehört zu der Zeile darüber, genau wie in der Datei des Spiels:
+
+```ini
+line = $CONNECTION_WATERPIPE_INPUT
+line = -92.5 -3.2 5.0
+line = -91.5 -3.2 5.0
+line = $RESOURCE_VISUALIZATION 0
+line = position 15.2912 0.0 -51.6213
+line = rotation 0.0
+line = scale 1 1 1
+line = numstepx 3.0 12
+line = numstept 4.0 3
+```
+
+Die erste `line` eines Abschnitts muss ein `$TOKEN` tragen — sonst hätte sie nichts, wozu sie gehören könnte, und ein Tippfehler würde stillschweigend zur Datenzeile.
+
 Der Spender gibt die Form vor: Eine Mine will eine Mine als Spender (Förderband, Animation), eine Fabrik eine Fabrik, ein Laden einen Laden. `life` (Standard 3000) ist die Lebensdauer in der renderconfig.ini.
+
+**Ein Workshop-Gebäude als Spender.** Statt eines Grundspiel-Namens darfst du ein Gebäude aus einem abonnierten Workshop-Objekt nehmen:
+
+```ini
+donor = 1872558150\gravelmine
+```
+
+Links die Objektnummer, rechts der Ordner des Gebäudes im Objekt — dieselbe Schreibweise, die Vanilla Buildings für seine Zieldateien nutzt. Gesucht wird im Workshop-Ordner des Spiels und in `media_soviet\workshop_wip`, dein eigenes, noch nicht veröffentlichtes Gebäude geht also auch.
+
+Was dabei passiert: Der gewählte Ordner wird kopiert, dazu alle losen Dateien des Objekts und jeder Unterordner, der kein eigenes Gebäude enthält — Texturordner heissen je nach Autor `mtl`, `Textures` oder `materials`, deshalb entscheidet der Inhalt und nicht der Name. Die anderen Gebäude eines Sammel-Objekts bleiben liegen: ein Abschnitt ist ein Gebäude. Die `workshopconfig.ini` des Spenders wird nicht übernommen, dein Klon bekommt eine eigene mit genau deinem Gebäude darin. Die `renderconfig.ini` des Spenders bleibt, weil sie seine Dateinamen kennt.
+
+Zwei Dinge dazu: Das Objekt muss abonniert sein, sonst wird der Abschnitt mit einer Fehlerzeile übersprungen — und mit diesem Plugin wird nichts davon ausgeliefert, die Kopie entsteht auf deinem eigenen Rechner. Willst du das Ergebnis selbst im Workshop veröffentlichen, brauchst du die Erlaubnis des ursprünglichen Autors.
 
 **Workshop-ID:** Lass `id` einfach weg. Beim Spielstart sucht das Plugin die höchste Nummer zwischen 9300000000 und 9399999999 (im Katalog, in der INI und unter den Ordnern in workshop_wip, auch fremden) und vergibt die nächste. Die Nummer steht danach in `plugins\buildings_plus.ids.ini` unter dem Abschnittsnamen und bleibt dort für immer, weil Spielstände das Gebäude über den Ordner `workshop_wip\<Nummer>` kennen. Ein umbenannter Abschnitt ist ein neues Gebäude mit neuer Nummer; ein gelöschter Abschnitt gibt seine Nummer nicht frei. Eine eigene `id` (9000000000 bis 9999999999) gilt weiterhin und geht vor. Sichere die Katalogdatei zusammen mit deinen Spielständen; Profile im Republic Mod Manager nehmen sie mit.
 
@@ -194,10 +224,11 @@ Die building.ini des Spenders wird Zeile für Zeile übernommen. Eine Spenderzei
 
 | Größe | Grenze |
 |---|---|
-| `enabled`, `prune`, `always`, `verbose` | genau 0 oder 1 |
+| `enabled`, `prune`, `always`, `verbose`, `repair_owner_ids` | genau 0 oder 1 |
 | Gebäudeabschnitte | höchstens 256 |
 | `id` | optional; Zahl von 9000000000 bis 9999999999, in der Datei eindeutig; ohne Angabe automatisch ab 9300000000 |
-| `donor`, `object`, Abschnittsname | Buchstaben, Ziffern, `_` und `-`, höchstens 64 Zeichen |
+| `object`, Abschnittsname | Buchstaben, Ziffern, `_` und `-`, höchstens 64 Zeichen |
+| `donor` | Grundspiel-Name wie `object`; ein Workshop-Spender `<Objektnummer>\<Ordner>`, je Teil höchstens 96 Zeichen, kein `..` |
 | `name` | höchstens 128 Zeichen, keine Anführungszeichen; mit Punkten ein Übersetzungsschlüssel |
 | `desc` | höchstens 4096 Zeichen, keine Anführungszeichen |
 | `life` | 1 bis 1000000 |
@@ -214,6 +245,7 @@ Ein Abschnitt mit einem Fehler wird übersprungen und im Log genannt; die andere
 - Es wird nur unter `media_soviet\workshop_wip` geschrieben; keine Datei des Spiels wird verändert, die Steam-Prüfung bleibt zufrieden.
 - Jeder erzeugte Ordner trägt `tesmioloader.stamp`. Ein Ordner ohne diesen Stempel wird nie angefasst, auch nicht bei gleicher ID; der Abschnitt wird abgewiesen.
 - `prune` löscht nur Ordner mit dem Stempel dieses Plugins, nie Abos und nie Ordner eines anderen Generators.
+- Im Ordner eines anderen Generators wird höchstens eine fehlende `$OWNER_ID` ergänzt — eine einzelne Zahl, sonst kein Byte. Der Stempel bleibt unangetastet: Soviet Mod Loader schließt das Spiel, wenn in seinem Nummernbereich ein Ordner ohne Stempel liegt.
 - IDs unter 9000000000 werden abgewiesen, damit keine echte Steam-Nummer getroffen wird.
 - Automatisch vergebene Nummern stehen in `plugins\buildings_plus.ids.ini` und werden nie ein zweites Mal vergeben, auch nicht nach dem Löschen eines Abschnitts.
 - Dateien werden erst unter einem Hilfsnamen geschrieben und dann ersetzt; ein Absturz hinterlässt keine halbe building.ini.
@@ -226,6 +258,10 @@ Ein Abschnitt mit einem Fehler wird übersprungen und im Log genannt; die andere
 ### Spielstände
 Generierte Gebäude sind Workshop-Objekte mit fester ID. Ein Spielstand, in dem eines gebaut ist, braucht den Ordner beim Laden; entferne Abschnitte deshalb erst, wenn kein Spielstand das Gebäude mehr nutzt.
 
+In die `workshopconfig.ini` schreibt das Plugin deine **Steam-ID** — die des Spielers, auf dessen Rechner das Gebäude entsteht. Das Spiel prüft beim Laden eines Spielstands, wem die verwendeten Workshop-Objekte gehören; steht dort eine 0, meldet es „Die in diesem Speicherstand verwendeten Workshop-Objekte wurden nicht gefunden". Der Spielstand lädt trotzdem, aber die Meldung kommt bei jedem Laden. Die Nummer holt sich das Plugin aus der Registry des angemeldeten Steam-Kontos, sonst aus `loginusers.vdf` deiner Steam-Installation; findet es beides nicht, bleibt die 0 stehen und der nächste Start mit angemeldetem Steam trägt sie nach. Nichts davon reist im Paket mit — jede Kopie bekommt die ID dessen, der sie erzeugt hat.
+
+**Auch für Gebäude anderer Generatoren.** Soviet Mod Loader bringt seinen eigenen Gebäude-Teil mit und schreibt dort immer `$OWNER_ID 0` — die Meldung trifft also jeden, der Gebäude aus einem Inhaltspaket baut, und abstellen lässt sie sich von Hand kaum. Mit `repair_owner_ids = 1` (Vorgabe) sieht Buildings Plus beim Start auch in erzeugte Ordner, die es nicht selbst geschrieben hat, und trägt dort **nur die fehlende Nummer** nach; jedes andere Byte der Datei bleibt, wie es war, Zeilenenden inbegriffen. Dafür müssen alle vier Bedingungen stimmen: Ordnername ist eine erzeugte Nummer (9000000000 bis 9999999999), im Ordner liegt ein `tesmioloader.stamp`, die Datei nennt gar keinen Besitzer, und deine eigene ID war zu ermitteln. Ein Ordner, der schon jemanden nennt, wird nie angefasst, der Stempel ebenso wenig. Der Zeitpunkt passt: SML erzeugt in seiner Startphase, Buildings Plus läuft danach — ein gerade neu geschriebener Ordner ist im selben Start wieder in Ordnung.
+
 ### Soviet Mod Loader
 Ein Mod mit `[content] buildings = tesmio\buildings.ini` in seiner soviet.mod.ini läuft unter SML mit dessen eigenem Generator und unter Republic Mod Manager mit Buildings Plus. Das Abschnittsformat ist dasselbe.
 
@@ -233,6 +269,11 @@ Ein Mod mit `[content] buildings = tesmio\buildings.ini` in seiner soviet.mod.in
 Ressourcen aus `$PRODUCTION`, `$CONSUMPTION` und `$STORAGE_*` müssen im Spiel existieren (Grundspiel oder Resources-Plugin). Vorkommen für Minen kommen aus Deposits Plus. Vanilla Buildings ändert bestehende Gebäude, Buildings Plus legt neue an.
 
 ### Versionskompatibilität
+- **0.1.8:** Die fehlende Steam-ID wird auch in erzeugten Ordnern anderer Generatoren nachgetragen — Soviet Mod Loader lässt dort immer eine 0 stehen; Schalter `repair_owner_ids`, Vorgabe an
+- **0.1.7:** In die `workshopconfig.ini` des erzeugten Gebäudes kommt die Steam-ID des Spielers, der es erzeugt hat — ohne sie meldet das Spiel beim Laden eines Spielstands „Workshop-Objekte wurden nicht gefunden"
+- **0.1.6:** Eine `line` ohne `$TOKEN` gehört zur Zeile darüber — damit lassen sich Anschlüsse, Warenanzeigen und alles andere anlegen, was Datenzeilen braucht
+- **0.1.5:** Nummern zwischen 9100000000 und 9199999999 sind gesperrt — den Bereich behält sich Soviet Mod Loader für seine eigenen Gebäude vor, und ein fremder Ordner darin hindert das Spiel am Start
+- **0.1.4:** `donor` darf ein Gebäude eines abonnierten Workshop-Objekts sein, geschrieben `<Objektnummer>\<Ordner>`; der Klon entsteht auf dem eigenen Rechner
 - **0.1.3:** `name` darf ein Übersetzungsschlüssel sein; der Name wird dann als `$NAME` mit der aufgelösten Nummer geschrieben und der Text kommt aus dem Localization-Paket
 - **0.1.2:** erste veröffentlichte Fassung
 
@@ -345,5 +386,5 @@ A: Mit `prune = 1` verschwindet der erzeugte Ordner beim nächsten Start, sonst 
 
 ---
 
-**Letzte Aktualisierung:** Buildings Plus 0.1.3  
+**Letzte Aktualisierung:** Buildings Plus 0.1.8  
 **Für:** WRSR 1.1.1.9 | TesmioLoader API 4

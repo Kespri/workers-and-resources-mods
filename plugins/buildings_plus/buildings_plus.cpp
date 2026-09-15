@@ -72,6 +72,7 @@
 #include "../../src/tesmio_plugin.h"
 #include <string>
 #include <vector>
+#include <algorithm>
 #include <cstdint>
 
 // Optional text service. A `name =` that looks like a localisation key is
@@ -88,12 +89,14 @@ typedef struct TsmLocalizationApi
 } TsmLocalizationApi;
 #endif
 
-#define PLUGIN_VERSION    "0.1.3"
+#define PLUGIN_VERSION    "0.1.8"
 #define PLUGIN_INI        "plugins\\buildings_plus.ini"
 #define PLUGIN_LOG_NAME   "tesmioloader.buildings_plus.log"
 #define STAMP_NAME        "tesmioloader.stamp"
 #define STAMP_MARK        "buildings_plus generated this folder"
-#define GENERATOR_VERSION 4
+#define GENERATOR_VERSION 5
+// A Workshop donor is looked for here first, then in media_soviet\workshop_wip.
+#define WRSR_APP_ID       L"784150"
 #define MAX_DECLS         256
 #define MAX_LINES         512
 #define MAX_LINE_LEN      4096
@@ -104,6 +107,11 @@ typedef struct TsmLocalizationApi
 // Loader (9100000000..9199999999) and of the numbers in Tesmio's examples.
 #define AUTO_MIN_ID       9300000000ULL
 #define AUTO_MAX_ID       9399999999ULL
+// Reserved by Soviet Mod Loader for its own generated buildings. It refuses to start the game
+// when workshop_wip holds a folder in this range that is not in its plan, so nothing of ours
+// may ever land there - not automatically and not by hand.
+#define SML_MIN_ID        9100000000ULL
+#define SML_MAX_ID        9199999999ULL
 // Assigned ids are remembered here, next to the plugin INI, so a building keeps
 // its number for as long as its section name exists. The number is part of the
 // folder path a saved game refers to.
@@ -137,6 +145,10 @@ static bool g_verbose = false;   // one detail-log line per copied file and drop
 // normal case for anyone without the Localization plugin.
 static const TsmLocalizationApi* g_localization = NULL;
 static bool g_prune   = false;   // remove our stamped folders whose declaration is gone
+// Put a missing Steam owner id into generated folders of other generators too.
+// On by default: without it the game asks about missing Workshop items on every
+// single save load, and there is nothing the player can do about it.
+static bool g_repairOwners = true;
 static std::wstring g_outDir = L"media_soviet\\workshop_wip";
 static std::wstring g_gameDir;
 static std::wstring g_media;
@@ -504,6 +516,301 @@ static bool DonorLineIsReplaced(const Decl& d, const std::string& token)
     return false;
 }
 
+// ---------------------------------------------------------------- the donor
+
+// A donor is either a base-game building - a plain name under
+// media_soviet\buildings_types - or one building of a Workshop item, written
+// `<item>\<object>`, the spelling Vanilla Buildings uses for its targets. The
+// second kind is searched in the game's Workshop folder and in
+// media_soviet\workshop_wip, so an unpublished building of your own serves too.
+//
+// Nothing of a Workshop donor is shipped with this plugin: the copy is made on
+// the player's own machine from the item he is subscribed to.
+struct DonorPaths
+{
+    bool fromItem;            // false: a base-game name
+    std::wstring itemDir;     // <workshop root>\<item>
+    std::wstring objectDir;   // <item>\<object>
+    std::wstring ini;         // the donor's building.ini
+    std::string  objectName;  // the folder name the donor's author chose
+    DonorPaths() : fromItem(false) {}
+};
+
+// One separator, so a donor names one building and never a path into a tree.
+static bool SplitDonor(const std::string& donor, std::string* item, std::string* object)
+{
+    size_t at = donor.find_first_of("\\/");
+    if (at == std::string::npos) return false;
+    *item = TrimCopy(donor.substr(0, at));
+    *object = TrimCopy(donor.substr(at + 1));
+    return object->find_first_of("\\/") == std::string::npos;
+}
+
+// The folder names inside somebody else's item are not ours to dictate - spaces
+// and dots occur. What must not occur is anything that leaves the folder.
+static bool SafeDonorSegment(const std::string& s)
+{
+    if (s.empty() || s.size() > 96) return false;
+    if (s.find("..") != std::string::npos) return false;
+    if (s[0] == ' ' || s[0] == '.' || s[s.size() - 1] == ' ' || s[s.size() - 1] == '.') return false;
+    for (size_t i = 0; i < s.size(); i++)
+    {
+        char c = s[i];
+        bool ok = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
+                  c == '_' || c == '-' || c == '.' || c == ' ' || c == '+' || c == '(' || c == ')';
+        if (!ok) return false;
+    }
+    return true;
+}
+
+static std::vector<std::wstring> WorkshopRoots()
+{
+    std::vector<std::wstring> roots;
+    // <library>\steamapps\common\SovietRepublic -> <library>\steamapps\workshop\content\784150
+    size_t slash = g_gameDir.find_last_of(L'\\');
+    if (slash != std::wstring::npos)
+    {
+        std::wstring common = g_gameDir.substr(0, slash);
+        size_t up = common.find_last_of(L'\\');
+        if (up != std::wstring::npos) roots.push_back(common.substr(0, up) + L"\\workshop\\content\\" + WRSR_APP_ID);
+    }
+    roots.push_back(g_media + L"\\workshop_wip");
+    return roots;
+}
+
+// True when the donor was found. A donor that looks like an item but is not
+// there fills in the name, so the error message can say what was looked for.
+static bool ResolveDonor(const std::string& donor, DonorPaths* out)
+{
+    std::string itemName, objectName;
+    *out = DonorPaths();
+    if (!SplitDonor(donor, &itemName, &objectName))
+    {
+        out->ini = g_media + L"\\buildings_types\\" + Wide(donor) + L".ini";
+        return FileExists(out->ini);
+    }
+    out->fromItem = true;
+    out->objectName = objectName;
+    std::vector<std::wstring> roots = WorkshopRoots();
+    for (size_t i = 0; i < roots.size(); i++)
+    {
+        std::wstring itemDir = roots[i] + L"\\" + Wide(itemName);
+        std::wstring objDir = itemDir + L"\\" + Wide(objectName);
+        if (FileExists(objDir + L"\\building.ini"))
+        {
+            out->itemDir = itemDir; out->objectDir = objDir; out->ini = objDir + L"\\building.ini";
+            return true;
+        }
+    }
+    return false;
+}
+
+// ---------------------------------------------------------------- copying an item
+
+struct CopyItem { std::wstring rel; std::wstring src; };
+
+static std::vector<std::wstring> FilesIn(const std::wstring& dir)
+{
+    std::vector<std::wstring> out;
+    WIN32_FIND_DATAW fd;
+    HANDLE h = FindFirstFileW((dir + L"\\*").c_str(), &fd);
+    if (h == INVALID_HANDLE_VALUE) return out;
+    do
+    {
+        std::wstring n = fd.cFileName;
+        if (n == L"." || n == L"..") continue;
+        if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) out.push_back(n);
+    } while (FindNextFileW(h, &fd));
+    FindClose(h);
+    return out;
+}
+
+static bool IsObjectDir(const std::wstring& dir) { return FileExists(dir + L"\\building.ini"); }
+
+static void CollectTree(const std::wstring& src, const std::wstring& rel, std::vector<CopyItem>* out)
+{
+    std::vector<std::wstring> files = FilesIn(src);
+    for (size_t i = 0; i < files.size(); i++)
+    {
+        CopyItem c; c.rel = rel.empty() ? files[i] : rel + L"\\" + files[i]; c.src = src + L"\\" + files[i];
+        out->push_back(c);
+    }
+    std::vector<std::wstring> subs = SubDirs(src);
+    for (size_t i = 0; i < subs.size(); i++)
+        CollectTree(src + L"\\" + subs[i], rel.empty() ? subs[i] : rel + L"\\" + subs[i], out);
+}
+
+static bool LessRel(const CopyItem& a, const CopyItem& b) { return _wcsicmp(a.rel.c_str(), b.rel.c_str()) < 0; }
+
+// Everything the clone needs: the chosen building under the declared object
+// name, every loose file of the item, and every subfolder that holds no
+// building of its own. Asset folders carry whatever name their author picked
+// (mtl, Textures, materials, "parking acc"), so the rule asks what is IN a
+// folder and never what it is called. The other buildings of a multi-building
+// item stay behind - one section is one building - and the item's own
+// workshopconfig.ini stays behind too, because the clone gets one of its own
+// with a single $OBJECT_BUILDING line.
+static std::vector<CopyItem> ItemPlan(const DonorPaths& p, const std::string& object)
+{
+    std::vector<CopyItem> plan;
+    CollectTree(p.objectDir, Wide(object), &plan);
+    std::vector<std::wstring> files = FilesIn(p.itemDir);
+    for (size_t i = 0; i < files.size(); i++)
+    {
+        if (_wcsicmp(files[i].c_str(), Wide(STAMP_NAME).c_str()) == 0) continue;
+        if (_wcsicmp(files[i].c_str(), L"workshopconfig.ini") == 0) continue;
+        CopyItem c; c.rel = files[i]; c.src = p.itemDir + L"\\" + files[i];
+        plan.push_back(c);
+    }
+    std::vector<std::wstring> subs = SubDirs(p.itemDir);
+    for (size_t i = 0; i < subs.size(); i++)
+    {
+        std::wstring dir = p.itemDir + L"\\" + subs[i];
+        if (_wcsicmp(dir.c_str(), p.objectDir.c_str()) == 0) continue;
+        if (IsObjectDir(dir)) continue;
+        CollectTree(dir, subs[i], &plan);
+    }
+    std::sort(plan.begin(), plan.end(), LessRel);
+    return plan;
+}
+
+static bool EnsureParent(const std::wstring& path)
+{
+    size_t slash = path.find_last_of(L'\\');
+    if (slash == std::wstring::npos) return true;
+    std::wstring dir = path.substr(0, slash);
+    if (DirExists(dir)) return true;
+    EnsureParent(dir);
+    return EnsureDir(dir);
+}
+
+static bool CopyPlan(const std::wstring& item, const std::vector<CopyItem>& plan, int* files)
+{
+    bool ok = true;
+    for (size_t i = 0; i < plan.size(); i++)
+    {
+        std::wstring dst = item + L"\\" + plan[i].rel;
+        if (!EnsureParent(dst)) { Error("could not create the folder for %s (%lu)", Narrow(dst).c_str(), GetLastError()); ok = false; continue; }
+        if (CopyAsset(plan[i].src, dst, true, "donor file")) (*files)++;
+        else ok = false;
+    }
+    return ok;
+}
+
+// ---------------------------------------------------------------- references
+
+// `a\b\..\c.dds` -> `a\c.dds`, and forward slashes become backslashes. Returns
+// false when the path climbs out of the folder it started in.
+static bool NormalizeRel(const std::wstring& rel, std::wstring* out)
+{
+    std::vector<std::wstring> parts;
+    std::wstring cur;
+    for (size_t i = 0; i <= rel.size(); i++)
+    {
+        wchar_t c = i < rel.size() ? rel[i] : L'\\';
+        if (c == L'/' || c == L'\\')
+        {
+            if (cur == L"..") { if (parts.empty()) return false; parts.pop_back(); }
+            else if (!cur.empty() && cur != L".") parts.push_back(cur);
+            cur.clear();
+        }
+        else cur += c;
+    }
+    out->clear();
+    for (size_t i = 0; i < parts.size(); i++) { if (i) *out += L"\\"; *out += parts[i]; }
+    return !out->empty();
+}
+
+static std::string LowerAscii(const std::string& s)
+{
+    std::string out = s;
+    for (size_t i = 0; i < out.size(); i++) if (out[i] >= 'A' && out[i] <= 'Z') out[i] = (char)(out[i] - 'A' + 'a');
+    return out;
+}
+
+static bool EndsWith(const std::string& s, const char* tail)
+{
+    size_t n = strlen(tail);
+    return s.size() >= n && s.compare(s.size() - n, n, tail) == 0;
+}
+
+// The two references a building writes as a path: renderconfig MODEL/MATERIAL/
+// MATERIALEMISSIVE, relative to the building's folder, and $TEXTURE_MTL of a
+// material, relative to that material's folder. ($TEXTURE without _MTL resolves
+// against media_soviet and is on the player's disk anyway.)
+static void ReferencesOf(const std::wstring& file, const std::wstring& relDir, std::vector<std::wstring>* out)
+{
+    std::string text;
+    if (!ReadTextFile(file, &text)) return;
+    std::string name = LowerAscii(Narrow(file));
+    bool render = EndsWith(name, "\\renderconfig.ini");
+    bool material = EndsWith(name, ".mtl");
+    if (!render && !material) return;
+    std::vector<std::string> lines = SplitLines(text);
+    for (size_t i = 0; i < lines.size(); i++)
+    {
+        std::string line = TrimCopy(lines[i]);
+        std::string ref;
+        if (render)
+        {
+            if (StartsWith(line, "MODEL ")) ref = TrimCopy(line.substr(6));
+            else if (StartsWith(line, "MATERIALEMISSIVE ")) ref = TrimCopy(line.substr(17));
+            else if (StartsWith(line, "MATERIAL ")) ref = TrimCopy(line.substr(9));
+        }
+        else if (StartsWith(line, "$TEXTURE_MTL"))
+        {
+            // $TEXTURE_MTL <slot> <path>
+            size_t at = line.find(' ', 12);
+            if (at == std::string::npos) continue;
+            at = line.find(' ', at + 1);
+            if (at == std::string::npos) continue;
+            ref = TrimCopy(line.substr(at + 1));
+        }
+        if (ref.empty() || ref.find(':') != std::string::npos) continue;
+        std::wstring joined = relDir.empty() ? Wide(ref) : relDir + L"\\" + Wide(ref), normalised;
+        if (NormalizeRel(joined, &normalised)) out->push_back(normalised);
+    }
+}
+
+// A building may point at a file that sits beside it - a material in an asset
+// folder, a texture next to that material. Everything that is not another
+// building's folder travelled with the clone, so what can still be missing is a
+// reference INTO another building's folder. Rather than parse the whole
+// material chain, the clone is measured against its own written references and
+// a missing file is fetched from the donor item under the same relative path.
+static int RescueReferences(const Decl& d, const std::wstring& cloneItem, const DonorPaths& p, int* missing)
+{
+    int rescued = 0;
+    for (int pass = 0; pass < 2; pass++)
+    {
+        std::vector<CopyItem> have;
+        CollectTree(cloneItem, L"", &have);
+        std::vector<std::wstring> wanted;
+        for (size_t i = 0; i < have.size(); i++)
+        {
+            size_t slash = have[i].rel.find_last_of(L'\\');
+            std::wstring relDir = slash == std::wstring::npos ? L"" : have[i].rel.substr(0, slash);
+            ReferencesOf(have[i].src, relDir, &wanted);
+        }
+        int before = rescued;
+        for (size_t i = 0; i < wanted.size(); i++)
+        {
+            std::wstring dst = cloneItem + L"\\" + wanted[i];
+            if (FileExists(dst)) continue;
+            std::wstring src = p.itemDir + L"\\" + wanted[i];
+            if (!FileExists(src))
+            {
+                if (pass == 1) { Warn("[%s] %s refers to %s, which the donor item does not have", d.section.c_str(), d.donor.c_str(), Narrow(wanted[i]).c_str()); (*missing)++; }
+                continue;
+            }
+            if (!EnsureParent(dst)) continue;
+            if (CopyAsset(src, dst, false, "referenced file")) { rescued++; Info("[%s] fetched %s from the donor item", d.section.c_str(), Narrow(wanted[i]).c_str()); }
+        }
+        if (rescued == before) break;
+    }
+    return rescued;
+}
+
 // ---------------------------------------------------------------- generation
 
 // $TEXTURE_MTL resolves next to the .mtl file; in a Workshop item that folder
@@ -545,7 +852,12 @@ static bool WriteBuildingIni(const Decl& d, const std::wstring& donorIni, const 
     std::string out;
     // No dollar sign anywhere in these header lines: the parser would read it as a keyword.
     out += "; generated by TesmioLoader plugins\\buildings_plus.dll - section [" + d.section + "]\r\n";
-    out += "; donor: media_soviet\\buildings_types\\" + d.donor + ".ini\r\n";
+    // Where the copy started. A Workshop donor is named by item and building,
+    // never by its path: this file can end up on somebody else's disk, and the
+    // folder a Steam library sits in is nobody's business.
+    std::string itemPart, objectPart;
+    if (SplitDonor(d.donor, &itemPart, &objectPart)) out += "; donor: Workshop item " + itemPart + ", building " + objectPart + "\r\n";
+    else out += "; donor: media_soviet\\buildings_types\\" + d.donor + ".ini\r\n";
     out += "; edits here are overwritten on the next launch - change buildings_plus.ini instead\r\n\r\n";
     if (!d.nameLine.empty()) out += d.nameLine + "\r\n";
     for (size_t i = 0; i < d.lines.size(); i++) out += d.lines[i] + "\r\n";
@@ -575,11 +887,105 @@ static bool WriteBuildingIni(const Decl& d, const std::wstring& donorIni, const 
     return true;
 }
 
+// ------------------------------------------------------------- Steam owner id
+//
+// The game's own editor writes the signed-in player's SteamID64 into
+// $OWNER_ID, and a saved game that uses a building under media_soviet\
+// workshop_wip is only accepted when that number is there. With $OWNER_ID 0
+// every load of such a save opens "the Workshop items used in this saved game
+// were not found" and logs `Trying load saved game missing items: Item ident
+// <id>/<object> type 1`. Proven in the game: same folder, same save, only the
+// number changed - and the warning was gone.
+//
+// Two sources, in this order:
+//   1. HKCU\Software\Valve\Steam\ActiveProcess, value ActiveUser - the 32 bit
+//      account id of the signed-in player, SteamID64 = 76561197960265728 + it.
+//      Zero while the client is signed out, and then it tells us nothing.
+//   2. <SteamPath>\config\loginusers.vdf - the 17 digit section marked
+//      "MostRecent" "1", otherwise the first one in the file.
+// Neither answers: the id stays 0, because a wrong owner is worse than none.
+// advapi32 is loaded by hand so the build line keeps its single kernel32.lib.
+
+static const unsigned long long STEAM_ID64_BASE = 76561197960265728ULL;
+
+typedef LONG (WINAPI *PFN_RegGetValueW)(HKEY, LPCWSTR, LPCWSTR, DWORD, LPDWORD, PVOID, LPDWORD);
+
+static bool RegRead(const wchar_t* subkey, const wchar_t* value, DWORD flags, void* data, DWORD bytes)
+{
+    static PFN_RegGetValueW get = NULL;
+    static bool tried = false;
+    if (!tried)
+    {
+        tried = true;
+        HMODULE m = LoadLibraryW(L"advapi32.dll");
+        if (m) get = (PFN_RegGetValueW)GetProcAddress(m, "RegGetValueW");
+    }
+    if (!get) return false;
+    DWORD size = bytes;
+    return get(HKEY_CURRENT_USER, subkey, value, flags, NULL, data, &size) == ERROR_SUCCESS;
+}
+
+static unsigned long long OwnerFromLoginUsers()
+{
+    wchar_t path[MAX_PATH];
+    path[0] = 0;
+    if (!RegRead(L"Software\\Valve\\Steam", L"SteamPath", RRF_RT_REG_SZ, path, sizeof(path))) return 0;
+    std::string text;
+    if (!ReadTextFile(std::wstring(path) + L"\\config\\loginusers.vdf", &text)) return 0;
+
+    unsigned long long first = 0, current = 0;
+    bool mostRecent = false;
+    for (size_t i = 0; i < text.size(); i++)
+    {
+        if (text[i] != '"') continue;
+        size_t end = text.find('"', i + 1);
+        if (end == std::string::npos) break;
+        std::string token = text.substr(i + 1, end - i - 1);
+        i = end;
+
+        if (token.size() == 17 && token.find_first_not_of("0123456789") == std::string::npos)
+        {
+            current = _strtoui64(token.c_str(), NULL, 10);
+            if (!first) first = current;
+            mostRecent = false;
+        }
+        else if (_stricmp(token.c_str(), "MostRecent") == 0) mostRecent = true;
+        else if (mostRecent)
+        {
+            if (token == "1" && current) return current;
+            mostRecent = false;
+        }
+    }
+    return first;
+}
+
+static unsigned long long g_owner = 0;
+static bool g_ownerKnown = false;
+
+static unsigned long long SteamOwner()
+{
+    if (g_ownerKnown) return g_owner;
+    g_ownerKnown = true;
+    DWORD account = 0;
+    if (RegRead(L"Software\\Valve\\Steam\\ActiveProcess", L"ActiveUser", RRF_RT_REG_DWORD, &account, sizeof(account)) && account)
+        g_owner = STEAM_ID64_BASE + account;
+    else
+        g_owner = OwnerFromLoginUsers();
+    return g_owner;
+}
+
+#ifdef BUILDINGS_PLUS_TEST
+static void SetTestOwner(unsigned long long id) { g_owner = id; g_ownerKnown = true; }
+#endif
+
 static bool WriteWorkshopConfig(const Decl& d, const std::wstring& dst)
 {
+    char owner[32];
+    _snprintf_s(owner, sizeof(owner), _TRUNCATE, "%llu", SteamOwner());
+
     std::string out;
     out += "$ITEM_ID " + d.id + "\r\n\r\n";
-    out += "$OWNER_ID 0\r\n\r\n";
+    out += "$OWNER_ID " + std::string(owner) + "\r\n\r\n";
     out += "$ITEM_TYPE WORKSHOP_ITEMTYPE_BUILDING\r\n\r\n";
     out += "$VISIBILITY 0\r\n";
     out += "$OBJECT_BUILDING " + d.object + "\r\n\r\n";
@@ -587,6 +993,24 @@ static bool WriteWorkshopConfig(const Decl& d, const std::wstring& dst)
     out += "$ITEM_DESC \"" + (d.desc.empty() ? std::string("Generated by buildings_plus.") : d.desc) + "\"\r\n\r\n";
     out += "$END\r\n";
     return WriteTextFileAtomic(dst, out);
+}
+
+// A folder written before the owner id was known carries $OWNER_ID 0, and every
+// saved game that uses it reports a missing Workshop item. The declaration has
+// not changed, so the stamp is right and nothing else needs rewriting - this
+// one file does. The owner is deliberately NOT part of the stamp hash: a start
+// with the client signed out would otherwise rewrite every folder with a zero.
+static void RepairOwner(const Decl& d, const std::wstring& item)
+{
+    if (!SteamOwner()) return;
+    std::wstring path = item + L"\\workshopconfig.ini";
+    std::string text;
+    if (!ReadTextFile(path, &text)) return;
+    if (text.find("$OWNER_ID 0\r\n") == std::string::npos &&
+        text.find("$OWNER_ID 0\n")   == std::string::npos) return;
+    if (WriteWorkshopConfig(d, path))
+        Note("[%s] wrote the Steam owner id into %s - saved games using this building no longer report it as missing",
+             d.section.c_str(), Narrow(path).c_str());
 }
 
 // MATERIALEMISSIVE is not optional when the donor has an _e.mtl: a mesh built
@@ -630,7 +1054,21 @@ static unsigned long long DeclHash(const Decl& d)
     h = HashBytes(h, &d.life, sizeof(d.life));
     for (size_t i = 0; i < d.lines.size(); i++) h = HashStr(h, d.lines[i]);
     for (size_t i = 0; i < d.strips.size(); i++) h = HashStr(h, d.strips[i]);
-    // The donor's own files, so a game patch that changes them regenerates too.
+    // The donor's own files, so a game patch or an updated Workshop item
+    // regenerates too. Name, size and write time of every file that will be
+    // copied - reading several MB of meshes at every game start would cost far
+    // more than it could ever catch.
+    DonorPaths p;
+    if (ResolveDonor(d.donor, &p) && p.fromItem)
+    {
+        std::vector<CopyItem> plan = ItemPlan(p, d.object);
+        for (size_t i = 0; i < plan.size(); i++)
+        {
+            h = HashStr(h, Narrow(plan[i].rel));
+            h = HashFileStamp(h, plan[i].src);
+        }
+        return h;
+    }
     std::wstring donor = Wide(d.donor);
     h = HashFileStamp(h, g_media + L"\\buildings_types\\" + donor + L".ini");
     h = HashFileStamp(h, g_media + L"\\buildings\\" + donor + L".mtl");
@@ -658,15 +1096,34 @@ static bool StampMatches(const std::string& stamp, unsigned long long want)
     return have == want;
 }
 
+// The receipt of a generated folder: what it was made from and the hash that
+// decides at the next start whether it still matches its declaration. A folder
+// without it is somebody else's and is never touched.
+static void WriteStamp(const Decl& d, const std::wstring& item, unsigned long long want)
+{
+    char hash[32];
+    _snprintf_s(hash, sizeof(hash), _TRUNCATE, "%016llX", want);
+    std::string stampText = std::string(STAMP_MARK) + " (TesmioLoader plugins\\buildings_plus.dll).\r\n"
+        "section=" + d.section + " donor=" + d.donor + " object=" + d.object + "\r\n"
+        "hash=" + hash + "\r\n"
+        "Delete this file to make the plugin leave the folder alone; delete the folder to have it written again.\r\n";
+    WriteTextFileAtomic(item + L"\\" + Wide(STAMP_NAME), stampText);
+}
+
 static GenResult Generate(const Decl& d)
 {
-    std::wstring donor = Wide(d.donor);
-    std::wstring donorIni = g_media + L"\\buildings_types\\" + donor + L".ini";
-    if (!FileExists(donorIni))
+    DonorPaths p;
+    if (!ResolveDonor(d.donor, &p))
     {
-        Error("[%s] donor \"%s\" has no %s - nothing generated", d.section.c_str(), d.donor.c_str(), Narrow(donorIni).c_str());
+        if (p.fromItem)
+            Error("[%s] donor \"%s\" was not found - no such building under the Workshop folder or media_soviet\\workshop_wip; is the item subscribed?",
+                  d.section.c_str(), d.donor.c_str());
+        else
+            Error("[%s] donor \"%s\" has no %s - nothing generated", d.section.c_str(), d.donor.c_str(), Narrow(p.ini).c_str());
         return GEN_FAILED;
     }
+    std::wstring donor = Wide(d.donor);
+    std::wstring donorIni = p.ini;
 
     std::wstring outRoot = OutRoot();
     std::wstring item = outRoot + L"\\" + Wide(d.id);
@@ -686,17 +1143,29 @@ static GenResult Generate(const Decl& d)
         }
         if (!g_always && StampMatches(stamp, want))
         {
+            RepairOwner(d, item);
             Info("[%s] -> %s up to date", d.section.c_str(), d.id.c_str());
             return GEN_UP_TO_DATE;
         }
-        // A renamed object leaves its old subfolder behind otherwise.
-        std::vector<std::wstring> subs = SubDirs(item);
-        for (size_t i = 0; i < subs.size(); i++)
-            if (_wcsicmp(subs[i].c_str(), Wide(d.object).c_str()) != 0)
-            {
-                Info("[%s] removing stale object folder %s", d.section.c_str(), Narrow(subs[i]).c_str());
-                DeleteTree(item + L"\\" + subs[i]);
-            }
+        if (p.fromItem)
+        {
+            // A Workshop donor brings its own file names along, so files of an
+            // earlier donor would linger beside the new ones. The folder is
+            // ours - it carries our stamp - and is written from scratch.
+            Info("[%s] rebuilding %s from the donor item", d.section.c_str(), Narrow(item).c_str());
+            DeleteTree(item);
+        }
+        else
+        {
+            // A renamed object leaves its old subfolder behind otherwise.
+            std::vector<std::wstring> subs = SubDirs(item);
+            for (size_t i = 0; i < subs.size(); i++)
+                if (_wcsicmp(subs[i].c_str(), Wide(d.object).c_str()) != 0)
+                {
+                    Info("[%s] removing stale object folder %s", d.section.c_str(), Narrow(subs[i]).c_str());
+                    DeleteTree(item + L"\\" + subs[i]);
+                }
+        }
     }
 
     // media_soviet\workshop_wip may itself be absent on a clean install.
@@ -705,6 +1174,42 @@ static GenResult Generate(const Decl& d)
     if (!EnsureDir(obj))  { Error("[%s] could not create %s (%lu)", d.section.c_str(), Narrow(obj).c_str(), GetLastError()); return GEN_FAILED; }
 
     bool ok = true;
+    int dropped = 0;
+    if (p.fromItem)
+    {
+        // The clone is the donor item's own layout with one building in it:
+        // every file is copied as it lies, and building.ini is the only one
+        // that is rewritten. Nothing has to be known about where that item
+        // keeps its materials and textures.
+        std::vector<CopyItem> plan = ItemPlan(p, d.object);
+        int copied = 0;
+        ok &= CopyPlan(item, plan, &copied);
+        ok &= WriteBuildingIni(d, donorIni, obj + L"\\building.ini", &dropped);
+        // The donor's renderconfig names its own mesh and material and came
+        // with the copy; only an item without one gets ours.
+        if (!FileExists(obj + L"\\renderconfig.ini"))
+            ok &= WriteRenderConfig(d, obj + L"\\renderconfig.ini", FileExists(item + L"\\material_e.mtl"));
+        if (!FileExists(item + L"\\previewimage.png"))
+            CopyAsset(obj + L"\\imagegui.png", item + L"\\previewimage.png", false, "preview image");
+        int missing = 0;
+        int rescued = RescueReferences(d, item, p, &missing);
+        ok &= WriteWorkshopConfig(d, item + L"\\workshopconfig.ini");
+        if (!ok)
+        {
+            Error("[%s] -> %s INCOMPLETE - the game may refuse it or crash on it", d.section.c_str(), d.id.c_str());
+            return GEN_FAILED;
+        }
+        WriteStamp(d, item, want);
+        char extra[64];
+        extra[0] = 0;
+        if (rescued) _snprintf_s(extra, sizeof(extra), _TRUNCATE, ", %d fetched by reference", rescued);
+        Note("[%s] -> %s\\%s from \"%s\": %d file(s) copied%s, %d line(s) in, %d donor line(s) out%s",
+             d.section.c_str(), d.id.c_str(), d.object.c_str(), d.donor.c_str(), copied, extra,
+             (int)d.lines.size() + (d.name.empty() ? 0 : 1), dropped,
+             missing ? " - SOME REFERENCED FILES ARE MISSING, see the warnings" : "");
+        return GEN_GENERATED;
+    }
+
     ok &= CopyAsset(g_media + L"\\buildings\\" + donor + L".nmf", obj + L"\\model.nmf", true, "mesh");
     ok &= CopyAsset(g_media + L"\\buildings_types\\" + donor + L".bbox", obj + L"\\building.bbox", false, "collision box");
     ok &= CopyAsset(g_media + L"\\buildings_types\\" + donor + L".fire", obj + L"\\building.fire", false, "fire points");
@@ -723,7 +1228,6 @@ static GenResult Generate(const Decl& d)
 
     ok &= WriteWorkshopConfig(d, item + L"\\workshopconfig.ini");
     ok &= WriteRenderConfig(d, obj + L"\\renderconfig.ini", emissive);
-    int dropped = 0;
     ok &= WriteBuildingIni(d, donorIni, obj + L"\\building.ini", &dropped);
 
     if (!ok)
@@ -732,13 +1236,7 @@ static GenResult Generate(const Decl& d)
         return GEN_FAILED;
     }
 
-    char hash[32];
-    _snprintf_s(hash, sizeof(hash), _TRUNCATE, "%016llX", want);
-    std::string stampText = std::string(STAMP_MARK) + " (TesmioLoader plugins\\buildings_plus.dll).\r\n"
-        "section=" + d.section + " donor=" + d.donor + " object=" + d.object + "\r\n"
-        "hash=" + hash + "\r\n"
-        "Delete this file to make the plugin leave the folder alone; delete the folder to have it written again.\r\n";
-    WriteTextFileAtomic(item + L"\\" + Wide(STAMP_NAME), stampText);
+    WriteStamp(d, item, want);
 
     Note("[%s] -> %s\\%s from \"%s\": %d line(s) in, %d donor line(s) out, %d texture path(s) rewritten%s",
          d.section.c_str(), d.id.c_str(), d.object.c_str(), d.donor.c_str(),
@@ -756,6 +1254,71 @@ static void GenerateGuarded(const Decl* d, GenResult* out)
         Error("[%s] faulted while generating - skipped", d->section.c_str());
         *out = GEN_FAILED;
     }
+}
+
+// Replaces the single zero of an "$OWNER_ID 0" line and leaves every other byte
+// of the file exactly as it was, line endings included. A full rewrite is out of
+// the question here: the file belongs to another generator and we know nothing
+// about the rest of it. The match has to start a line and end one, so an
+// "$OWNER_ID 07..." is never mistaken for a zero.
+static bool ReplaceOwnerZero(const std::wstring& path, unsigned long long owner)
+{
+    std::string text;
+    if (!ReadTextFile(path, &text)) return false;
+    static const std::string needle = "$OWNER_ID 0";
+    size_t at = std::string::npos;
+    for (size_t p = text.find(needle); p != std::string::npos; p = text.find(needle, p + 1))
+    {
+        if (p != 0 && text[p - 1] != '\n' && text[p - 1] != '\r') continue;
+        size_t end = p + needle.size();
+        if (end != text.size() && text[end] != '\r' && text[end] != '\n') continue;
+        at = p; break;
+    }
+    if (at == std::string::npos) return false;
+    char id[32];
+    _snprintf_s(id, sizeof(id), _TRUNCATE, "%llu", owner);
+    std::string out = text.substr(0, at) + "$OWNER_ID " + id + text.substr(at + needle.size());
+    return WriteTextFileAtomic(path, out);
+}
+
+// The same repair for the folders of other generators. Soviet Mod Loader writes
+// $OWNER_ID 0 into every building it makes, and the game then reports each of
+// them as a missing Workshop item on every save load - a dialog the player
+// cannot get rid of. All of these have to hold before anything is written: the
+// folder name is a generated id (9000000000..9999999999), the folder carries a
+// tesmioloader.stamp, so some generator wrote it and not the game's own editor,
+// the config names no owner at all, and our own id is known. A folder that
+// already names somebody is never touched, and neither is the stamp - Soviet Mod
+// Loader treats a missing stamp as a reason to close the game.
+static int RepairForeignOwners(const std::vector<std::string>& skip)
+{
+    if (!g_repairOwners || !SteamOwner()) return 0;
+    int fixed = 0;
+    std::wstring outRoot = OutRoot();
+    std::vector<std::wstring> subs = SubDirs(outRoot);
+    for (size_t i = 0; i < subs.size(); i++)
+    {
+        std::string name = Narrow(subs[i]);
+        if (name.size() != 10) continue;
+        bool digits = true;
+        for (size_t c = 0; c < name.size(); c++) if (name[c] < '0' || name[c] > '9') { digits = false; break; }
+        if (!digits) continue;
+        unsigned long long id = _strtoui64(name.c_str(), NULL, 10);
+        if (id < MIN_ITEM_ID || id > MAX_ITEM_ID) continue;
+        bool mine = false;
+        for (size_t k = 0; k < skip.size(); k++) if (skip[k] == name) { mine = true; break; }
+        if (mine) continue;   // one of ours, and the generator has already seen to it
+        std::wstring item = outRoot + L"\\" + subs[i];
+        std::string stamp;
+        if (!ReadStamp(item, &stamp)) continue;
+        if (ReplaceOwnerZero(item + L"\\workshopconfig.ini", SteamOwner()))
+        {
+            Note("wrote the Steam owner id into %s - saved games using this building no longer report it as missing",
+                 name.c_str());
+            fixed++;
+        }
+    }
+    return fixed;
 }
 
 // Removes our own stamped folders whose declaration no longer exists or is
@@ -827,8 +1390,31 @@ static bool ValidateDecl(const Decl& d, std::string* why)
         _snprintf_s(buf, sizeof(buf), _TRUNCATE, "id must lie between %llu and %llu to stay clear of real Workshop items", MIN_ITEM_ID, MAX_ITEM_ID);
         *why = buf; return false;
     }
+    // Soviet Mod Loader reserves this range for the buildings it generates itself. It checks
+    // every folder in there against its own plan before the game starts and TERMINATES the
+    // launch when it finds one it does not know - a folder of ours would do exactly that. The
+    // automatic assignment stays out of the range anyway; this catches a hand-written id.
+    if (id >= SML_MIN_ID && id <= SML_MAX_ID)
+    {
+        _snprintf_s(buf, sizeof(buf), _TRUNCATE, "id %llu is inside %llu..%llu, which Soviet Mod Loader reserves for itself - "
+                    "a folder of ours in there stops the game from starting; leave id empty or pick one between %llu and %llu",
+                    id, SML_MIN_ID, SML_MAX_ID, AUTO_MIN_ID, AUTO_MAX_ID);
+        *why = buf; return false;
+    }
     if (d.donor.empty()) { *why = "has no donor"; return false; }
-    if (!SafeName(d.donor)) { *why = "donor must be a plain buildings_types name (letters, digits, _ and -)"; return false; }
+    {
+        // Two spellings: a base-game name, or one building of a Workshop item
+        // as `<item>\<object>`. Neither may contain anything that leaves the
+        // folder it names.
+        std::string itemPart, objectPart;
+        if (SplitDonor(d.donor, &itemPart, &objectPart))
+        {
+            if (!SafeDonorSegment(itemPart) || !SafeDonorSegment(objectPart))
+            { *why = "a Workshop donor is written <item>\\<object>, each part a folder name without .. or drive letters"; return false; }
+        }
+        else if (!SafeName(d.donor))
+        { *why = "donor must be a plain buildings_types name (letters, digits, _ and -) or a Workshop building as <item>\\<object>"; return false; }
+    }
     if (!SafeName(d.object)) { *why = "object must be letters, digits, _ or - (at most 64)"; return false; }
     if (d.name.size() > 128 || !PlainText(d.name)) { *why = "name must be plain text without quotes (at most 128 characters)"; return false; }
     if (d.desc.size() > 4096 || !PlainText(d.desc)) { *why = "desc must be plain text without quotes (at most 4096 characters)"; return false; }
@@ -837,7 +1423,20 @@ static bool ValidateDecl(const Decl& d, std::string* why)
     for (size_t i = 0; i < d.lines.size(); i++)
     {
         if (d.lines[i].size() > MAX_LINE_LEN) { *why = "a line is too long"; return false; }
-        if (FirstToken(d.lines[i]).empty()) { _snprintf_s(buf, sizeof(buf), _TRUNCATE, "line %u has no $TOKEN: %.60s", (unsigned)(i + 1), d.lines[i].c_str()); *why = buf; return false; }
+        // A line without a $TOKEN is a data line of the one above it - the grammar the game's
+        // own building.ini uses for $CONNECTION_*, $RESOURCE_VISUALIZATION and the like. Only
+        // the first line of a section has to carry a token, so a typo in it is still caught
+        // instead of quietly turning into data for nothing.
+        if (FirstToken(d.lines[i]).empty() && i == 0)
+        {
+            _snprintf_s(buf, sizeof(buf), _TRUNCATE, "line 1 has no $TOKEN and has nothing to belong to: %.60s", d.lines[i].c_str());
+            *why = buf; return false;
+        }
+        if (d.lines[i].find_first_not_of(" \t") == std::string::npos)
+        {
+            _snprintf_s(buf, sizeof(buf), _TRUNCATE, "line %u is empty", (unsigned)(i + 1));
+            *why = buf; return false;
+        }
         if (!PlainText(d.lines[i]) && d.lines[i].find('"') == std::string::npos) { *why = "a line contains control characters"; return false; }
     }
     for (size_t i = 0; i < d.strips.size(); i++)
@@ -900,6 +1499,7 @@ static void LoadRegistry(const std::string& text)
             else if (_stricmp(key.c_str(), "always")  == 0) { if (ParseBool(val, &b)) g_always  = b; else Warn("line %u: always must be 0 or 1", (unsigned)no); }
             else if (_stricmp(key.c_str(), "verbose") == 0) { if (ParseBool(val, &b)) g_verbose = b; else Warn("line %u: verbose must be 0 or 1", (unsigned)no); }
             else if (_stricmp(key.c_str(), "prune")   == 0) { if (ParseBool(val, &b)) g_prune   = b; else Warn("line %u: prune must be 0 or 1", (unsigned)no); }
+            else if (_stricmp(key.c_str(), "repair_owner_ids") == 0) { if (ParseBool(val, &b)) g_repairOwners = b; else Warn("line %u: repair_owner_ids must be 0 or 1", (unsigned)no); }
             else if (_stricmp(key.c_str(), "out")     == 0) { if (!val.empty() && val.find("..") == std::string::npos) g_outDir = Wide(val); else Warn("line %u: out must be a folder without ..", (unsigned)no); }
             else Warn("line %u: unknown switch \"%s\" - ignored", (unsigned)no, key.c_str());
             continue;
@@ -1171,8 +1771,10 @@ static int Run(const std::string& configText, const char* configName)
         else failed++;
     }
     int pruned = g_prune ? Prune(keep) : 0;
-    Note("%d generated, %d up to date, %d skipped, %d failed, %d pruned; %d warning(s), %d error(s)",
-         generated, upToDate, skipped, failed, pruned, g_warnings, g_errors);
+    // After prune, so a folder that is about to go is not written to first.
+    int owners = RepairForeignOwners(keep);
+    Note("%d generated, %d up to date, %d skipped, %d failed, %d pruned, %d owner id(s) fixed; %d warning(s), %d error(s)",
+         generated, upToDate, skipped, failed, pruned, owners, g_warnings, g_errors);
     return 0;
 }
 
@@ -1247,6 +1849,8 @@ static int RunConfig(const std::wstring& ini, const std::wstring& game, const st
     host.apiVersion = TSM_API_VERSION; host.structSize = sizeof(host);
     static std::string baseA, pluginsA;
     EnsureDir(out);
+    // The id catalog goes next to the "plugin" of this dry run, never into the game.
+    EnsureDir(out + L"\\plugins");
     baseA = Narrow(out); pluginsA = Narrow(out + L"\\plugins");
     host.baseDir = baseA.c_str(); host.pluginDir = pluginsA.c_str();
     host.log = TestLog; host.faultFilter = TestFault;
@@ -1268,6 +1872,9 @@ int wmain(int argc, wchar_t** argv)
     if (argc < 2) { printf("usage: buildings_plus_test <fresh scratch folder>\n       buildings_plus_test --run <ini> <game folder> <out folder>\n"); return 2; }
     std::wstring root = argv[1];
     if (DirExists(root)) { printf("scratch folder must not exist yet: %ls\n", root.c_str()); return 2; }
+    // A fixed owner, so the checks say the same thing on every machine and with
+    // the Steam client signed out.
+    SetTestOwner(76561198017498697ULL);
     std::wstring game = root + L"\\game", build = root + L"\\game\\tesmioloader\\build", plugins = build + L"\\plugins";
     EnsureDir(root); EnsureDir(game); EnsureDir(game + L"\\tesmioloader"); EnsureDir(build); EnsureDir(plugins);
     std::wstring media = game + L"\\media_soviet";
@@ -1295,29 +1902,34 @@ int wmain(int argc, wchar_t** argv)
 
     std::string ini =
         "[buildings_plus]\nenabled = 1\nverbose = 1\nprune = 1\n\n"
-        "[salt_mine]\nid = 9100000021\ndonor = donor_mine\nobject = SaltMine\nname = Salt Mine\ndesc = First line\ndesc = Second line\n"
-        "line = $PRODUCTION raw_salt 1.0\nline = $STORAGE_EXPORT RESOURCE_TRANSPORT_OPEN 20\nstrip = $WORKERS_NEEDED\n\n"
+        "[salt_mine]\nid = 9400000021\ndonor = donor_mine\nobject = SaltMine\nname = Salt Mine\ndesc = First line\ndesc = Second line\n"
+        "line = $PRODUCTION raw_salt 1.0\nline = $STORAGE_EXPORT RESOURCE_TRANSPORT_OPEN 20\n"
+        "line = $CONNECTION_WATERPIPE_INPUT\nline = -92.5 -3.2 5.0\nline = -91.5 -3.2 5.0\nstrip = $WORKERS_NEEDED\n\n"
         "[bad_id]\nid = 123\ndonor = donor_mine\n\n"
-        "[bad_name]\nid = 9100000022\ndonor = donor_mine\nname = Say \"hi\"\n\n"
-        "[no_donor]\nid = 9100000023\ndonor = missing_donor\n\n"
-        "[off]\nid = 9100000024\ndonor = donor_mine\nenabled = 0\n\n"
-        "[collide]\nid = 9100000025\ndonor = donor_mine\n";
+        "[bad_first_line]\nid = 9400000026\ndonor = donor_mine\nline = 1 2 3\n\n"
+        "[sml_range]\nid = 9100000042\ndonor = donor_mine\n\n"
+        "[bad_name]\nid = 9400000022\ndonor = donor_mine\nname = Say \"hi\"\n\n"
+        "[no_donor]\nid = 9400000023\ndonor = missing_donor\n\n"
+        "[off]\nid = 9400000024\ndonor = donor_mine\nenabled = 0\n\n"
+        "[collide]\nid = 9400000025\ndonor = donor_mine\n";
     std::wstring out = media + L"\\workshop_wip";
     EnsureDir(out);
     // A folder that is not ours must never be touched, and a stale stamped folder of ours goes away with prune.
-    EnsureDir(out + L"\\9100000025"); Put(out + L"\\9100000025\\workshopconfig.ini", "$ITEM_ID 9100000025\n");
-    EnsureDir(out + L"\\9100000099"); Put(out + L"\\9100000099\\" + Wide(STAMP_NAME), std::string(STAMP_MARK) + "\nhash=0\n");
-    EnsureDir(out + L"\\9100000098"); Put(out + L"\\9100000098\\" + Wide(STAMP_NAME), "tesmioloader plugins\\buildings.dll generated this folder.\nhash=0\n");
+    EnsureDir(out + L"\\9400000025"); Put(out + L"\\9400000025\\workshopconfig.ini", "$ITEM_ID 9400000025\n");
+    EnsureDir(out + L"\\9400000099"); Put(out + L"\\9400000099\\" + Wide(STAMP_NAME), std::string(STAMP_MARK) + "\nhash=0\n");
+    EnsureDir(out + L"\\9400000098"); Put(out + L"\\9400000098\\" + Wide(STAMP_NAME), "tesmioloader plugins\\buildings.dll generated this folder.\nhash=0\n");
 
     g_warnings = 0; g_errors = 0;
     int rc = Run(ini, "test");
     Check(rc == 0, "run returns 0 with a registry");
     std::string b;
-    std::wstring item = out + L"\\9100000021", obj = item + L"\\SaltMine";
+    std::wstring item = out + L"\\9400000021", obj = item + L"\\SaltMine";
     Check(ReadTextFile(obj + L"\\building.ini", &b), "building.ini written");
     Check(Has(b, "$NAME_STR \"Salt Mine\"") && !Has(b, "$NAME 6160"), "name replaces the donor's $NAME");
     Check(Has(b, "$PRODUCTION raw_salt 1.0") && !Has(b, "$PRODUCTION coal") && !Has(b, "$CONSUMPTION eletric"), "a declared recipe replaces the donor recipe whole");
     Check(Has(b, "$STORAGE_EXPORT RESOURCE_TRANSPORT_OPEN 20") && !Has(b, "RESOURCE_TRANSPORT_GRAVEL") && !Has(b, "$RESOURCE_VISUALIZATION"), "storages replace storages and the visualisation");
+    Check(Has(b, "$CONNECTION_WATERPIPE_INPUT\r\n-92.5 -3.2 5.0\r\n-91.5 -3.2 5.0"), "a token keeps its data lines, in order");
+    Check(!DirExists(out + L"\\9400000026"), "a first line without a $TOKEN is refused");
     Check(!Has(b, "positon 5 0 5") && !Has(b, "scale 1 1 1"), "the data lines of a dropped token go with it");
     Check(!Has(b, "$WORKERS_NEEDED"), "strip drops a donor line");
     Check(Has(b, "$CONNECTION_ROAD\r\n1 0 0\r\n2 0 0") && Has(b, "$COST_WORK SOVIET_CONSTRUCTION_GROUNDWORKS 1.0") && Has(b, "$PARTICLE smoke 1 2 3") && Has(b, "$TYPE_FACTORY"), "geometry, costs and type survive");
@@ -1330,14 +1942,15 @@ int wmain(int argc, wchar_t** argv)
     Check(FileExists(obj + L"\\model.nmf") && FileExists(obj + L"\\building.bbox") && FileExists(obj + L"\\building.fire") && FileExists(obj + L"\\imagegui.png") && FileExists(item + L"\\previewimage.png"), "assets copied");
     std::string stamp;
     Check(ReadStamp(item, &stamp) && Has(stamp, STAMP_MARK) && Has(stamp, "hash="), "stamp written");
-    Check(!FileExists(out + L"\\9100000022\\workshopconfig.ini"), "a name with a quote is skipped");
-    Check(!DirExists(out + L"\\9100000021\\bad_id"), "an id outside the range is skipped");
-    Check(!FileExists(out + L"\\9100000025\\" + Wide(STAMP_NAME)) && FileExists(out + L"\\9100000025\\workshopconfig.ini") && !DirExists(out + L"\\9100000025\\collide"), "a folder without a stamp is refused and left alone");
-    Check(!DirExists(out + L"\\9100000023"), "a missing donor generates nothing");
-    Check(!DirExists(out + L"\\9100000099"), "prune removes our stamped folder without a declaration");
-    Check(DirExists(out + L"\\9100000098"), "prune leaves a stamped folder of another generator");
-    Check(!DirExists(out + L"\\9100000024"), "a disabled section generates nothing");
-    Check(g_errors == 4, "exactly the four bad sections (id, name, donor, no-stamp folder) are errors");
+    Check(!FileExists(out + L"\\9400000022\\workshopconfig.ini"), "a name with a quote is skipped");
+    Check(!DirExists(out + L"\\9400000021\\bad_id"), "an id outside the range is skipped");
+    Check(!DirExists(out + L"\\9100000042"), "an id inside the range Soviet Mod Loader reserves is refused");
+    Check(!FileExists(out + L"\\9400000025\\" + Wide(STAMP_NAME)) && FileExists(out + L"\\9400000025\\workshopconfig.ini") && !DirExists(out + L"\\9400000025\\collide"), "a folder without a stamp is refused and left alone");
+    Check(!DirExists(out + L"\\9400000023"), "a missing donor generates nothing");
+    Check(!DirExists(out + L"\\9400000099"), "prune removes our stamped folder without a declaration");
+    Check(DirExists(out + L"\\9400000098"), "prune leaves a stamped folder of another generator");
+    Check(!DirExists(out + L"\\9400000024"), "a disabled section generates nothing");
+    Check(g_errors == 6, "exactly the six bad sections (id, reserved id, first line, name, donor, no-stamp folder) are errors");
 
     // Second run: up to date, nothing rewritten.
     WIN32_FILE_ATTRIBUTE_DATA before, after;
@@ -1347,6 +1960,55 @@ int wmain(int argc, wchar_t** argv)
     Run(ini, "test");
     GetFileAttributesExW((obj + L"\\building.ini").c_str(), GetFileExInfoStandard, &after);
     Check(CompareFileTime(&before.ftLastWriteTime, &after.ftLastWriteTime) == 0, "an unchanged declaration is left alone");
+
+    // The Steam owner id: written into workshopconfig.ini, and put right on a
+    // folder that still carries a zero from an older version. Without it the
+    // game reports the building as a missing Workshop item on every save load.
+    std::string cfg;
+    Check(ReadTextFile(item + L"\\workshopconfig.ini", &cfg) &&
+          cfg.find("$OWNER_ID 76561198017498697\r\n") != std::string::npos,
+          "the workshopconfig carries the Steam owner id of whoever generated it");
+    Put(item + L"\\workshopconfig.ini", "$ITEM_ID 9400000001\r\n\r\n$OWNER_ID 0\r\n\r\n$END\r\n");
+    g_warnings = 0; g_errors = 0;
+    Run(ini, "test");
+    Check(ReadTextFile(item + L"\\workshopconfig.ini", &cfg) &&
+          cfg.find("$OWNER_ID 76561198017498697\r\n") != std::string::npos &&
+          cfg.find("$OBJECT_BUILDING") != std::string::npos,
+          "an up to date folder with $OWNER_ID 0 has the owner written into it");
+
+    // The same repair for the folders of another generator. Soviet Mod Loader
+    // writes $OWNER_ID 0 into every building it makes, so these ids look like
+    // the real ones do. Only the number may change - the file belongs to
+    // somebody else, and its line endings have to survive byte for byte.
+    std::string smlCfg =
+        "$ITEM_ID 9188000001\r\n\r\n$OWNER_ID 0\r\n\r\n$ITEM_TYPE WORKSHOP_ITEMTYPE_BUILDING\r\n\r\n"
+        "$VISIBILITY 0\r\n$OBJECT_BUILDING SaltMine\r\n\r\n$ITEM_NAME \"Salt Mine\"\r\n\r\n$END\r\n";
+    std::string smlWant = smlCfg;
+    smlWant.replace(smlWant.find("$OWNER_ID 0"), strlen("$OWNER_ID 0"), "$OWNER_ID 76561198017498697");
+    const std::string foreignStamp = "tesmioloader plugins\\buildings.dll generated this folder.\r\nhash=0\r\n";
+    EnsureDir(out + L"\\9188000001"); Put(out + L"\\9188000001\\" + Wide(STAMP_NAME), foreignStamp);
+    Put(out + L"\\9188000001\\workshopconfig.ini", smlCfg);
+    EnsureDir(out + L"\\9188000002"); Put(out + L"\\9188000002\\workshopconfig.ini", smlCfg);   // no stamp: hand-built
+    EnsureDir(out + L"\\9188000003"); Put(out + L"\\9188000003\\" + Wide(STAMP_NAME), foreignStamp);
+    Put(out + L"\\9188000003\\workshopconfig.ini", "$ITEM_ID 9188000003\r\n\r\n$OWNER_ID 76561197960287777\r\n\r\n$END\r\n");
+
+    g_warnings = 0; g_errors = 0;
+    Run("[buildings_plus]\nenabled = 1\nprune = 0\nrepair_owner_ids = 0\n", "test");
+    Check(ReadTextFile(out + L"\\9188000001\\workshopconfig.ini", &cfg) && cfg == smlCfg,
+          "repair_owner_ids = 0 leaves a foreign folder alone");
+
+    g_warnings = 0; g_errors = 0;
+    Run("[buildings_plus]\nenabled = 1\nprune = 0\nrepair_owner_ids = 1\n", "test");
+    Check(ReadTextFile(out + L"\\9188000001\\workshopconfig.ini", &cfg) && cfg == smlWant,
+          "a foreign generated folder gets the owner id, and nothing else in the file changes");
+    Check(FileExists(out + L"\\9188000001\\" + Wide(STAMP_NAME)) &&
+          ReadTextFile(out + L"\\9188000001\\" + Wide(STAMP_NAME), &cfg) && cfg == foreignStamp,
+          "the foreign stamp is left untouched");
+    Check(ReadTextFile(out + L"\\9188000002\\workshopconfig.ini", &cfg) && cfg == smlCfg,
+          "a folder without a stamp is not repaired");
+    Check(ReadTextFile(out + L"\\9188000003\\workshopconfig.ini", &cfg) &&
+          cfg.find("$OWNER_ID 76561197960287777") != std::string::npos,
+          "a folder that already names an owner keeps it");
 
     // A renamed object removes the stale subfolder.
     std::string ini2 = ini;
@@ -1372,7 +2034,7 @@ int wmain(int argc, wchar_t** argv)
     Check(g_errors == 0 && DirExists(out + L"\\9300000008\\Auto_One") && DirExists(out + L"\\9300000009\\auto_two") && DirExists(out + L"\\9300000007\\fixed"),
           "ids are assigned above the highest number seen (explicit id and foreign folder included)");
     std::string cat;
-    Check(ReadTextFile(plugins + L"\\" + Wide(CATALOG_NAME), &cat) && Has(cat, "[ids]") && Has(cat, "auto_one = 9300000008") && Has(cat, "auto_two = 9300000009") && Has(cat, "fixed = 9300000007") && Has(cat, "salt_mine = 9100000021"),
+    Check(ReadTextFile(plugins + L"\\" + Wide(CATALOG_NAME), &cat) && Has(cat, "[ids]") && Has(cat, "auto_one = 9300000008") && Has(cat, "auto_two = 9300000009") && Has(cat, "fixed = 9300000007") && Has(cat, "salt_mine = 9400000021"),
           "the catalog records assigned and explicit ids by section name");
     // Removing an earlier section and adding a new one leaves the old numbers alone.
     std::string ini4 =
@@ -1416,6 +2078,75 @@ int wmain(int argc, wchar_t** argv)
     Check(ReadTextFile(out + L"\\9300000022\\Missing\\building.ini", &missIni) &&
               Has(missIni, "$NAME_STR \"nothing_here\"") && g_warnings == 1,
           "an unresolvable key falls back to the part after the last dot and warns once");
+
+    // 0.1.4: one building of a Workshop item as the donor. The fake item has
+    // everything that makes real items awkward: three buildings, an asset
+    // folder with a name of its author's choosing, a loose file at the root,
+    // a reference into a sibling building's folder and one that goes nowhere.
+    std::wstring mod = out + L"\\mod_item";
+    EnsureDir(mod); EnsureDir(mod + L"\\mtl"); EnsureDir(mod + L"\\house_a"); EnsureDir(mod + L"\\house_b"); EnsureDir(mod + L"\\house_c");
+    Put(mod + L"\\workshopconfig.ini", "$ITEM_ID 1234567890\n$OBJECT_BUILDING house_a\n$OBJECT_BUILDING house_b\n$OBJECT_BUILDING house_c\n$ITEM_NAME \"Three Houses\"\n$END\n");
+    Put(mod + L"\\previewimage.png", "png");
+    Put(mod + L"\\shared.dds", "dds");
+    Put(mod + L"\\mtl\\diffuse.mtl", "$SUBMATERIAL x\n$TEXTURE_MTL 0 main.dds\n$TEXTURE_MTL 1 gone.dds\n$TEXTURE 2 buildings/blankbump.dds\n");
+    Put(mod + L"\\mtl\\main.dds", "dds");
+    Put(mod + L"\\house_a\\building.ini", "$NAME 6161\n$TYPE_LIVING\n$WORKERS_NEEDED 4\n$PRODUCTION coal 1.0\n");
+    Put(mod + L"\\house_a\\custom.nmf", "mesh");
+    Put(mod + L"\\house_a\\imagegui.png", "png");
+    Put(mod + L"\\house_a\\renderconfig.ini", "$TYPE_WORKSHOP\n MODEL custom.nmf\n MATERIAL ../mtl/diffuse.mtl\n MATERIALEMISSIVE ../house_b/extra.mtl\n LIFE 3000\n$END\n");
+    Put(mod + L"\\house_b\\building.ini", "$NAME 6162\n$TYPE_LIVING\n");
+    Put(mod + L"\\house_b\\extra.mtl", "$TEXTURE_MTL 0 deep.dds\n");
+    Put(mod + L"\\house_b\\deep.dds", "dds");
+    Put(mod + L"\\house_b\\other.nmf", "mesh");
+    Put(mod + L"\\house_c\\building.ini", "$NAME 6163\n$TYPE_LIVING\n");
+    Put(mod + L"\\house_c\\unused.dds", "dds");
+
+    std::string ini7 =
+        "[buildings_plus]\nenabled = 1\n\n"
+        "[from_item]\nid = 9300000030\ndonor = mod_item\\house_a\nobject = MyHouse\nname = My House\nline = $PRODUCTION raw_salt 2.0\n\n"
+        "[item_missing]\nid = 9300000031\ndonor = mod_item\\house_x\n\n"
+        "[item_escape]\nid = 9300000032\ndonor = mod_item\\..\\..\\secret\n";
+    g_warnings = 0; g_errors = 0;
+    Run(ini7, "test");
+    std::wstring clone = out + L"\\9300000030";
+    std::string cloneIni, cloneCfg, cloneRender;
+    Check(ReadTextFile(clone + L"\\MyHouse\\building.ini", &cloneIni) &&
+              Has(cloneIni, "$NAME_STR \"My House\"") && Has(cloneIni, "$PRODUCTION raw_salt 2.0") && !Has(cloneIni, "$NAME 6161"),
+          "a Workshop building is cloned into the declared object folder and only its building.ini is rewritten");
+    Check(FileExists(clone + L"\\MyHouse\\custom.nmf") && FileExists(clone + L"\\MyHouse\\imagegui.png"),
+          "the donor's own file names are kept, not renamed to model.nmf");
+    Check(FileExists(clone + L"\\mtl\\diffuse.mtl") && FileExists(clone + L"\\mtl\\main.dds") && FileExists(clone + L"\\shared.dds"),
+          "an asset folder of any name and the loose files of the item travel with the clone");
+    Check(!DirExists(clone + L"\\house_c") && !FileExists(clone + L"\\house_b\\other.nmf"),
+          "the other buildings of the item stay behind - one section is one building");
+    Check(FileExists(clone + L"\\house_b\\extra.mtl") && FileExists(clone + L"\\house_b\\deep.dds"),
+          "a file referenced into a sibling building's folder is fetched, and what that file refers to as well");
+    Check(g_warnings == 1, "a reference the donor item cannot satisfy warns exactly once");
+    Check(ReadTextFile(clone + L"\\workshopconfig.ini", &cloneCfg) &&
+              Has(cloneCfg, "$ITEM_ID 9300000030") && Has(cloneCfg, "$OBJECT_BUILDING MyHouse") && !Has(cloneCfg, "house_b") && !Has(cloneCfg, "1234567890"),
+          "the clone gets its own workshopconfig with one object, never the donor's list");
+    Check(ReadTextFile(clone + L"\\MyHouse\\renderconfig.ini", &cloneRender) &&
+              Has(cloneRender, "MODEL custom.nmf") && !Has(cloneRender, "MODEL model.nmf"),
+          "the donor's renderconfig is taken over, because it names the donor's own mesh");
+    Check(FileExists(clone + L"\\previewimage.png"), "the item's preview image travels with the clone");
+    Check(!DirExists(out + L"\\9300000031") && !DirExists(out + L"\\9300000032") && g_errors == 2,
+          "a donor that is not there and one that tries to climb out of the item are both refused");
+
+    // Up to date, then a changed donor file, then a second section from the
+    // same item - the plan is per building, not per item.
+    g_warnings = 0; g_errors = 0;
+    Run(ini7, "test");
+    // An up-to-date clone is not copied again, so the reference check does not
+    // run either and its warning stays silent; only the two refusals speak up.
+    Check(g_errors == 2 && g_warnings == 0, "a second run leaves the clone alone and copies nothing");
+    Sleep(1100);
+    Put(mod + L"\\mtl\\main.dds", "dds changed");
+    std::string ini8 = "[buildings_plus]\nenabled = 1\n\n[from_item]\nid = 9300000030\ndonor = mod_item\\house_a\nobject = MyHouse\nname = My House\n";
+    g_warnings = 0; g_errors = 0;
+    Run(ini8, "test");
+    std::string changed;
+    Check(ReadTextFile(clone + L"\\mtl\\main.dds", &changed) && changed == "dds changed",
+          "an updated file in the donor item regenerates the clone");
 
     printf(g_failed ? "RESULT %d check(s) FAILED\n" : "RESULT all buildings_plus self-tests passed\n", g_failed);
     return g_failed ? 1 : 0;

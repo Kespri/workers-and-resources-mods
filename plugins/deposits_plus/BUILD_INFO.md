@@ -9,6 +9,23 @@ hash helper (see below). Service name `deposits` and the savegame file `tesmio_d
 deliberately stay identical to the original so consumers such as Depletion keep working.
 User documentation: README_DE.md / README_EN.md. History newest first, technical notes below.
 
+## 0.4.8 (2026-09-14)
+
+- Steps aside under Soviet Mod Loader. The existing guard looks for `plugins\deposits.dll`, but SML
+  carries resources, deposits, needs and buildings compiled into itself, so that file does not exist
+  and the guard never fired. A second check in `TsmPluginInit` now asks whether
+  `soviet_mod_loader.dll` (or `000_soviet_mod_loader.dll`) is loaded in this process and whether its
+  `[loader] embedded_plugins` is on; if so the plugin logs one line and returns 1 before anything is
+  hooked. The module handle also answers the loader switch: with `soviet_mod_loader = 0` the DLL is
+  not in the process and this plugin runs normally. `embedded_plugins` is read as well so a future
+  per-capability switch in SML lets the plugin work again without another change here.
+- Why it matters even though the patches defend themselves: the deposit type splice, the world save
+  call, the minimap hooks and the editor hooks all compare their expected original bytes and refuse
+  once SML has patched the same sites. The texture import in `InstallExtraMaps` does not - an IAT
+  entry is a pointer with nothing to verify - so it would install and chain in front of SML's own
+  texture hook, for maps this plugin believes it owns and can never save (its own log says "extra
+  maps load but are never written back"). The guard has to sit before that, and it does.
+
 ## 0.4.7 (2026-09-12)
 
 - The editor brush name is no longer capped at seven characters (four with `map = terrain`). The

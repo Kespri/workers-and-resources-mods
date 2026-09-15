@@ -81,7 +81,7 @@ namespace TesmioAutoload
         void ChooseUnlock()
         {
             using (var window = new ResearchPickerWindow(language, build, own, Font, Icon, true, null))
-                if (window.ShowDialog(this) == DialogResult.OK && !String.IsNullOrEmpty(window.Result)) edit.Text = "$UNLOCK_RESEARCH " + window.Result;
+                if (Theme.Modal(this,window) == DialogResult.OK && !String.IsNullOrEmpty(window.Result)) edit.Text = "$UNLOCK_RESEARCH " + window.Result;
         }
 
         void Say(string key) { MessageWindow.Show(this, language, Text, language.T(key), MessageWindow.Kind.Info, DialogResult.OK); }

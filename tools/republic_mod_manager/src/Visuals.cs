@@ -63,6 +63,44 @@ namespace TesmioAutoload
         // half-built cards for as long as the rebuild took. Switching redraw back on repaints
         // the pane and all its children once.
         [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr handle, int message, IntPtr wParam, IntPtr lParam);
+        // 0.4.95: every dialog gets a dimmed backdrop. Without it a white dialog on a white page
+        // has no edge and the eye loses which window is asking. One borderless black form over the
+        // owner, the dialog is shown on top of it, both disappear together.
+        public static DialogResult Modal(Form owner, Form dialog)
+        {
+            if (owner == null || !owner.Visible || owner.WindowState == FormWindowState.Minimized || dialog == null) return dialog.ShowDialog(owner);
+            Form shade = null;
+            try
+            {
+                shade = new Form
+                {
+                    FormBorderStyle = FormBorderStyle.None, ShowInTaskbar = false, StartPosition = FormStartPosition.Manual,
+                    BackColor = Color.Black, Opacity = 0.34, Bounds = owner.Bounds, Owner = owner, ControlBox = false
+                };
+                shade.Show(owner);
+                return dialog.ShowDialog(shade);
+            }
+            catch (Exception) { return dialog.ShowDialog(owner); }
+            finally { if (shade != null) { shade.Hide(); shade.Dispose(); } }
+        }
+        // The same backdrop for the system dialogs (file picker).
+        public static DialogResult Modal(Form owner, CommonDialog dialog)
+        {
+            if (owner == null || !owner.Visible || owner.WindowState == FormWindowState.Minimized) return dialog.ShowDialog(owner);
+            Form shade = null;
+            try
+            {
+                shade = new Form
+                {
+                    FormBorderStyle = FormBorderStyle.None, ShowInTaskbar = false, StartPosition = FormStartPosition.Manual,
+                    BackColor = Color.Black, Opacity = 0.34, Bounds = owner.Bounds, Owner = owner, ControlBox = false
+                };
+                shade.Show(owner);
+                return dialog.ShowDialog(shade);
+            }
+            catch (Exception) { return dialog.ShowDialog(owner); }
+            finally { if (shade != null) { shade.Hide(); shade.Dispose(); } }
+        }
         public static void SetRedraw(Control control, bool enabled)
         { if (control == null || !control.IsHandleCreated) return; SendMessage(control.Handle, 0x000B, (IntPtr)(enabled ? 1 : 0), IntPtr.Zero); if (enabled) control.Refresh(); }
         public static void DisposeChildren(Control control)
@@ -164,9 +202,25 @@ namespace TesmioAutoload
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);e.Graphics.SmoothingMode=SmoothingMode.AntiAlias;Color color=Tone.IsEmpty?(Error?Theme.Danger:Warning?Color.FromArgb(171,102,0):Theme.Blue):Tone;
-            if(Error&&Symbol.Length==0){using(var fill=new SolidBrush(color))e.Graphics.FillEllipse(fill,3,3,20,20);using(var pen=new Pen(Color.White,2.4f)){e.Graphics.DrawLine(pen,9,9,17,17);e.Graphics.DrawLine(pen,17,9,9,17);}return;}
-            using(var pen=new Pen(color,2.2f))e.Graphics.DrawEllipse(pen,3,3,20,20);
-            using(var font=new Font("Segoe UI",13,FontStyle.Bold))TextRenderer.DrawText(e.Graphics,Symbol.Length>0?Symbol:(Warning?"!":"i"),font,new Rectangle(2,0,23,27),color,TextFormatFlags.HorizontalCenter|TextFormatFlags.VerticalCenter|TextFormatFlags.NoPrefix);
+            // 0.4.95: the glyph is centred in whatever size the control has. The old fixed
+            // coordinates were made for a 27 px box and sat off centre - and were clipped -
+            // wherever a caller picked another size.
+            int room=Math.Min(Width,Height),d=Math.Max(12,room-5);
+            var box=new Rectangle((Width-d)/2,(Height-d)/2,d,d);
+            if(Error&&Symbol.Length==0)
+            {
+                using(var fill=new SolidBrush(color))e.Graphics.FillEllipse(fill,box);
+                float inset=d*0.3f;
+                using(var pen=new Pen(Color.White,Math.Max(2f,d*0.12f)))
+                {
+                    pen.StartCap=LineCap.Round;pen.EndCap=LineCap.Round;
+                    e.Graphics.DrawLine(pen,box.Left+inset,box.Top+inset,box.Right-inset,box.Bottom-inset);
+                    e.Graphics.DrawLine(pen,box.Right-inset,box.Top+inset,box.Left+inset,box.Bottom-inset);
+                }
+                return;
+            }
+            using(var pen=new Pen(color,Math.Max(1.8f,d*0.11f)))e.Graphics.DrawEllipse(pen,box);
+            using(var font=new Font("Segoe UI",Math.Max(8f,d*0.62f),FontStyle.Bold))TextRenderer.DrawText(e.Graphics,Symbol.Length>0?Symbol:(Warning?"!":"i"),font,ClientRectangle,color,TextFormatFlags.HorizontalCenter|TextFormatFlags.VerticalCenter|TextFormatFlags.NoPrefix);
         }
     }
     sealed class ToggleSwitch : CheckBox
@@ -390,6 +444,42 @@ namespace TesmioAutoload
                 }
                 else if (kind == "archive")
                 { g.DrawRectangle(p,4,10,24,18); g.FillRectangle(b,2,4,28,6); g.FillRectangle(b,12,15,8,3); }
+                // 0.4.97: profiles - a person inside a reload ring. Each arrow head is built from
+                // the tangent at the end of its arc, so it continues the stroke instead of standing
+                // beside it, and the arc is shortened by exactly the piece the head covers.
+                else if (kind == "profile")
+                {
+                    const float cx=16f,cy=16f,radius=13.5f,gap=14f,head=6.4f,half=4f;
+                    using(var ring=new Pen(color,2.3f))
+                    {
+                        ring.StartCap=LineCap.Round; ring.EndCap=LineCap.Flat;
+                        var box=new RectangleF(cx-radius,cy-radius,radius*2,radius*2);
+                        g.DrawArc(ring,box,205,130-gap); g.DrawArc(ring,box,25,130-gap);
+                    }
+                    foreach(float degrees in new[]{205f+130f-gap,25f+130f-gap})
+                    {
+                        double a=degrees*Math.PI/180;
+                        float tx=(float)-Math.Sin(a),ty=(float)Math.Cos(a),nx=(float)Math.Cos(a),ny=(float)Math.Sin(a);
+                        float px=cx+radius*nx,py=cy+radius*ny,backX=px-tx*head*0.25f,backY=py-ty*head*0.25f;
+                        g.FillPolygon(b,new[]{new PointF(px+tx*head,py+ty*head),new PointF(backX+nx*half,backY+ny*half),new PointF(backX-nx*half,backY-ny*half)});
+                    }
+                    g.FillEllipse(b,12.6f,7.2f,6.8f,6.8f);
+                    g.FillPie(b,8.6f,15.0f,14.8f,13.6f,180,180);
+                }
+                // 0.4.88: the start check - a clipboard with a tick.
+                else if (kind == "check")
+                {
+                    g.DrawRectangle(p,6,6,20,24); g.FillRectangle(b,12,3,8,5);
+                    using (var tick = new Pen(color,2.6f)) { tick.StartCap = LineCap.Round; tick.EndCap = LineCap.Round; g.DrawLines(tick,new[]{new PointF(10,19),new PointF(14,24),new PointF(23,13)}); }
+                }
+                // 0.4.93: the options window - three rails with a knob each. Deliberately not a
+                // gear: the gear already means "plugin of unknown origin" in the list.
+                else if (kind == "sliders")
+                {
+                    using (var rail = new Pen(color,2f)) { rail.StartCap = LineCap.Round; rail.EndCap = LineCap.Round;
+                        g.DrawLine(rail,4,8,28,8); g.DrawLine(rail,4,16,28,16); g.DrawLine(rail,4,24,28,24); }
+                    g.FillEllipse(b,18,4,9,9); g.FillEllipse(b,7,12,9,9); g.FillEllipse(b,20,20,9,9);
+                }
                 else
                 { g.DrawEllipse(p,7,7,18,18); g.DrawEllipse(p,12,12,8,8); for (int i=0;i<8;i++) { double a=i*Math.PI/4; g.DrawLine(p,16+(float)Math.Cos(a)*10,16+(float)Math.Sin(a)*10,16+(float)Math.Cos(a)*15,16+(float)Math.Sin(a)*15); } }
             }
@@ -412,6 +502,9 @@ namespace TesmioAutoload
         // 0.4.51: roots of the entries with unsaved changes, drawn as an amber dot before the name;
         // since 0.4.71 several at once (parked entries).
         public readonly HashSet<string> DirtyRoots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // 0.5.3: entries that Soviet Mod Loader pushes aside. Amber instead of grey, because grey
+        // means "you switched it off" and this one nobody switched off.
+        public readonly HashSet<string> BlockedRoots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         public ModList() { DrawMode = DrawMode.OwnerDrawFixed; ItemHeight = 80; BorderStyle = BorderStyle.None; BackColor = Theme.Navy; ForeColor = Color.White; IntegralHeight = false; }
         protected override void OnDrawItem(DrawItemEventArgs e)
         {
@@ -434,7 +527,7 @@ namespace TesmioAutoload
                 using(var amber=new SolidBrush(Color.FromArgb(232,166,36))) e.Graphics.FillRectangle(amber,pill);
                 TextRenderer.DrawText(e.Graphics,badge,Font,pill,Color.FromArgb(28,38,52),TextFormatFlags.HorizontalCenter|TextFormatFlags.VerticalCenter|TextFormatFlags.NoPrefix);
             }
-            using(var light=new SolidBrush(active?Color.FromArgb(45,202,83):Color.FromArgb(104,122,143)))
+            using(var light=new SolidBrush(active?Color.FromArgb(45,202,83):BlockedRoots.Contains(mod.Root)?Color.FromArgb(232,166,36):Color.FromArgb(104,122,143)))
                 e.Graphics.FillEllipse(light,e.Bounds.Right-30,e.Bounds.Y+31,14,14);
             if (Focused && selected) e.DrawFocusRectangle();
         }
@@ -629,6 +722,26 @@ namespace TesmioAutoload
             Dock=DockStyle.Fill; WrapContents=false; FlowDirection=FlowDirection.LeftToRight;
             Padding=new Padding(2,7,0,0); Margin=Padding.Empty; BackColor=Theme.Navy;
             SetStyle(ControlStyles.UserPaint|ControlStyles.AllPaintingInWmPaint|ControlStyles.OptimizedDoubleBuffer,true);
+        }
+        // 0.4.94: the row has to fit however many buttons it holds - with the seventh one the
+        // reload button was cut off. Every button gets the same share of the width, down to a
+        // floor where the 27 px glyph still has air around it.
+        bool laying;
+        protected override void OnLayout(LayoutEventArgs e)
+        {
+            if(!laying && Controls.Count>0 && ClientSize.Width>0)
+            {
+                laying=true;
+                try
+                {
+                    const int spacing=3;   // SidebarButton margin: 1 left, 2 right
+                    int available=ClientSize.Width-Padding.Left-Padding.Right;
+                    int width=Math.Max(31,Math.Min(45,available/Controls.Count-spacing));
+                    foreach(Control child in Controls) if(child.Width!=width) child.Width=width;
+                }
+                finally { laying=false; }
+            }
+            base.OnLayout(e);
         }
         protected override void OnPaint(PaintEventArgs e)
         {

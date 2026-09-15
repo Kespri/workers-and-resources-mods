@@ -55,7 +55,7 @@ namespace TesmioAutoload
                 dialog.Controls.Add(body); dialog.Controls.Add(row); dialog.Controls.Add(header);
                 int textHeight = TextRenderer.MeasureText(text, label.Font, new Size(label.MaximumSize.Width, 0), TextFormatFlags.WordBreak).Height;
                 dialog.ClientSize = new Size(width, Math.Min(760, 46 + 64 + 30 + Math.Max(40, textHeight + 10)));
-                return ownerForm != null ? dialog.ShowDialog(owner) : dialog.ShowDialog();
+                return ownerForm != null ? Theme.Modal(ownerForm, dialog) : dialog.ShowDialog();
             }
         }
 

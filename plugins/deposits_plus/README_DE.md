@@ -1,4 +1,4 @@
-# 🏭 Deposits Plus 0.4.7
+# 🏭 Deposits Plus 0.4.8
 
 **Erweiterung des TesmioLoader-Plugins deposits**
 
@@ -528,6 +528,8 @@ MeinSpiel\
 
 - **Innerhalb der 0.4-Reihe:** Updates übernehmen Spielstände und `tesmio_deposits.bin` automatisch; Typnummern, Kartenplätze und Token laufender Spielstände bleiben tabu (siehe oben)
 - **Mit Deposit Depletion:** funktioniert weiter wie immer, der Schlüssel `deplete` wird an das Plugin depletion durchgereicht
+- **Mit Soviet Mod Loader:** SML bringt Vorkommen selbst mit. Läuft er, pausiert dieses Plugin und schreibt eine Zeile ins Protokoll; willst du stattdessen Deposits Plus, schalte `soviet_mod_loader` in der `tesmioloader.ini` aus (im Republic Mod Manager der Schalter „Plugin aktiv")
+- **0.4.8:** Das Plugin tritt unter Soviet Mod Loader von selbst zur Seite
 - **0.4.7:** Der Pinselname darf jetzt bis zu 31 Zeichen lang sein. Bestehende Namen und die zwei PNG-Dateien bleiben, wie sie sind
 
 ---
@@ -632,5 +634,5 @@ A: Nein. Republic Mod Manager zeigt alle Einstellungen mit Beschreibung, prüft 
 
 ---
 
-**Letzte Aktualisierung:** Deposits Plus 0.4.7  
+**Letzte Aktualisierung:** Deposits Plus 0.4.8  
 **Für:** WRSR 1.1.1.9 | TesmioLoader API 4

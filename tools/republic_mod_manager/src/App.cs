@@ -11,9 +11,9 @@ using System.Windows.Forms;
 [assembly: System.Reflection.AssemblyTitle("Republic Mod Manager")]
 [assembly: System.Reflection.AssemblyProduct("Republic Mod Manager (RMM)")]
 [assembly: System.Reflection.AssemblyDescription("Plugin manager for TesmioLoader - Workers & Resources: Soviet Republic")]
-[assembly: System.Reflection.AssemblyVersion("0.4.85.0")]
-[assembly: System.Reflection.AssemblyFileVersion("0.4.85.0")]
-[assembly: System.Reflection.AssemblyInformationalVersion("0.4.85-beta")]
+[assembly: System.Reflection.AssemblyVersion("0.5.6.0")]
+[assembly: System.Reflection.AssemblyFileVersion("0.5.6.0")]
+[assembly: System.Reflection.AssemblyInformationalVersion("0.5.6-beta")]
 
 namespace TesmioAutoload
 {
@@ -40,7 +40,7 @@ namespace TesmioAutoload
             try
             {
                 string directory = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\');
-                var defaults = new UiState { Build = directory }; string legacy = "", screenshot = null, snapshotSize = null, snapshotWindow = null; bool saveMode = false; bool? activate = null;
+                var defaults = new UiState { Build = directory }; string legacy = "", screenshot = null, snapshotSize = null, snapshotWindow = null; bool saveMode = false, steamCheck = args.Contains("--steam-check"); bool? activate = null;
                 if (!File.Exists(Path.Combine(defaults.Build, "tesmioloader.dll"))) try
                 {
                     foreach (string library in Discovery.SteamLibraries())
@@ -60,19 +60,27 @@ namespace TesmioAutoload
                     defaults.Build = ini.Get("paths", "loader_build", defaults.Build); legacy = ini.Get("paths", "package", "");
                     defaults.WorkshopRoot = ini.Get("paths", "workshop_root", "");
                     defaults.Language = ini.Get("settings", "language", "auto");
+                    AppOptions.IniVersionCheck = ini.Get("settings", "version_check", "1") != "0" ? "1" : "0";
+                    AppOptions.IniLauncherWindow = ini.Get("settings", "tesmiolauncher_window", "0") == "1" ? "1" : "0";
+                    AppOptions.IniWatchSeconds = ini.Get("settings", "launch_watch_seconds", "15");
                     GameVersion.CheckEnabled = ini.Get("settings", "version_check", "1") != "0";
                     LauncherOptions.ShowWindow = ini.Get("settings", "tesmiolauncher_window", "0") == "1";
+                    // 0.4.92: how long RMM watches the game after a start; 0 closes right away.
+                    double watch; if (Double.TryParse(ini.Get("settings", "launch_watch_seconds", "15"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out watch) && watch >= 0) LauncherOptions.WatchSeconds = watch;
                 }
                 GameVersion.LoadTable(Path.Combine(directory, "settings_schemas"));
                 if (defaults.WorkshopRoot.Length == 0) defaults.WorkshopRoot = Catalog.InitialRoot(defaults.Build, legacy);
                 if (legacy.Length > 0) defaults.SelectedSource = Path.GetFullPath(legacy);
                 var notes = new List<string>(); UiStateStore.Migrate(directory); var store = new UiStateStore(UiStateStore.DefaultPath(directory));
-                bool snapshotMode = args.Contains("--ui-snapshot") || args.Contains("--save");
+                bool snapshotMode = args.Contains("--ui-snapshot") || args.Contains("--save") || steamCheck;
                 var state = snapshotMode ? defaults : store.Load(defaults, notes);
+                // What the options window saved wins over the rmm.ini defaults (0.4.93).
+                AppOptions.Apply(state);
                 for (int i = 0; i < args.Length; ++i)
                 {
                     // --save is the one option without a value; everything else is a pair.
                     if (args[i] == "--save") { saveMode = true; continue; }
+                    if (args[i] == "--steam-check") continue;   // valueless too: report the Steam login state and end
                     if (i + 1 >= args.Length) throw new ArgumentException(Msg.Key("err_argument_ben_tigt_einen", args[i]));
                     string key = args[i], value = args[++i];
                     if (key == "--build") state.Build = value;
@@ -88,6 +96,21 @@ namespace TesmioAutoload
                 }
                 // --activate only makes sense together with --save: it stages the switch, --save writes it.
                 if (activate.HasValue && !saveMode) throw new ArgumentException(Msg.Key("err_unbekanntes_argument", "--activate (only together with --save)"));
+                // 0.4.91: --steam-check answers the one question the launch warning asks, without a
+                // window: is Steam logged in? It prints the raw record as well, so a false alarm can
+                // be told apart from a real logout afterwards.
+                if (steamCheck)
+                {
+                    string why; SteamSession.State steam = SteamSession.Check(out why);
+                    var text = new Language(state.Language);
+                    Console.WriteLine((steam == SteamSession.State.LoggedOut ? "FAIL " : "PASS ")
+                        + (steam == SteamSession.State.Ready ? "Steam is logged in."
+                           : steam == SteamSession.State.Unknown ? "Steam state unknown - RMM would not warn."
+                           : "Steam is logged out - RMM would warn. " + text.T(why))
+                        + "  [" + SteamSession.Evidence() + "]");
+                    Console.Out.Flush();
+                    return steam == SteamSession.State.LoggedOut ? 1 : 0;
+                }
                 // One window at a time: two instances would race for the same files and
                 // block every installer. A second start only brings the first window up.
                 bool first = true; Mutex instance = null;
@@ -155,6 +178,36 @@ namespace TesmioAutoload
                             }
                             return 0;
                         }
+                        // 0.4.94: the loss list of a full reset - planned, never carried out.
+                        if (snapshotWindow == "reset")
+                        {
+                            using (var window = form.TestResetWindow())
+                            {
+                                window.ShowInTaskbar = false; window.StartPosition = FormStartPosition.Manual; window.Location = new Point(-20000, -20000); window.Show(); Application.DoEvents();
+                                using (var image = new Bitmap(window.Width, window.Height)) { window.DrawToBitmap(image, new Rectangle(0, 0, window.Width, window.Height)); image.Save(screenshot); }
+                            }
+                            return 0;
+                        }
+                        // 0.4.93: the options window of RMM itself.
+                        if (snapshotWindow == "options")
+                        {
+                            using (var window = new OptionsWindow(new Language(state.Language), state, () => "report", form.Font, form.Icon))
+                            {
+                                window.ShowInTaskbar = false; window.StartPosition = FormStartPosition.Manual; window.Location = new Point(-20000, -20000); window.Show(); Application.DoEvents();
+                                using (var image = new Bitmap(window.Width, window.Height)) { window.DrawToBitmap(image, new Rectangle(0, 0, window.Width, window.Height)); image.Save(screenshot); }
+                            }
+                            return 0;
+                        }
+                        // 0.4.88: the start check, drawn like the other windows.
+                        if (snapshotWindow == "startcheck")
+                        {
+                            using (var window = form.TestStartCheckWindow())
+                            {
+                                window.ShowInTaskbar = false; window.StartPosition = FormStartPosition.Manual; window.Location = new Point(-20000, -20000); window.Show(); Application.DoEvents();
+                                using (var image = new Bitmap(window.Width, window.Height)) { window.DrawToBitmap(image, new Rectangle(0, 0, window.Width, window.Height)); image.Save(screenshot); }
+                            }
+                            return 0;
+                        }
                         if (snapshotWindow != null)
                         {
                             using (var window = new ProfilesWindow(new Language(state.Language), state.Build, form.Font, form.Icon))
@@ -176,7 +229,7 @@ namespace TesmioAutoload
             catch (Exception e)
             {
                 // A command-line run must never wait for a click: it writes the reason and ends.
-                if (args.Contains("--ui-snapshot") || args.Contains("--save") || args.Contains("--activate")) { Console.Error.WriteLine(e); Console.Error.Flush(); }
+                if (args.Contains("--ui-snapshot") || args.Contains("--save") || args.Contains("--activate") || args.Contains("--steam-check")) { Console.Error.WriteLine(e); Console.Error.Flush(); }
                 else { var fallback = new Language("auto"); MessageWindow.Show(null, fallback, "Republic Mod Manager", fallback.Localize(e.Message), MessageWindow.Kind.Error, DialogResult.OK); }
                 return 1;
             }

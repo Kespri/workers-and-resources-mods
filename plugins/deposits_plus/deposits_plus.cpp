@@ -3370,7 +3370,7 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
 {
     TsmBind(host);
     info->name    = "deposits_plus";
-    info->version = "0.4.7";
+    info->version = "0.4.8";
 
     // deposits_plus is a fork of the upstream deposits plugin: same code sites,
     // same service name, same save file. Both loaded at once would double the
@@ -3387,6 +3387,31 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
         {
             Logf("deposits_plus  idle - plugins\\deposits.dll is present and enabled in tesmioloader.ini; "
                  "switch deposits off (Republic Mod Manager: \"Plugin aktiv\") to use deposits_plus");
+            return 1;
+        }
+    }
+
+    // Soviet Mod Loader carries the same four capabilities compiled into itself, so
+    // under it there is no plugins\deposits.dll for the test above to find. Its own
+    // deposits component registers first and patches the very sites this plugin
+    // needs; all of them verify their original bytes and would refuse, but the
+    // texture import in InstallExtraMaps is a plain IAT swap with nothing to verify
+    // and would chain in front of a component that is already doing the job. So step
+    // aside here, while nothing is hooked yet. The module tells us SML was loaded in
+    // this run, which already answers the switch in tesmioloader.ini; embedded_plugins
+    // is read so a future per-capability switch lets this plugin work again.
+    {
+        static const char* const kSmlNames[] = { "soviet_mod_loader", "000_soviet_mod_loader" };
+        for (int i = 0; i < 2; i++)
+        {
+            char dll[64], ini[MAX_PATH];
+            _snprintf_s(dll, sizeof(dll), _TRUNCATE, "%s.dll", kSmlNames[i]);
+            if (!GetModuleHandleA(dll)) continue;
+            _snprintf_s(ini, sizeof(ini), _TRUNCATE, "plugins\\%s.ini", kSmlNames[i]);
+            if (H->configInt(ini, "loader", "embedded_plugins", 1) == 0) continue;
+            Logf("deposits_plus  idle - %s brings its own deposits; switch %s off in "
+                 "tesmioloader.ini (Republic Mod Manager: \"Plugin aktiv\") to use deposits_plus",
+                 dll, kSmlNames[i]);
             return 1;
         }
     }

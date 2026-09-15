@@ -54,6 +54,7 @@ launcher_schema = config\my_plugin.launcher.ini
 user_config = my_plugin.ini             ; nur Dateiname, liegt neben der DLL
 user_overlay = 0                        ; 1: die DLL liest user_config\<target>.ini selbst
 local_copy = 0                          ; 1: bietet "Dateien nur lokal" an
+replaced_by_sml =                       ; resources | deposits | needs | buildings
 
 [assets]
 dir = hooks\my_plugin                   ; Ordner, der bei "Dateien nur lokal" mit der DLL reist
@@ -71,6 +72,7 @@ other.plugin = >=1.2.0
 
 - `tesmio_api_min` / `tesmio_api_max`: wenn angegeben, muss API 4 im Bereich liegen.
 - `user_overlay = 1`: Die DLL legt `user_config\<target>.ini` selbst über ihre INI. RMM stellt dann die Original-INI unverändert bereit und schreibt persönliche Werte nur nach `user_config`.
+- `replaced_by_sml = deposits`: Dein Plugin macht dasselbe wie eine der vier Fähigkeiten, die Soviet Mod Loader eingebaut mitbringt (`resources`, `deposits`, `needs`, `buildings`), und tritt beim Spielstart zur Seite, solange SML läuft. RMM zeigt den Eintrag dann mit orangem Punkt statt grau und schreibt in die Karte „Hinweise“, wer gerade zuständig ist. Ein anderer Wert als die vier weist das Paket ab. Dein Plugin muss selbst zur Seite treten — der Schlüssel beschreibt nur, was es tut.
 - `local_copy = 1`: Die Karte „Hinweise“ bietet bei Paketen unter der Workshop Bridge den Schalter „Dateien nur lokal“ an. RMM kopiert DLL, INI und den Ordner aus `[assets] dir` nach `plugins\` (den Ordner unter seinem eigenen Namen, `plugins\my_plugin\...`). Im Assets-Ordner sind keine `.dll`- oder `.exe`-Dateien erlaubt, höchstens 512 Dateien zu je 64 MB, keine Reparse-Punkte.
 - `[dependencies]`: `mod.id = <Bedingung>` mit `>=`, `>`, `=`, `<=`, `<`, einer bloßen Version (mindestens) oder `*`. Wird gegen die Pakete im Workshop-Ordner aufgelöst; ein klassisch installiertes Plugin `plugins\<name>.dll` zählt auch, wenn `<name>` der letzte Teil der Kennung ist (Version ungeprüft). Ein Hook-Paket in der Bridge-Liste gilt als erfüllt. Nicht erfüllte Abhängigkeiten verhindern die Bereitstellung.
 - `[content]` ohne `[hooks] dll` ist ein reines Inhaltspaket: wird gelistet, nie bereitgestellt, nur der Soviet Mod Loader wendet es an.
@@ -515,6 +517,30 @@ required_notice_key = re.textpack.required   ; Text der roten Box (required_noti
 ```
 
 Der Reiter zeigt die Rückfallsprache, die Sprachdateien (mit „+“ aus den Spielsprachen), je eigenem Eintrag Name und Beschreibung sowie weitere Schlüssel mit einem Papierkorb, der einen Schlüssel aus allen Sprachdateien entfernt.
+
+### 6.7 Reiter für erzeugte Workshop-Ordner
+
+```ini
+[tab:sml]
+label = SML buildings
+label_key = bp.tab.sml
+order = 30
+
+[wip_buildings]
+tab = sml
+range = sml                  ; sml = von einem anderen Generator erzeugt (auch der Bereich 9100000000..9199999999)
+                             ; own = die Ordner mit dem Stempel des eigenen Plugins
+                             ; all = jeder Ordner unter media_soviet\workshop_wip
+label_key = bp.wip
+description_key = bp.wip.description
+empty_key = bp.wip.empty     ; Text, wenn kein Ordner passt
+```
+
+Der Reiter liest `media_soviet\workshop_wip` und zeigt je Ordner Name (aus `$ITEM_NAME`, sonst aus `$NAME_STR` der building.ini), Nummer, Objektordner und Herkunft. Die Herkunft steht im `tesmioloader.stamp`: Buildings Plus, der Gebäude-Teil des TesmioLoaders (den Soviet Mod Loader mitbringt), oder kein Stempel — dann stammt der Ordner aus dem Spiel-Editor.
+
+Gemeldet wird von selbst: ein Ordner mit `$OWNER_ID 0` (der Knopf trägt die Steam-ID nach, und **nur** diese Zahl) und ein Ordner, den kein Paket mehr erklärt (Soviet Mod Loader beendet deswegen das Spiel beim Start). Der Stempel wird nie angefasst.
+
+Über „Ändern…" bearbeitet der Spieler die erzeugte `building.ini`. Gespeichert werden **Änderungen**, nicht die Datei: je Gebäude liegen in `user_config\.autoload\wip\` ein Beleg `<id>.receipt.ini` mit `replace = alte Zeile | neue Zeile`, `remove = Zeile` und `add = Zeile` sowie `<id>.baseline.ini`, die wörtliche Fassung des Generators. Schreibt der Generator neu (der Hash im `tesmioloader.stamp` ändert sich), wird dessen frische Ausgabe die neue Grundlage und die Änderungen werden erneut angewandt — was das Paket verbessert hat, bleibt dabei erhalten. Ein Anker, der keine oder mehr als eine Zeile trifft, wird gemeldet und ausgelassen. Ein Schema braucht dafür nichts weiter als `[wip_buildings]`.
 
 ---
 

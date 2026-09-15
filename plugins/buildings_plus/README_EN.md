@@ -1,4 +1,4 @@
-# 🏭 Buildings Plus 0.1.3
+# 🏭 Buildings Plus 0.1.8
 
 **TesmioLoader plugin for new buildings from a configuration file**
 
@@ -103,7 +103,7 @@ runs the same under SML and under Republic Mod Manager.
 
 The package ships an editor schema in the `config` folder. Republic Mod Manager shows Buildings Plus in two tabs, German and English:
 
-- **General:** notes, guides and the switches Detailed log, Clean up (prune) and Always rewrite (always)
+- **General:** notes, guides and the switches Fill in the owner id, Clean up (prune), Always rewrite (always) and Detailed log
 - **Buildings:** the sections on the left, the selected building on the right with its switch, Workshop id, donor, object name, name, description, life, the building.ini lines and the donor lines to remove. The plus button asks for donor and Workshop id; the id may stay empty.
 
 Personal buildings live in `user_config\buildings_plus.editor.ini`, the effective file is `plugins\buildings_plus.ini`; the INI in the package stays untouched.
@@ -132,6 +132,8 @@ prune = 0
 always = 0
 ; 1 logs every copied file and every removed donor line
 verbose = 0
+; 1 also fills the Steam id into generated folders of other generators
+repair_owner_ids = 1
 ```
 
 ### Buildings: one section per building
@@ -156,7 +158,35 @@ line = $STORAGE_EXPORT RESOURCE_TRANSPORT_OPEN 20
 strip = $WORKERS_NEEDED
 ```
 
+**Entries that span several lines.** Some building.ini tokens carry their values in the lines below them — a connection its points, a goods display its placement. A `line` without a `$TOKEN` belongs to the line above it, exactly as in the game's own file:
+
+```ini
+line = $CONNECTION_WATERPIPE_INPUT
+line = -92.5 -3.2 5.0
+line = -91.5 -3.2 5.0
+line = $RESOURCE_VISUALIZATION 0
+line = position 15.2912 0.0 -51.6213
+line = rotation 0.0
+line = scale 1 1 1
+line = numstepx 3.0 12
+line = numstept 4.0 3
+```
+
+The first `line` of a section has to carry a `$TOKEN` — otherwise it would have nothing to belong to, and a typo there would quietly turn into a data line.
+
 The donor sets the shape: a mine wants a mine as donor (conveyor, animation), a factory a factory, a shop a shop. `life` (default 3000) is the LIFE value in renderconfig.ini.
+
+**A Workshop building as the donor.** Instead of a base-game name you may point at a building of a Workshop item you are subscribed to:
+
+```ini
+donor = 1872558150\gravelmine
+```
+
+The item id on the left, the building's folder inside that item on the right — the spelling Vanilla Buildings uses for its target files. The item is looked for in the game's Workshop folder and in `media_soviet\workshop_wip`, so a building of your own that is not published yet works as well.
+
+What happens: the chosen folder is copied, together with every loose file of the item and every subfolder that holds no building of its own — asset folders are called `mtl`, `Textures` or `materials` depending on who built them, so what counts is what is in a folder, never its name. The other buildings of a multi-building item stay behind: one section is one building. The donor's `workshopconfig.ini` is not taken over; your clone gets one of its own that lists your building alone. The donor's `renderconfig.ini` stays, because it knows the donor's own file names.
+
+Two things to keep in mind: you have to be subscribed to the item, or the section is skipped with an error line — and nothing of it ships with this plugin, the copy is made on your own machine. If you want to publish the result on the Workshop yourself, you need the original author's permission.
 
 **Workshop id:** just leave `id` out. At game start the plugin looks for the highest number between 9300000000 and 9399999999 (in the catalog, in the INI and among the folders under workshop_wip, foreign ones included) and assigns the next one. The number then lives in `plugins\buildings_plus.ids.ini` under the section name and stays there for good, because saved games know the building by its folder `workshop_wip\<number>`. A renamed section is a new building with a new number; a deleted section does not free its number. An explicit `id` (9000000000 to 9999999999) still works and wins. Keep the catalog file together with your saved games; profiles in Republic Mod Manager include it.
 
@@ -194,10 +224,11 @@ The donor's building.ini is taken over line by line. A donor line is dropped onl
 
 | Quantity | Limit |
 |---|---|
-| `enabled`, `prune`, `always`, `verbose` | exactly 0 or 1 |
+| `enabled`, `prune`, `always`, `verbose`, `repair_owner_ids` | exactly 0 or 1 |
 | building sections | at most 256 |
 | `id` | optional; number from 9000000000 to 9999999999, unique in the file; assigned from 9300000000 when absent |
-| `donor`, `object`, section name | letters, digits, `_` and `-`, at most 64 characters |
+| `object`, section name | letters, digits, `_` and `-`, at most 64 characters |
+| `donor` | a base-game name like `object`; a Workshop donor `<item id>\<folder>`, at most 96 characters per part, no `..` |
 | `name` | at most 128 characters, no quotes; with dots it is a translation key |
 | `desc` | at most 4096 characters, no quotes |
 | `life` | 1 to 1000000 |
@@ -214,6 +245,7 @@ A section with an error is skipped and named in the log; the other sections cont
 - Writing happens only under `media_soviet\workshop_wip`; no game file is modified, Steam's verification stays happy.
 - Every generated folder carries `tesmioloader.stamp`. A folder without that stamp is never touched, even with the same id; the section is refused.
 - `prune` deletes only folders with this plugin's stamp, never subscriptions and never folders of another generator.
+- In a folder of another generator at most a missing `$OWNER_ID` is filled in - one number, not a single byte more. The stamp is left alone: Soviet Mod Loader closes the game when a folder in its id range carries none.
 - Ids below 9000000000 are refused, so no real Steam number can be hit.
 - Automatically assigned numbers are kept in `plugins\buildings_plus.ids.ini` and are never handed out a second time, not even after a section is deleted.
 - Files are written under a temporary name first and then moved into place; a crash leaves no half-written building.ini.
@@ -226,6 +258,10 @@ A section with an error is skipped and named in the log; the other sections cont
 ### Saved games
 Generated buildings are Workshop items with a fixed id. A saved game containing one needs the folder when loading; remove sections only when no saved game uses the building any more.
 
+The plugin writes your **Steam id** into the `workshopconfig.ini` - the id of the player whose machine the building is generated on. When a saved game is loaded the game checks who owns the Workshop items it uses; with a zero in there it reports "the Workshop items used in this saved game were not found". The save still loads, but the message comes back every time. The number is read from the registry of the signed-in Steam account, otherwise from the `loginusers.vdf` of your Steam installation; if neither answers the zero stays and the next start with Steam signed in fills it in. None of this travels with the package - every copy carries the id of whoever generated it.
+
+**Buildings of other generators too.** Soviet Mod Loader brings its own buildings component and always writes `$OWNER_ID 0`, so the message hits everyone who builds a building from a content package, and there is hardly a way to get rid of it by hand. With `repair_owner_ids = 1` (the default) Buildings Plus also looks into generated folders it did not write itself and fills in **only the missing number**; every other byte of the file stays as it was, line endings included. All four conditions have to hold: the folder name is a generated id (9000000000 to 9999999999), the folder carries a `tesmioloader.stamp`, the file names no owner at all, and your own id could be determined. A folder that already names somebody is never touched, and neither is the stamp. The timing fits: SML generates during its start-up phase, Buildings Plus runs after it - a folder just rewritten is put right in the same launch.
+
 ### Soviet Mod Loader
 A mod with `[content] buildings = tesmio\buildings.ini` in its soviet.mod.ini runs under SML with its own generator and under Republic Mod Manager with Buildings Plus. The section format is the same.
 
@@ -233,6 +269,11 @@ A mod with `[content] buildings = tesmio\buildings.ini` in its soviet.mod.ini ru
 Resources in `$PRODUCTION`, `$CONSUMPTION` and `$STORAGE_*` must exist in the game (base game or the Resources plugin). Deposits for mines come from Deposits Plus. Vanilla Buildings changes existing buildings, Buildings Plus adds new ones.
 
 ### Version compatibility
+- **0.1.8:** the missing Steam id is filled into generated folders of other generators as well — Soviet Mod Loader always leaves a zero there; switch `repair_owner_ids`, on by default
+- **0.1.7:** the generated `workshopconfig.ini` carries the Steam id of the player who generated it — without it the game reports "the Workshop items used in this saved game were not found" on every load
+- **0.1.6:** a `line` without a `$TOKEN` belongs to the line above it — connections, goods displays and everything else that needs data lines can now be declared
+- **0.1.5:** ids between 9100000000 and 9199999999 are refused — Soviet Mod Loader reserves that range for its own buildings, and a foreign folder in it stops the game from starting
+- **0.1.4:** `donor` may be a building of a subscribed Workshop item, written `<item id>\<folder>`; the clone is made on your own machine
 - **0.1.3:** `name` may be a translation key; the name is then written as `$NAME` with the resolved id and the caption comes from the Localization pack
 - **0.1.2:** first published version
 
@@ -345,5 +386,5 @@ A: With `prune = 1` the generated folder disappears at the next start; otherwise
 
 ---
 
-**Last update:** Buildings Plus 0.1.3  
+**Last update:** Buildings Plus 0.1.8  
 **For:** WRSR 1.1.1.9 | TesmioLoader API 4

@@ -79,12 +79,16 @@ namespace TesmioAutoload
             {
                 string root = System.IO.Path.GetFullPath(build), dll = SafeFiles.Child(root, "plugins\\"+sourcePlugin+".dll"), ini = SafeFiles.Child(root, "plugins\\"+sourcePlugin+".ini");
                 result.Path = ini;
-                if (!File.Exists(dll)) { result.Problem = "Benoetigte lokale Datei fehlt: plugins\\"+sourcePlugin+".dll"; return result; }
+                // 0.5.2: Soviet Mod Loader carries resources, deposits, needs and buildings inside
+                // itself. There is no DLL of their own then, and their own key in tesmioloader.ini
+                // is off on purpose - the generated INI in plugins\ is still the list that counts.
+                bool sml = Sml.Hosts(root, sourcePlugin);
+                if (!sml && !File.Exists(dll)) { result.Problem = "Benoetigte lokale Datei fehlt: plugins\\"+sourcePlugin+".dll"; return result; }
                 if (!File.Exists(ini)) { result.Problem = "Benoetigte lokale Datei fehlt: plugins\\"+sourcePlugin+".ini"; return result; }
                 byte[] bytes = SafeFiles.Read(ini, 4 * 1024 * 1024); string text = SafeFiles.Decode(bytes);
                 result = Parse(text, ini, sourceSection, readySection, readyKey, readyValue); result.Hash = SafeFiles.Hash(bytes);
                 string loader = SafeFiles.Child(root, "tesmioloader.ini");
-                if (result.Ready && File.Exists(loader) && new Ini(SafeFiles.Text(loader)).Get("plugins", sourcePlugin, "1") == "0")
+                if (result.Ready && !sml && File.Exists(loader) && new Ini(SafeFiles.Text(loader)).Get("plugins", sourcePlugin, "1") == "0")
                     result.Problem = sourcePlugin+" ist im vorhandenen TesmioLauncher deaktiviert.";
             }
             catch (Exception e) { result.Problem = "Quellkatalog konnte nicht sicher gelesen werden: " + e.Message; }

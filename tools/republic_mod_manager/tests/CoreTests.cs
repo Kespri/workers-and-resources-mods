@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using TesmioAutoload;
 
 static class CoreTests
@@ -9,6 +10,7 @@ static class CoreTests
     static int passed,failed;
     static void Test(string name,Action action){try{action();passed++;Console.WriteLine("PASS "+name);}catch(Exception e){failed++;Console.WriteLine("FAIL "+name+": "+e);}}
     static void Check(bool value){if(!value)throw new Exception("Assertion failed");}
+    static void Check(bool value,string what){if(!value)throw new Exception("Assertion failed: "+what);}
     static void Reject(Action action){bool rejected=false;try{action();}catch(Exception){rejected=true;}Check(rejected);}
     static void Write(string path,string text){Directory.CreateDirectory(Path.GetDirectoryName(path));File.WriteAllText(path,text,SafeFiles.Utf8);}
     static string MakeBuild(string root,string name){string path=Path.Combine(root,name);Directory.CreateDirectory(Path.Combine(path,"plugins"));return path;}
@@ -443,6 +445,100 @@ string b3=MakeBuild(root,"bridge-build-3");File.WriteAllBytes(Path.Combine(b3,"p
         // machine looks like and never throw; a missing or foreign entry is Unknown,
         // which never blocks a launch.
         Test("the Steam session check answers without throwing",()=>{var state=SteamSession.Check();Check(state==SteamSession.State.Ready||state==SteamSession.State.LoggedOut||state==SteamSession.State.Unknown);});
+        // 0.4.91: a warning must be able to say what it found, and only a warning may have a reason -
+        // "I could not look" is Unknown and never blocks a game start.
+        Test("the Steam session check names its reason and its evidence",()=>{
+            string reason;var state=SteamSession.Check(out reason);
+            Check(state==SteamSession.State.LoggedOut?reason.Length>0:reason.Length==0);
+            if(reason.Length>0)Check(reason=="steam_reason_user"||reason=="steam_reason_pid"||reason=="steam_reason_gone");
+            string evidence=SteamSession.Evidence();Check(evidence.Length>0&&evidence.Contains("ActiveUser="));});
+        // 0.4.92: the launch watch. Only "was there and is gone again" is worth a word; a game
+        // that never shows up looks exactly like a slow disk, and one that stays is the normal case.
+        Test("the launch watch only complains when the game disappears again",()=>{
+            var died=new LaunchWatch(15);died.Tick(true,0.5);died.Tick(true,1.0);died.Tick(false,1.5);
+            Check(died.Finished&&died.Died);
+            var alive=new LaunchWatch(15);for(double t=0.5;t<=15.0;t+=0.5)alive.Tick(true,t);
+            Check(alive.Finished&&!alive.Died);
+            var never=new LaunchWatch(15);for(double t=0.5;t<=15.0;t+=0.5)never.Tick(false,t);
+            Check(never.Finished&&!never.Died);
+            var slow=new LaunchWatch(15);slow.Tick(false,0.5);slow.Tick(false,3.0);slow.Tick(true,4.0);
+            Check(!slow.Finished&&!slow.Died);
+            var settled=new LaunchWatch(15);settled.Tick(true,16.0);settled.Tick(false,16.5);
+            Check(settled.Finished&&!settled.Died);});
+        // 0.5.6: and only when it quits IMMEDIATELY. Both numbers are measured on the real
+        // machine: the Steam failure lived 1.3 s, the user closing it on purpose 10.1 s.
+        Test("a game the player closes himself is no longer reported as a failed start (0.5.6)",()=>{
+            var steam=new LaunchWatch(15);
+            for(double t=0.5;t<=1.5;t+=0.5)steam.Tick(true,t);
+            steam.Tick(false,2.0);
+            Check(steam.Finished&&steam.Died&&steam.Lived<2.0,"1.3 s is the Steam case and still warns");
+            var byHand=new LaunchWatch(15);
+            for(double t=0.5;t<=10.0;t+=0.5)byHand.Tick(true,t);
+            byHand.Tick(false,10.5);
+            Check(byHand.Finished&&!byHand.Died&&byHand.Lived>=10.0,"10.1 s is a person, and RMM says nothing");
+            // Right on the line counts as the player, not as a fault.
+            var edge=new LaunchWatch(15,5.0);edge.Tick(true,1.0);edge.Tick(false,6.0);
+            Check(edge.Finished&&!edge.Died);});
+        // 0.4.94: the reset. Level one must never reach anything the game reads; level two takes
+        // back exactly what the receipts claim and names the saved games it costs.
+        Test("the reset plans two levels and names the saved games it costs",()=>{
+            string home=Path.Combine(root,"reset-plan"),build=Path.Combine(home,"tesmioloader","build");
+            Directory.CreateDirectory(Path.Combine(build,"plugins"));
+            Directory.CreateDirectory(Path.Combine(build,"user_config",".autoload","profiles","A_1234"));
+            Directory.CreateDirectory(Path.Combine(build,"user_config",".autoload","backups","demo"));
+            Directory.CreateDirectory(Path.Combine(build,"user_config",".autoload","content","tesmio.salt"));
+            Directory.CreateDirectory(Path.Combine(build,"vfs","media_soviet","resources"));
+            File.WriteAllText(Path.Combine(build,"tesmioloader.ini"),"[plugins]\r\nresources = 1\r\ndemo_plugin = 1\r\nkeyed = 1\r\nother = 1\r\n");
+            File.WriteAllText(Path.Combine(build,"user_config","workshop_bridge.ini"),"; keep me\r\n[bridge]\r\nworkshop_root = auto\r\n[packages]\r\n3799 = 1\r\n");
+            File.WriteAllText(Path.Combine(build,"user_config","demo_plugin.ini"),"[demo]\r\nvalue = 2\r\n");
+            File.WriteAllText(Path.Combine(build,"plugins","demo_plugin.ini"),"[demo]\r\nvalue = 2\r\n");
+            File.WriteAllText(Path.Combine(build,"user_config",".autoload","demo_plugin.receipt.ini"),"[state]\r\nid = tesmio.demo_plugin\r\nversion = 1.0\r\nmode = bridge\r\nlocal_copy = 0\r\n");
+            File.WriteAllText(Path.Combine(build,"user_config",".autoload","demo_plugin.upstream.ini"),"[demo]\r\nvalue = 1\r\n");
+            File.WriteAllText(Path.Combine(build,"vfs","media_soviet","resources","rocksalt.png"),"x");
+            File.WriteAllText(Path.Combine(build,"user_config",".autoload","content","tesmio.salt","receipt.ini"),
+                "[content]\r\nid = tesmio.salt\r\nname = Salt\r\nprovided = 1\r\n[assets]\r\n0 = media_soviet\\resources\\rocksalt.png\r\n[added]\r\nresources = rocksalt | road_salt\r\n");
+            // 0.4.99: a keyed editor writes "<plugin>.editor.receipt.ini" for "<plugin>.editor.ini".
+            // The plugin behind it owns the loader entry and the upstream copy - both were missed.
+            File.WriteAllText(Path.Combine(build,"user_config",".autoload","keyed.editor.receipt.ini"),"[state]\r\nid = tesmio.keyed\r\nversion = 1.0\r\nmode = bridge\r\nlocal_copy = 0\r\n");
+            File.WriteAllText(Path.Combine(build,"user_config",".autoload","keyed.upstream.ini"),"[keyed]\r\nvalue = original\r\n");
+            File.WriteAllText(Path.Combine(build,"user_config","keyed.editor.ini"),"[keyed]\r\nvalue = mine\r\n");
+            File.WriteAllText(Path.Combine(build,"plugins","keyed.ini"),"[keyed]\r\nvalue = mine\r\n");
+            var save=new SaveGame{Name="Ostrava"}; save.Resources.Add("rocksalt");
+            var other=new SaveGame{Name="Kladno"}; other.Resources.Add("steel");
+            var saves=new List<SaveGame>{save,other};
+
+            ResetPlan data=ResetTool.Plan(build,null,saves,false);
+            Check(data.Folders.Count==2&&data.Files.Count==0&&data.Edited.Count==0&&data.Restored.Count==0&&data.Saves.Count==0);
+
+            ResetPlan all=ResetTool.Plan(build,null,saves,true);
+            Check(all.Folders.Count==1&&all.Folders[0]=="user_config\\.autoload");
+            Check(all.Files.Contains("user_config\\demo_plugin.ini")&&all.Files.Contains("vfs\\media_soviet\\resources\\rocksalt.png"));
+            Check(all.Restored.Contains("plugins\\demo_plugin.ini"));
+            // the keyed editor: overlay by its own name, plugin INI and loader key by the name without ".editor"
+            Check(all.Files.Contains("user_config\\keyed.editor.ini")&&all.Restored.Contains("plugins\\keyed.ini")&&all.Targets.Contains("keyed"));
+            Check(all.Ids.Contains("rocksalt")&&all.Ids.Contains("road_salt"));
+            Check(all.Saves.Count==1&&all.Saves[0]=="Ostrava");
+            Check(all.Edited.Contains("tesmioloader.ini")&&all.Edited.Contains("user_config\\workshop_bridge.ini"));
+
+            string report=ResetTool.Apply(build,all,null);
+            Check(report.Contains("backup = ")&&Directory.Exists(Path.Combine(home,"tesmioloader","rmm_reset_backup")));
+            Check(!File.Exists(Path.Combine(build,"user_config","demo_plugin.ini"))&&!File.Exists(Path.Combine(build,"vfs","media_soviet","resources","rocksalt.png")));
+            Check(File.ReadAllText(Path.Combine(build,"plugins","demo_plugin.ini")).Contains("value = 1"));
+            Check(!Directory.Exists(Path.Combine(build,"user_config",".autoload")));
+            string loader=File.ReadAllText(Path.Combine(build,"tesmioloader.ini"));
+            Check(loader.Contains("resources = 1")&&loader.Contains("other = 1")&&!loader.Contains("demo_plugin")&&!loader.Contains("keyed"));
+            Check(File.ReadAllText(Path.Combine(build,"plugins","keyed.ini")).Contains("value = original")&&!File.Exists(Path.Combine(build,"user_config","keyed.editor.ini")));
+            string bridge=File.ReadAllText(Path.Combine(build,"user_config","workshop_bridge.ini"));
+            Check(bridge.Contains("; keep me")&&bridge.Contains("workshop_root = auto")&&!bridge.Contains("3799"));
+            // 0.5.0: a second run has nothing left to say - the state folder is gone, the bridge
+            // list is empty and no loader entry belongs to RMM any more.
+            ResetPlan again=ResetTool.Plan(build,null,saves,true);
+            Check(again.Count==0&&again.Folders.Count==0&&again.Edited.Count==0);});
+        Test("the reset never strips a section it was not asked for",()=>{
+            string text="[plugins]\r\na = 1\r\nb = 0\r\n\r\n[other]\r\na = 1\r\n";
+            string stripped=ResetTool.Strip(text,"plugins",new List<string>{"tesmio.a"});
+            Check(!stripped.Contains("a = 1\r\nb")&&stripped.Contains("b = 0")&&stripped.Contains("[other]\r\na = 1"));
+            Check(ResetTool.Strip(text,"plugins",null).Contains("[plugins]")&&!ResetTool.Strip(text,"plugins",null).Contains("b = 0"));});
         Test("empty INI values are accepted and lenient text fields keep them",()=>{var blank=new Ini("[railspeed]\nspeed = 330\nspeed_concrete =\nspeed_121 =   ; (stock 121)\n");Check(blank.Get("railspeed","speed_concrete")==""&&blank.Get("railspeed","speed")=="330"&&blank.Get("railspeed","speed_121")=="; (stock 121)");bool emptyKeyRefused=false;try{new Ini("[a]\n = 1\n");}catch(FormatException){emptyKeyRefused=true;}Check(emptyKeyRefused);var lenientText=new Field{Section="railspeed",Key="speed_concrete",Label="Concrete",Type="text",Lenient=true};Check(lenientText.Normalize("")=="");bool strictRefused=false;try{new Field{Section="a",Key="b",Label="B",Type="text"}.Normalize("");}catch(FormatException){strictRefused=true;}Check(strictRefused);});
         Test("log lines are classified and attributed to their subject",()=>{Check(GameLogs.Classify("[19:58:53.317] vehicle_materials  INFO: - [status] Initialization was skipped because the plugin is disabled after 0 ms; 0 warning(s), 0 error(s), 0 fatal error(s)")==GameLogs.Kind.Plain);Check(GameLogs.Classify("[19:43:46.115] hook ok      C3DLog_PrintError      orig=00007FF8A7A5C8E0")==GameLogs.Kind.Plain);Check(GameLogs.Classify("[20:41:46.323] bridge   fixture_vehicle_materials   vehicle_materials.dll declined to install (1)")==GameLogs.Kind.Warning);Check(GameLogs.Classify("[19:43:46.914] game.ERROR setfocus")==GameLogs.Kind.Problem);
             // 0.4.78: the printed level decides; counters of zero never raise an INFO line, counters above zero do.
@@ -552,7 +648,7 @@ string b3=MakeBuild(root,"bridge-build-3");File.WriteAllBytes(Path.Combine(b3,"p
             Action<int,bool> C=(n,ok)=>{if(!ok)throw new Exception("content check "+n+" failed");};
             string pkg=Path.Combine(root,"content","salt_pack");
             Write(Path.Combine(pkg,"soviet.mod.ini"),"[mod]\nid=example.salt\nname=Salt Pack\nversion=1.0\nenabled=1\n[content]\nresources=tesmio\\resources.ini\ndeposits=tesmio\\deposits.ini\nbuildings=tesmio\\buildings.ini\nassets=assets\n");
-            Write(Path.Combine(pkg,"tesmio","resources.ini"),"[list]\nraw_salt = rawgravel, Raw Salt\nsand = bauxite, Sand\n\n[custom:raw_salt]\ncargo = bulk\nkind = 0\ntransport = gravel\n\n[custom:sand]\ncargo = none\n");
+            Write(Path.Combine(pkg,"tesmio","resources.ini"),"[list]\nraw_salt = rawgravel, Raw Salt\n\n[custom:raw_salt]\ncargo = bulk\nkind = 0\ntransport = gravel\n");
             Write(Path.Combine(pkg,"tesmio","deposits.ini"),"[rocksalt]\ntoken = $TYPE_MINE_ROCKSALT\ntype = 10\nmap = resourcemap2\ncomponent = 2\nradius = ore\nicon = raw_salt\nminimap = 1\neditor = salt\n");
             Write(Path.Combine(pkg,"tesmio","buildings.ini"),"; salt buildings\n[salt_mine]\ndonor = bauxite_mine\nname = Salt Mine\nline = $TYPE_MINE_ROCKSALT\nline = $PRODUCTION raw_salt 3.0\n");
             Write(Path.Combine(pkg,"assets","media_soviet","resources","raw_salt.png"),"png");
@@ -571,11 +667,11 @@ string b3=MakeBuild(root,"bridge-build-3");File.WriteAllBytes(Path.Combine(b3,"p
             C(2,!content.Provided&&!content.NeedsWrite&&content.Targets["resources"]=="resources"&&content.Targets["deposits"]=="deposits"&&content.Targets["buildings"]=="buildings_plus"&&content.Notes.Count==0);
             content.PendingOn=true;C(3,content.NeedsWrite);content.Commit(NoGame,sessions);
             C(4,content.Provided&&!content.NeedsWrite&&File.Exists(Path.Combine(content.StateDir,"resources.ini"))&&File.Exists(png)&&ContentSession.IsProvided(build,"example.salt"));
-            string resText=SafeFiles.Text(resIni);C(5,resText.Contains("raw_salt = rawgravel, Raw Salt")&&resText.Contains("[custom:raw_salt]")&&!resText.Contains("[custom:sand]")&&content.Skipped["resources"].SequenceEqual(new[]{"sand"}));
+            string resText=SafeFiles.Text(resIni);C(5,resText.Contains("raw_salt = rawgravel, Raw Salt")&&resText.Contains("[custom:raw_salt]")&&!content.Skipped.ContainsKey("resources"));
             var dep=new LooseIni(SafeFiles.Text(depIni));C(6,dep.HasSection("rocksalt")&&dep.Get("rocksalt","type")=="12"&&dep.Get("rocksalt","map")=="auto"&&dep.Get("rocksalt","component")==null&&dep.Get("copper","type")=="10");
             var bp=new LooseIni(SafeFiles.Text(bpIni));C(7,bp.HasSection("salt_mine")&&bp.GetAll("salt_mine","line").SequenceEqual(new[]{"$TYPE_MINE_ROCKSALT","$PRODUCTION raw_salt 3.0"})&&bp.Get("buildings_plus","enabled")=="1");
             // The editors show the entries as originals, and their own save keeps them out of the base.
-            var res=new LocalResourceSession(resourceSpec,build);C(8,res.Items().Any(x=>x.Id=="raw_salt"&&!x.Owned)&&res.Content.Count==1&&res.Content[0].Added.SequenceEqual(new[]{"raw_salt"})&&res.Content[0].Skipped.SequenceEqual(new[]{"sand"}));
+            var res=new LocalResourceSession(resourceSpec,build);C(8,res.Items().Any(x=>x.Id=="raw_salt"&&!x.Owned)&&res.Content.Count==1&&res.Content[0].Added.SequenceEqual(new[]{"raw_salt"})&&res.Content[0].Skipped.Count==0);
             res.Add("glass","aluminium","Glass","covered");res.Commit(NoGame);
             resText=SafeFiles.Text(resIni);C(9,resText.Contains("raw_salt = rawgravel")&&resText.Contains("glass = aluminium, Glass")&&!SafeFiles.Text(res.UpstreamFile).Contains("raw_salt"));
             // A hand edit of the effective INI does not turn the package's entries into base entries.
@@ -598,6 +694,28 @@ string b3=MakeBuild(root,"bridge-build-3");File.WriteAllBytes(Path.Combine(b3,"p
             File.Delete(own);
             // A package without any target plugin says so and provides only its files.
             string bare=MakeBuild(root,"content-bare");var lonely=new ContentSession(cp,bare);C(18,lonely.Notes.Count==3&&lonely.Targets.Values.All(x=>x.Length==0));lonely.PendingOn=true;lonely.Commit(NoGame,sessions);C(19,lonely.Provided&&File.Exists(Path.Combine(LocalEditorSpec.VfsRoot(bare),"media_soviet","resources","raw_salt.png")));
+            // 0.4.87: an id somebody already has blocks the whole package - nothing is written and
+            // no file lands in the vfs, so the player's own entry cannot be pushed aside quietly.
+            string clashPkg=Path.Combine(root,"content","clash_pack");
+            Write(Path.Combine(clashPkg,"soviet.mod.ini"),"[mod]\nid=example.clash\nname=Clash Pack\nversion=1.0\nenabled=1\n[content]\nresources=tesmio\\resources.ini\nassets=assets\n");
+            Write(Path.Combine(clashPkg,"tesmio","resources.ini"),"[list]\nglass = steel, Glass Clash\nbrandnew = steel, Brand New\n\n[custom:brandnew]\ncargo = bulk\n");
+            Write(Path.Combine(clashPkg,"assets","media_soviet","resources","brandnew.png"),"png");
+            var clash=new ContentSession(Package.Load(clashPkg),build);
+            var found=clash.Conflicts(sessions);
+            C(20,found.ContainsKey("resources")&&found["resources"].SequenceEqual(new[]{"glass"}));
+            clash.PendingOn=true;
+            string reason="";try{clash.Commit(NoGame,sessions);}catch(RuleException e){reason=e.TranslationKey;}
+            string afterClash=SafeFiles.Text(resIni);
+            C(21,reason=="content_conflict"&&!clash.Provided&&!afterClash.Contains("brandnew")
+                &&!File.Exists(Path.Combine(LocalEditorSpec.VfsRoot(build),"media_soviet","resources","brandnew.png"))
+                &&!File.Exists(Path.Combine(clash.StateDir,"resources.ini")));
+            // Once the entry in the way is gone, the same package goes in.
+            var freed=new LocalResourceSession(resourceSpec,build);freed.Remove("glass");freed.Commit(NoGame);
+            var retry=new ContentSession(Package.Load(clashPkg),build);
+            C(22,retry.Conflicts(sessions).Count==0);
+            retry.PendingOn=true;retry.Commit(NoGame,sessions);
+            C(23,retry.Provided&&SafeFiles.Text(resIni).Contains("brandnew = steel, Brand New"));
+            retry.PendingOn=false;retry.Commit(NoGame,sessions);
         });
 
         // 0.4.80: the Buildings Plus comfort round - donor picker, donor lines, assigned id.
@@ -630,9 +748,18 @@ string b3=MakeBuild(root,"bridge-build-3");File.WriteAllBytes(Path.Combine(b3,"p
             // assigned_from: the catalog of the plugin, read by the entry's id.
             Write(Path.Combine(build,"plugins","buildings_plus.ids.ini"),"[ids]\nsalt_mine = 9300000001\n");
             Check(new LooseIni(SafeFiles.Text(spec.ResolvePath(bid.AssignedFrom,build))).Get(bid.AssignedSection,"salt_mine")=="9300000001");
+            // 0.4.86: one building of a Workshop item as the donor, written <item>\<object>.
+            // Searched in the Steam Workshop folder and in media_soviet\workshop_wip - the
+            // fake game has no Steam library above it, so the second place is what answers.
+            Write(Path.Combine(game,"media_soviet","workshop_wip","mod_item","house_a","building.ini"),"$NAME 6161\n$TYPE_LIVING\n");
+            Write(Path.Combine(game,"media_soviet","workshop_wip","mod_item","house_b","building.ini"),"$NAME 6162\n$TYPE_LIVING\n");
+            Check(GameBuildings.DonorFile(build,"mod_item\\house_a")!=null&&GameBuildings.DonorFile(build,"mod_item/house_a")!=null);
+            Check(GameBuildings.DonorFile(build,"mod_item\\house_x")==null&&GameBuildings.DonorFile(build,"mod_item\\..\\..\\secret")==null&&GameBuildings.DonorFile(build,"mod_item\\a\\b")==null);
+            var donorSets=new ReferenceSets(build,null,"en");
+            Check(donorSets.Contains("game_donor","mod_item\\house_b")&&!donorSets.Contains("game_donor","mod_item\\house_c"));
             // Bad schema values are refused.
             string bad=Path.Combine(root,"donor-bad","bad.launcher.ini");string text=SafeFiles.Text(schema);
-            Write(bad,text.Replace("type = text\r\nmaximum_length = 64\r\npicker = game_donor","type = lines\r\nmaximum_length = 64\r\npicker = game_donor").Replace("type = text\nmaximum_length = 64\npicker = game_donor","type = lines\nmaximum_length = 64\npicker = game_donor"));Check(!SafeFiles.Text(bad).Contains("type = text\r\nmaximum_length = 64\r\npicker = game_donor")&&!SafeFiles.Text(bad).Contains("type = text\nmaximum_length = 64\npicker = game_donor"));Reject(()=>LocalEditorSpec.Load(bad));
+            Write(bad,text.Replace("picker = game_donor","picker = game_buildings"));Check(!SafeFiles.Text(bad).Contains("picker = game_donor"));Reject(()=>LocalEditorSpec.Load(bad));
             Write(bad,text.Replace("assigned_from = build:plugins\\buildings_plus.ids.ini|ids","assigned_from = build:plugins\\buildings_plus.ids.ini"));Reject(()=>LocalEditorSpec.Load(bad));
         });
 
@@ -652,6 +779,371 @@ string b3=MakeBuild(root,"bridge-build-3");File.WriteAllBytes(Path.Combine(b3,"p
             Check(spec.LanguageDirectory=="languages"&&SafeFiles.Text(Path.Combine(folder,"languages","de.ini")).Contains("vb.item_name.empty = leer = Spieleigene ID"));
         });
 
+        // 0.4.88: what a saved game needs, and what the next start will do.
+        Test("saved games are read and the start order is derived (0.4.88)",()=>
+        {
+            string game=Path.Combine(root,"start-game"),build=Path.Combine(game,"tesmioloader","build");
+            Directory.CreateDirectory(Path.Combine(build,"plugins"));
+            Write(Path.Combine(game,"media_soviet","save","1 - Siberia",SaveGames.Manifest),
+                "[tesmioloader]\nversion=1\n[plugins]\nresources=1\nvanilla_buildings=1\n[resources]\ncable=1\nsteel, Cable=1\n[deposits]\nrocksalt=1\n");
+            Write(Path.Combine(game,"media_soviet","save","2 - Empty",SaveGames.Manifest),"[tesmioloader]\nversion=1\n[plugins]\nresources=1\n");
+            Write(Path.Combine(game,"media_soviet","saved_last",SaveGames.Manifest),"[tesmioloader]\nversion=1\n[plugins]\nneeds=1\n[resources]\nglass=1\n");
+            var saves=SaveGames.Scan(build);
+            Check(saves.Count==3&&saves.Any(s=>s.Name=="1 - Siberia"&&s.Plugins.Contains("vanilla_buildings")&&s.Resources.Contains("cable")&&s.Deposits.Contains("rocksalt")));
+            // The broken key of an older loader ("steel, Cable=1") still names the resource in front of the comma.
+            Check(saves.Single(s=>s.Name=="1 - Siberia").Resources.Count(x=>x=="cable")==1);
+            Check(SaveGames.Using(saves,"plugins",new[]{"vanilla_buildings"}).Count==1&&SaveGames.Using(saves,"resources",new[]{"glass"}).Count==1&&SaveGames.Using(saves,"resources",new[]{"nothing"}).Count==0);
+            Check(SaveGames.Names(SaveGames.Using(saves,"plugins",new[]{"resources"}),1,"und {0} weitere").Contains("und 1 weitere"));
+            // Load order: the loader walks [plugins] in file order, the bridge adds its packages by folder name.
+            Write(Path.Combine(build,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\nlocalization=1\nworkshop_bridge=1\nold_thing=0\n");
+            // 0.5.4: a key without a DLL beside it loads nothing and is no longer counted, so the
+            // fixture has to put the two DLLs where the loader would find them.
+            File.WriteAllBytes(Path.Combine(build,"plugins","localization.dll"),simple.Dll);
+            File.WriteAllBytes(Path.Combine(build,"plugins","workshop_bridge.dll"),simple.Dll);
+            Write(Path.Combine(build,"user_config","workshop_bridge.ini"),"[bridge]\nworkshop_root=auto\n[packages]\n3799697088=1\n3799692738=1\n");
+            var lineup=new List<CatalogEntry>{
+                new CatalogEntry{Root=Path.Combine(root,"pk","3799697088"),Name="Vanilla Buildings",Id="tesmio.vanilla_buildings",Target="vanilla_buildings"},
+                new CatalogEntry{Root=Path.Combine(root,"pk","3799692738"),Name="Localization",Id="tesmio.localization",Target="localization"}};
+            lineup[0].Dependencies.Add(new Dependency{Id="tesmio.localization",Found=true,VersionOk=true});
+            var order=Startup.Order(build,lineup);
+            Check(order.Count==4&&order[0].Target=="localization"&&order[1].Target=="workshop_bridge"&&order[2].Key=="3799692738"&&order[3].Key=="3799697088");
+            Check(!order.Any(s=>s.Target=="old_thing"));
+            // Vanilla Buildings needs Localization; through the bridge Localization comes first, so nothing is late.
+            Check(Startup.LateDependencies(order,lineup).Count==0);
+            var swapped=new List<CatalogEntry>{
+                new CatalogEntry{Root=Path.Combine(root,"pk","3799692738"),Name="Localization",Id="tesmio.localization",Target="localization"},
+                new CatalogEntry{Root=Path.Combine(root,"pk","3799697088"),Name="Vanilla Buildings",Id="tesmio.vanilla_buildings",Target="vanilla_buildings"}};
+            swapped[0].Dependencies.Add(new Dependency{Id="tesmio.vanilla_buildings",Found=true,VersionOk=true});
+            var late=Startup.LateDependencies(Startup.Order(build,swapped),swapped);
+            Check(late.Count==1&&late[0].Key=="Localization"&&late[0].Value=="Vanilla Buildings");
+            // The version history of a README is what an update mark does not say.
+            string pkg=Path.Combine(root,"changes");
+            Write(Path.Combine(pkg,"README_EN.md"),"# Thing\n\n- **0.2.0:** donors may come from the Workshop\n- **0.1.0:** first release\n");
+            Check(Startup.Changes(pkg,"0.2.0","en")=="donors may come from the Workshop"&&Startup.Changes(pkg,"9.9","en")==""&&Startup.Changes(null,"0.2.0","en")=="");
+        });
+
+
+        // 0.5.1: Soviet Mod Loader carries resources, deposits, needs and buildings inside itself.
+        Test("Soviet Mod Loader is recognised as the host of an embedded capability (0.5.1)",()=>
+        {
+            string build=MakeBuild(root,"sml-hosted");
+            File.WriteAllBytes(Path.Combine(build,"plugins","soviet_mod_loader.dll"),simple.Dll);
+            Write(Path.Combine(build,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\nsoviet_mod_loader=1\nresources=0\nwalking=1\n");
+            Write(Path.Combine(build,"plugins","resources.ini"),"; generated by Soviet Mod Loader\n[list]\ncopper = rawiron, Copper Ore\n");
+            Check(Sml.Hosts(build,"resources")&&Sml.Hosts(build,"deposits")&&Sml.Hosts(build,"needs")&&Sml.Hosts(build,"buildings"));
+            // Not an embedded capability, no build folder, and SML switched off: never hosted.
+            Check(!Sml.Hosts(build,"walking")&&!Sml.Hosts("","resources")&&!Sml.Hosts(build,""));
+            Write(Path.Combine(build,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\nsoviet_mod_loader=0\nresources=0\n");
+            Check(!Sml.Hosts(build,"resources"));
+            Write(Path.Combine(build,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\nsoviet_mod_loader=1\nresources=0\n");
+            // A DLL of its own wins: then it is the separate plugin again, not SML's copy.
+            File.WriteAllBytes(Path.Combine(build,"plugins","resources.dll"),simple.Dll);
+            Check(!Sml.Hosts(build,"resources"));
+            File.Delete(Path.Combine(build,"plugins","resources.dll"));
+            // The list dot: hosted by SML counts as active although the DLL is gone and its
+            // own line in tesmioloader.ini says 0 - that line belongs to the separate plugin.
+            string schema=Path.Combine(root,"sml-hosted-schema","resources.launcher.ini");
+            Write(schema,"[launcher]\nlayout_version=1\neditor_type=keyed_resources\nid=local.resources\nname=Resources\nversion=1\n[editor]\nplugin=resources\nconfig=resources.ini\nlist_section=list\n");
+            var entry=new CatalogEntry{Root=schema,Id="local.resources",Name="Resources",LocalEditor=true,Supported=true};
+            Check(LocalResourceRuntime.Active(entry,build));
+            Write(Path.Combine(build,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\nsoviet_mod_loader=0\nresources=0\n");
+            Check(!LocalResourceRuntime.Active(entry,build));
+        });
+
+        // 0.5.2: what SML changes for the resource list and for the green dot in the list.
+        Test("under SML the resource list is read without a DLL and a package INI counts (0.5.2)",()=>
+        {
+            string build=MakeBuild(root,"sml-registry");
+            File.WriteAllBytes(Path.Combine(build,"plugins","soviet_mod_loader.dll"),simple.Dll);
+            Write(Path.Combine(build,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\nsoviet_mod_loader=1\nresources=0\n");
+            Write(Path.Combine(build,"plugins","resources.ini"),"; generated by Soviet Mod Loader\n[resources]\nhook = 2\n[list]\ncopper = rawiron, Copper Ore\ncable = steel, Cable\n");
+            // Without the DLL this used to be "Benoetigte lokale Datei fehlt" and the + button
+            // in every collection editor stayed grey, so no material could ever be added.
+            var reg=ResourceRegistry.Load(build,"resources","list","resources","hook","2");
+            Check(reg.Ready&&reg.Options.Count==2&&reg.Find("cable")!=null);
+            // Without SML the DLL is still required.
+            string plainer=MakeBuild(root,"sml-registry-off");
+            Write(Path.Combine(plainer,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\nresources=1\n");
+            Write(Path.Combine(plainer,"plugins","resources.ini"),"[resources]\nhook = 2\n[list]\ncopper = rawiron, Copper Ore\n");
+            Check(!ResourceRegistry.Load(plainer,"resources","list","resources","hook","2").Ready);
+            // The green dot: a package loaded by SML has no INI in plugins\ until the first save.
+            // Its own INI beside the DLL is what the game reads, so that is what the dot follows.
+            var entry=Catalog.Scan(root,new List<string>()).Single(x=>x.Root.Equals(plainRoot,StringComparison.OrdinalIgnoreCase));
+            Check(RuntimeStatus.ConfiguredActive(entry,build));
+            Write(Path.Combine(build,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\nsoviet_mod_loader=0\n");
+            Check(!RuntimeStatus.ConfiguredActive(entry,build));
+        });
+
+        // 0.5.3: three things SML changes - where the editor writes, what counts as provided,
+        // and a package whose job SML has taken over.
+        Test("under SML the editor writes the loader's baseline (0.5.3)",()=>
+        {
+            string build=MakeBuild(root,"sml-base");
+            File.WriteAllBytes(Path.Combine(build,"plugins","soviet_mod_loader.dll"),simple.Dll);
+            Write(Path.Combine(build,"plugins","soviet_mod_loader.ini"),"[loader]\nenabled = 1\nstate_dir = soviet_mod_loader\nembedded_plugins = 1\n");
+            Write(Path.Combine(build,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\nsoviet_mod_loader=1\nneeds=0\n");
+            string generated="; generated by Soviet Mod Loader\n[list]\nfurniture = mine\ntable_salt = from_a_package\n";
+            Write(Path.Combine(build,"plugins","needs.ini"),generated);
+            string schema=Path.Combine(root,"sml-base-schema","needs.launcher.ini");
+            Write(schema,"[launcher]\nlayout_version=1\neditor_type=keyed_list\nid=x.needs\nname=Needs\nversion=1\n[editor]\nplugin=needs\nconfig=needs.ini\nlist_section=list\nmaximum_items=8\n[group:needs]\nlabel=Needs\n[list]\nlabel=Needs\nid_suggestions=0\n[column:spec]\ntype=text\nlabel=Spec\n");
+            var spec=LocalEditorSpec.Load(schema);
+            // No baseline yet: SML has never run, there is nothing to edit and the old refusal stands.
+            Check(Sml.Baseline(build,"needs","needs.ini")==null);
+            Reject(()=>new LocalResourceSession(spec,build));
+            Write(Path.Combine(build,"soviet_mod_loader","base","needs.ini"),"[list]\nfurniture = mine\n");
+            string baseline=Sml.Baseline(build,"needs","needs.ini");
+            Check(baseline!=null&&Sml.Show(build,baseline)=="soviet_mod_loader\\base\\needs.ini");
+            var session=new LocalResourceSession(spec,build);
+            Check(session.SmlBaseline==baseline&&session.LocalIni==baseline);
+            // The baseline is the original: table_salt comes from a package and is not the player's.
+            Check(session.Items().Any(x=>x.Id=="furniture")&&!session.Items().Any(x=>x.Id=="table_salt"));
+            session.AddRaw("cable","mine");session.ValidateAll();session.Commit(NoGame);
+            Check(SafeFiles.Text(baseline).Contains("cable"));
+            // The generated file and the loader key stay untouched - both belong to SML.
+            Check(SafeFiles.Text(Path.Combine(build,"plugins","needs.ini")).Replace("\r\n","\n")==generated);
+            Check(new Ini(SafeFiles.Text(Path.Combine(build,"tesmioloader.ini"))).Get("plugins","needs","1")=="0");
+            // A state_dir of its own is followed.
+            Write(Path.Combine(build,"plugins","soviet_mod_loader.ini"),"[loader]\nstate_dir = sml_state\n");
+            Check(Sml.Baseline(build,"needs","needs.ini")==null);
+            Write(Path.Combine(build,"sml_state","base","needs.ini"),"[list]\nfurniture = mine\n");
+            Check(Sml.Show(build,Sml.Baseline(build,"needs","needs.ini"))=="sml_state\\base\\needs.ini");
+        });
+        Test("content merged by SML counts as in the game, and a replaced package is paused (0.5.3)",()=>
+        {
+            string build=MakeBuild(root,"sml-content");
+            File.WriteAllBytes(Path.Combine(build,"plugins","soviet_mod_loader.dll"),simple.Dll);
+            Write(Path.Combine(build,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\nsoviet_mod_loader=1\ndeposits=0\n");
+            string pkg=Path.Combine(root,"sml-content","pack");
+            Write(Path.Combine(pkg,"soviet.mod.ini"),"[mod]\nid=example.sml.salt\nname=Salt\nversion=1.0\nenabled=1\n[content]\nresources=tesmio\\resources.ini\n");
+            Write(Path.Combine(pkg,"tesmio","resources.ini"),"[list]\nrocksalt = rawgravel, Rock Salt\n");
+            Package cp=Package.Load(pkg);
+            // Nothing merged yet: no receipt, no entry in the effective INI.
+            Write(Path.Combine(build,"plugins","resources.ini"),"; generated by Soviet Mod Loader\n[list]\ncopper = rawiron, Copper Ore\n");
+            Check(!ContentSession.MergedByLoader(build,cp));
+            Write(Path.Combine(build,"plugins","resources.ini"),"; generated by Soviet Mod Loader\n[list]\ncopper = rawiron, Copper Ore\nrocksalt = rawgravel, Rock Salt\n");
+            Check(ContentSession.MergedByLoader(build,cp));
+            // Without SML the merged file proves nothing - then only our own receipt counts.
+            string plainer=MakeBuild(root,"sml-content-off");
+            Write(Path.Combine(plainer,"plugins","resources.ini"),"[list]\nrocksalt = rawgravel, Rock Salt\n");
+            Check(!ContentSession.MergedByLoader(plainer,cp));
+            // replaced_by_sml: paused while SML hosts that capability, normal otherwise.
+            string plug=Path.Combine(root,"sml-content","dp");
+            Write(Path.Combine(plug,"soviet.mod.ini"),"[mod]\nid=example.deposits_plus\nname=Deposits Plus\nversion=1.0\nenabled=1\n[hooks]\ndll=hooks\\deposits_plus.dll\n[configuration]\nreplaced_by_sml = deposits\n");
+            Write(Path.Combine(plug,"hooks","deposits_plus.ini"),"[deposits_plus]\ncode_patch = 1\n");
+            File.WriteAllBytes(Path.Combine(plug,"hooks","deposits_plus.dll"),simple.Dll);
+            Package dp=Package.Load(plug);
+            Check(dp.ReplacedBySml=="deposits"&&RuntimeStatus.Blocked(dp,build)&&!RuntimeStatus.Blocked(dp,plainer));
+            // A capability SML does not have is a manifest error.
+            Write(Path.Combine(root,"sml-content","bad","soviet.mod.ini"),"[mod]\nid=example.bad\nname=Bad\nversion=1\nenabled=1\n[hooks]\ndll=hooks\\bad.dll\n[configuration]\nreplaced_by_sml = trains\n");
+            Write(Path.Combine(root,"sml-content","bad","hooks","bad.ini"),"[bad]\nx = 1\n");
+            File.WriteAllBytes(Path.Combine(root,"sml-content","bad","hooks","bad.dll"),simple.Dll);
+            Reject(()=>Package.Load(Path.Combine(root,"sml-content","bad")));
+        });
+
+        // 0.5.4: the reset has to take back the file the editor really wrote, and the start check
+        // has to model the order SML uses instead of the one the bridge would have used.
+        Test("a reset takes back the SML baseline, not the generated file (0.5.4)",()=>
+        {
+            string build=MakeBuild(root,"sml-reset");
+            File.WriteAllBytes(Path.Combine(build,"plugins","soviet_mod_loader.dll"),simple.Dll);
+            Write(Path.Combine(build,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\nsoviet_mod_loader=1\nneeds=0\n");
+            string generated="; generated by Soviet Mod Loader\n[list]\nfurniture = mine\ncable = from_a_package\n";
+            Write(Path.Combine(build,"plugins","needs.ini"),generated);
+            string baseline=Path.Combine(build,"soviet_mod_loader","base","needs.ini");
+            Write(baseline,"[list]\nfurniture = mine\nmine_too = mine\n");
+            string state=Path.Combine(build,"user_config",".autoload");
+            Write(Path.Combine(state,"needs.upstream.ini"),"[list]\nfurniture = mine\n");
+            Write(Path.Combine(state,"needs.editor.receipt.ini"),
+                "[state]\nid = x.needs\neffective_file = soviet_mod_loader\\base\\needs.ini\neffective_hash = 0\n");
+            Write(Path.Combine(build,"user_config","needs.editor.ini"),"[state]\nformat = 1\n");
+            var plan=ResetTool.Plan(build,new List<CatalogEntry>(),new List<SaveGame>(),true);
+            Check(plan.Restored.Contains("soviet_mod_loader\\base\\needs.ini")&&!plan.Restored.Contains("plugins\\needs.ini"));
+            // The backup has to carry the baseline, or the reset would take back something
+            // nothing kept a copy of.
+            string backup=ResetTool.Backup(build);
+            Check(File.Exists(Path.Combine(backup,"soviet_mod_loader","base","needs.ini")));
+            ResetTool.Apply(build,plan,NoGame);
+            Check(SafeFiles.Text(baseline).Contains("furniture")&&!SafeFiles.Text(baseline).Contains("mine_too"));
+            Check(SafeFiles.Text(Path.Combine(build,"plugins","needs.ini")).Replace("\r\n","\n")==generated);
+            // A receipt from before 0.5.4 has no such key; then the effective file is the old one.
+            string plainer=MakeBuild(root,"sml-reset-old");
+            Write(Path.Combine(plainer,"plugins","alpha.ini"),"[alpha]\nvalue = mine\n");
+            Write(Path.Combine(plainer,"user_config",".autoload","alpha.upstream.ini"),"[alpha]\nvalue = original\n");
+            Write(Path.Combine(plainer,"user_config",".autoload","alpha.editor.receipt.ini"),"[state]\nid = x.alpha\neffective_hash = 0\n");
+            var old=ResetTool.Plan(plainer,new List<CatalogEntry>(),new List<SaveGame>(),true);
+            Check(old.Restored.Contains("plugins\\alpha.ini"));
+        });
+        Test("the start check follows SML's load order and skips keys without a DLL (0.5.4)",()=>
+        {
+            string build=MakeBuild(root,"sml-order");
+            File.WriteAllBytes(Path.Combine(build,"plugins","soviet_mod_loader.dll"),simple.Dll);
+            File.WriteAllBytes(Path.Combine(build,"plugins","walking.dll"),simple.Dll);
+            Write(Path.Combine(build,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\nwalking=1\nghost=1\nsoviet_mod_loader=1\n");
+            var lineup=new List<CatalogEntry>{
+                new CatalogEntry{Root=Path.Combine(root,"pk","3799697088"),Name="Vanilla Buildings",Id="tesmio.vanilla_buildings",Target="vanilla_buildings",Supported=true},
+                new CatalogEntry{Root=Path.Combine(root,"pk","3799692738"),Name="Localization",Id="tesmio.localization",Target="localization",Supported=true}};
+            lineup[0].Dependencies.Add(new Dependency{Id="tesmio.localization",Found=true,VersionOk=true});
+            var order=Startup.Order(build,lineup);
+            // ghost has no DLL and loads nothing, so it must not be counted.
+            Check(!order.Any(s=>s.Target=="ghost"));
+            Check(order.Count==4&&order[0].Target=="walking"&&order[1].Target=="soviet_mod_loader");
+            // Both packages are there - the bridge list is empty, SML hands them over itself.
+            Check(order[2].Target=="localization"&&order[3].Target=="vanilla_buildings"&&order[2].Bridge&&order[3].Bridge);
+            // And with the dependency declared, nothing loads too late.
+            Check(Startup.LateDependencies(order,lineup).Count==0);
+        });
+        // 0.5.5: the generated folders under media_soviet\workshop_wip. The fixture mimics a real
+        // library, because the workshop root is derived from the game path.
+        string wipGame=Path.Combine(root,"wip","steamapps","common","SovietRepublic");
+        string wipBuild=Path.Combine(wipGame,"tesmioloader","build");
+        string wipRoot=Path.Combine(wipGame,"media_soviet","workshop_wip");
+        string wipShop=Path.Combine(root,"wip","steamapps","workshop","content","784150");
+        const string SmlStamp="tesmioloader plugins\\buildings.dll generated this folder.\r\nsection=salt_mine donor=bauxite_mine\r\nhash=1\r\n";
+        const string SmlConfig="$ITEM_ID 9188000001\r\n\r\n$OWNER_ID 0\r\n\r\n$ITEM_TYPE WORKSHOP_ITEMTYPE_BUILDING\r\n\r\n$VISIBILITY 0\r\n$OBJECT_BUILDING SaltMine\r\n\r\n$ITEM_NAME \"Salt Mine\"\r\n\r\n$END\r\n";
+        Directory.CreateDirectory(Path.Combine(wipBuild,"plugins"));Directory.CreateDirectory(wipShop);
+        Write(Path.Combine(wipRoot,"9188000001","tesmioloader.stamp"),SmlStamp);
+        File.WriteAllBytes(Path.Combine(wipRoot,"9188000001","workshopconfig.ini"),Encoding.ASCII.GetBytes(SmlConfig));
+        Write(Path.Combine(wipRoot,"9300000001","tesmioloader.stamp"),"buildings_plus generated this folder.\r\nsection=pharmacy donor=shop_clothes\r\nhash=2\r\n");
+        Write(Path.Combine(wipRoot,"9300000001","workshopconfig.ini"),"$ITEM_ID 9300000001\r\n\r\n$OWNER_ID 76561198017498697\r\n\r\n$OBJECT_BUILDING Pharmacy\r\n\r\n$END\r\n");
+        Write(Path.Combine(wipRoot,"3790000001","workshopconfig.ini"),"$ITEM_ID 3790000001\r\n\r\n$OWNER_ID 76561198017498697\r\n\r\n$OBJECT_BUILDING MyHouse\r\n\r\n$END\r\n");
+        Test("the workshop_wip scan classifies by stamp and reads name, object and owner (0.5.5)",()=>
+        {
+            var sml=WipBuildings.Scan(wipBuild,"sml");
+            Check(sml.Count==1&&sml[0].Id=="9188000001"&&sml[0].Origin=="sml");
+            Check(sml[0].Name=="Salt Mine"&&sml[0].Object=="SaltMine"&&sml[0].Section=="salt_mine");
+            Check(sml[0].OwnerMissing&&sml[0].SmlRange&&!sml[0].NoStamp);
+            var own=WipBuildings.Scan(wipBuild,"own");
+            Check(own.Count==1&&own[0].Id=="9300000001"&&own[0].Origin=="buildings_plus"&&!own[0].OwnerMissing);
+            var all=WipBuildings.Scan(wipBuild,"all");
+            Check(all.Count==3&&all.Any(x=>x.Origin=="editor"&&x.NoStamp&&!x.Generated&&x.Id=="3790000001"));
+        });
+        Test("a folder nothing declares any more is reported as stale, one a package declares is not (0.5.5)",()=>
+        {
+            // No package at all: SML would close the game over this folder.
+            Check(WipBuildings.Scan(wipBuild,"sml")[0].Orphan);
+            string package=Path.Combine(wipShop,"salt_pack");
+            Write(Path.Combine(package,"soviet.mod.ini"),"[mod]\nid = tesmio.salt\n[content]\nbuildings = tesmio\\buildings.ini\n");
+            Write(Path.Combine(package,"tesmio","buildings.ini"),"[salt_mine]\ndonor = bauxite_mine\nobject = SaltMine\nline = $TYPE_FACTORY\nline = $PRODUCTION rocksalt 3.0\n");
+            Check(!WipBuildings.Scan(wipBuild,"sml")[0].Orphan);
+            // A section switched off is not declared either - the same stale folder.
+            Write(Path.Combine(package,"tesmio","buildings.ini"),"[salt_mine]\nenabled = 0\ndonor = bauxite_mine\n");
+            Check(WipBuildings.Scan(wipBuild,"sml")[0].Orphan);
+            Write(Path.Combine(package,"tesmio","buildings.ini"),"[salt_mine]\ndonor = bauxite_mine\nobject = SaltMine\n");
+        });
+        Test("filling in the owner changes that one number and no other byte (0.5.5)",()=>
+        {
+            string file=Path.Combine(wipRoot,"9188000001","workshopconfig.ini");
+            byte[] before=File.ReadAllBytes(file);
+            Check(WipBuildings.FixOwner(Path.Combine(wipRoot,"9188000001"),"76561198017498697"));
+            byte[] after=File.ReadAllBytes(file);
+            Check(after.Length==before.Length+16);
+            Check(before.Count(b=>b==13)==after.Count(b=>b==13));   // every CRLF survived
+            string text=Encoding.ASCII.GetString(after);
+            Check(text==SmlConfig.Replace("$OWNER_ID 0","$OWNER_ID 76561198017498697"));
+            Check(File.Exists(Path.Combine(wipRoot,"9188000001","tesmioloader.stamp")));
+            // Nothing left to do, and a refusal is not an error.
+            Check(!WipBuildings.FixOwner(Path.Combine(wipRoot,"9188000001"),"76561198017498697"));
+            Check(!WipBuildings.FixOwner(Path.Combine(wipRoot,"9300000001"),"76561198017498697"));
+            Check(!WipBuildings.FixOwner(Path.Combine(wipRoot,"nothing-here"),"76561198017498697"));
+            Check(!WipBuildings.Scan(wipBuild,"sml")[0].OwnerMissing);
+            File.WriteAllBytes(file,before);
+        });
+        Test("an id of ten digits starting with 9 counts as generated, a Steam number does not (0.5.5)",()=>
+        {
+            Check(WipBuildings.IsGeneratedId("9188026318")&&WipBuildings.IsSmlId("9188026318"));
+            Check(WipBuildings.IsGeneratedId("9300000001")&&!WipBuildings.IsSmlId("9300000001"));
+            Check(!WipBuildings.IsGeneratedId("3801766045")&&!WipBuildings.IsGeneratedId("91880263")&&!WipBuildings.IsGeneratedId("abc"));
+        });
+        // 0.5.5 step 3: personal changes to a generated building.ini, stored as operations.
+        const string Generated="; generated by tesmioloader plugins\\buildings.dll - section [salt_mine]\r\n$NAME_STR \"Salt Mine\"\r\n$TYPE_FACTORY\r\n$WORKERS_NEEDED 10\r\n$PRODUCTION rocksalt 3.0\r\n$POLLUTION_SMALL\r\n";
+        string wipObject=Path.Combine(wipRoot,"9188000001","SaltMine"),wipFile=Path.Combine(wipObject,"building.ini");
+        Write(wipFile,Generated);
+        Test("changes are applied to the generator's lines, and a bad anchor is reported (0.5.5)",()=>
+        {
+            var ops=new List<WipOperation>{
+                new WipOperation{Kind="replace",Anchor="$PRODUCTION rocksalt 3.0",Value="$PRODUCTION rocksalt 4.5"},
+                new WipOperation{Kind="remove",Anchor="$POLLUTION_SMALL"},
+                new WipOperation{Kind="add",Value="$STORAGE_EXPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 60 rocksalt"}};
+            List<string> problems;
+            var result=WipEdits.Apply(WipEdits.Split(Generated),ops,out problems);
+            Check(problems.Count==0&&result.Contains("$PRODUCTION rocksalt 4.5")&&!result.Contains("$PRODUCTION rocksalt 3.0"));
+            Check(!result.Contains("$POLLUTION_SMALL")&&result.Last()=="$STORAGE_EXPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 60 rocksalt");
+            // An anchor that is gone, and one that is there twice: both are reported, not applied.
+            WipEdits.Apply(WipEdits.Split(Generated),new List<WipOperation>{new WipOperation{Kind="remove",Anchor="$NOT_HERE"}},out problems);
+            Check(problems.Count==1&&problems[0]=="$NOT_HERE");
+            WipEdits.Apply(WipEdits.Split(Generated+"$TYPE_FACTORY\r\n"),new List<WipOperation>{new WipOperation{Kind="replace",Anchor="$TYPE_FACTORY",Value="$TYPE_MINE"}},out problems);
+            Check(problems.Count==1);
+        });
+        Test("writing puts the changes into the building.ini and records what was written (0.5.5)",()=>
+        {
+            WipBuilding entry=WipBuildings.Scan(wipBuild,"sml").Single();
+            var edit=WipEdits.Load(wipBuild,entry.Id);
+            Check(!edit.Exists&&edit.Operations.Count==0&&WipEdits.State(wipBuild,entry,edit)==WipEdits.Sync.None);
+            edit.Baseline=SafeFiles.Text(wipFile);
+            edit.Operations.Add(new WipOperation{Kind="replace",Anchor="$WORKERS_NEEDED 10",Value="$WORKERS_NEEDED 25"});
+            Check(WipEdits.Write(wipBuild,entry,edit).Count==0);
+            Check(SafeFiles.Text(wipFile).Contains("$WORKERS_NEEDED 25")&&SafeFiles.Text(wipFile).Contains("$PRODUCTION rocksalt 3.0"));
+            var loaded=WipEdits.Load(wipBuild,entry.Id);
+            Check(loaded.Exists&&loaded.Operations.Count==1&&loaded.Operations[0].Anchor=="$WORKERS_NEEDED 10"&&loaded.Operations[0].Value=="$WORKERS_NEEDED 25");
+            Check(loaded.Baseline==Generated&&WipEdits.State(wipBuild,entry,loaded)==WipEdits.Sync.InSync);
+        });
+        Test("after a regeneration the changes go in again and the package's own improvement stays (0.5.5)",()=>
+        {
+            // The generator writes anew: a different stamp hash and, in this run, a better recipe.
+            string improved=Generated.Replace("$PRODUCTION rocksalt 3.0","$PRODUCTION rocksalt 3.6\r\n$CONSUMPTION eletric 0.5");
+            Write(wipFile,improved);
+            Write(Path.Combine(wipRoot,"9188000001","tesmioloader.stamp"),SmlStamp.Replace("hash=1","hash=2"));
+            WipBuilding entry=WipBuildings.Scan(wipBuild,"sml").Single();
+            var edit=WipEdits.Load(wipBuild,entry.Id);
+            Check(WipEdits.State(wipBuild,entry,edit)==WipEdits.Sync.Regenerated);
+            Check(WipEdits.Reapply(wipBuild,entry,edit).Count==0);
+            string now=SafeFiles.Text(wipFile);
+            Check(now.Contains("$WORKERS_NEEDED 25"),"the personal change is back");
+            Check(now.Contains("$PRODUCTION rocksalt 3.6")&&now.Contains("$CONSUMPTION eletric 0.5"),"and the update's improvement survived - a stored copy would have thrown it away");
+            Check(WipEdits.State(wipBuild,entry,WipEdits.Load(wipBuild,entry.Id))==WipEdits.Sync.InSync);
+        });
+        Test("a hand edit outside RMM is seen and not overwritten, and reverting restores the generator's file (0.5.5)",()=>
+        {
+            WipBuilding entry=WipBuildings.Scan(wipBuild,"sml").Single();
+            Write(wipFile,SafeFiles.Text(wipFile)+"$BY_HAND 1\r\n");
+            var edit=WipEdits.Load(wipBuild,entry.Id);
+            Check(WipEdits.State(wipBuild,entry,edit)==WipEdits.Sync.Foreign);
+            // An anchor the next package update took away is reported instead of silently skipped.
+            edit.Baseline=Generated.Replace("$WORKERS_NEEDED 10\r\n","");
+            List<string> trouble=WipEdits.Write(wipBuild,entry,edit);
+            Check(trouble.Count==1&&trouble[0]=="$WORKERS_NEEDED 10");
+            WipEdits.Revert(wipBuild,entry,edit);
+            Check(SafeFiles.Text(wipFile)==edit.Baseline&&!WipEdits.Load(wipBuild,entry.Id).Exists);
+            Check(!Directory.EnumerateFiles(WipEdits.Folder(wipBuild),"9188000001.*").Any());
+            Write(wipFile,Generated);Write(Path.Combine(wipRoot,"9188000001","tesmioloader.stamp"),SmlStamp);
+        });
+        Test("a full reset puts a changed building.ini back before it drops the receipts (0.5.5)",()=>
+        {
+            WipBuilding entry=WipBuildings.Scan(wipBuild,"sml").Single();
+            var edit=WipEdits.Load(wipBuild,entry.Id);edit.Baseline=SafeFiles.Text(wipFile);
+            edit.Operations.Add(new WipOperation{Kind="replace",Anchor="$TYPE_FACTORY",Value="$TYPE_MINE"});
+            WipEdits.Write(wipBuild,entry,edit);
+            Check(SafeFiles.Text(wipFile).Contains("$TYPE_MINE")&&WipEdits.Recorded(wipBuild).Contains("9188000001"));
+            ResetPlan plan=ResetTool.Plan(wipBuild,new List<CatalogEntry>(),new List<SaveGame>(),true);
+            Check(plan.Buildings.Contains("9188000001"));
+            ResetTool.Apply(wipBuild,plan,NoGame);
+            Check(SafeFiles.Text(wipFile)==Generated,"the generator's file is back");
+            Check(WipEdits.Recorded(wipBuild).Count==0,"and no receipt is left");
+        });
+        Test("[wip_buildings] is parsed, and an unknown range is refused (0.5.5)",()=>
+        {
+            string folder=Path.Combine(root,"wip-schema");
+            string schema="[launcher]\neditor_type=keyed_sections\nlayout_version=1\nid=bp\nname=BP\n[editor]\nplugin=buildings_plus\nconfig=buildings_plus.ini\n"
+                         +"[tab:general]\nlabel=General\norder=10\n[tab:sml]\nlabel=SML\norder=20\n[group:buildings]\ntab=general\nlabel=B\n[list]\nlabel=B\n"
+                         +"[wip_buildings]\ntab=sml\nrange=sml\nlabel=Generated\n";
+            Write(Path.Combine(folder,"ok.launcher.ini"),schema);
+            LocalEditorSpec spec=LocalEditorSpec.Load(Path.Combine(folder,"ok.launcher.ini"));
+            Check(spec.Wip!=null&&spec.Wip.Tab=="sml"&&spec.Wip.Range=="sml"&&spec.Wip.Label=="Generated");
+            Write(Path.Combine(folder,"bad.launcher.ini"),schema.Replace("range=sml","range=everything"));
+            Reject(()=>LocalEditorSpec.Load(Path.Combine(folder,"bad.launcher.ini")));
+            Write(Path.Combine(folder,"bad2.launcher.ini"),schema.Replace("tab=sml","tab=nowhere"));
+            Reject(()=>LocalEditorSpec.Load(Path.Combine(folder,"bad2.launcher.ini")));
+        });
         Console.WriteLine("RESULT "+passed+" passed, "+failed+" failed; fixtures: "+root);return failed==0?0:1;
     }
 }

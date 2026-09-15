@@ -77,6 +77,13 @@ namespace TesmioAutoload
                 string due=localSpec.LocalizedTextPackRequired(language);if(due.Length==0)due=language.Format("textpack_required",localSpec.LocalizedTabLabel(language,localSpec.Tabs.First(t=>t.Id.Equals(localSpec.TextPack.Tab,StringComparison.OrdinalIgnoreCase))),language.T("textpack_create"));
                 var card=BeginCard(780);AddNotice(card,due,"error");
             }
+            // 0.5.3: this editor writes SML's baseline, not the generated file in plugins\. That
+            // changes where every value goes, so it is said on every tab, not tucked into one card.
+            if(resourceSession.SmlBaseline!=null)
+            {
+                var card=BeginCard(780);
+                AddNotice(card,language.Format("sml_base_notice",Sml.Show(resourceSession.Build,resourceSession.SmlBaseline),"plugins\\"+localSpec.ConfigName),"info");
+            }
             bool isList=localSpec.IsList,isSections=localSpec.IsSections;
             // A package-backed editor shows the package's notices (bridge, local copy) on
             // the plugin-wide tab, then the guides, then the cards of that tab.
@@ -85,6 +92,7 @@ namespace TesmioAutoload
             if(localSpec.GroupTab==state.SelectedTab)BuildLocalListCard(null);
             foreach(ItemGroup extra in localSpec.ExtraGroups)if(extra.Tab==state.SelectedTab)BuildLocalListCard(extra);   // 0.4.29
             if(localSpec.TextPack!=null&&localSpec.TextPack.Tab==state.SelectedTab)BuildTextPackCard();   // 0.4.30
+            if(localSpec.Wip!=null&&localSpec.Wip.Tab==state.SelectedTab)BuildWipCard();   // 0.5.5
             BuildLocalGlobals();
             ResizeCards();SyncActivation();UpdateStatus();RestoreView(view);SaveView();
         }
@@ -94,7 +102,11 @@ namespace TesmioAutoload
         void BuildLocalListCard(ItemGroup group)
         {
             bool isList=localSpec.IsList,isSections=localSpec.IsSections;
-            var card=BeginCard(780,localSpec.LocalizedGroup(language,group));AddText(card,localSpec.LocalizedGroupDescription(language,group),9,false,Theme.Muted);string groupNotice=localSpec.LocalizedGroupNotice(language,group);if(groupNotice.Length>0)AddNotice(card,groupNotice,false);string saveWarning=localSpec.LocalizedSaveWarning(language,group);AddNotice(card,saveWarning.Length>0?saveWarning:localSpec.HidesOriginals?language.Format("list_save_warning",localSpec.ConfigName):language.T("resource_save_warning"),true);
+            var card=BeginCard(780,localSpec.LocalizedGroup(language,group));AddText(card,localSpec.LocalizedGroupDescription(language,group),9,false,Theme.Muted);string groupNotice=localSpec.LocalizedGroupNotice(language,group);if(groupNotice.Length>0)AddNotice(card,groupNotice,false);string saveWarning=localSpec.LocalizedSaveWarning(language,group);
+            // 0.5.4: the schema texts name the effective INI in plugins\. Under SML that file is
+            // generated and the entries go to its baseline, so the warning has to name that one.
+            if(resourceSession.SmlBaseline!=null)saveWarning=language.Format("save_warning_sml",Sml.Show(resourceSession.Build,resourceSession.SmlBaseline));
+            AddNotice(card,saveWarning.Length>0?saveWarning:localSpec.HidesOriginals?language.Format("list_save_warning",localSpec.ConfigName):language.T("resource_save_warning"),true);
             var split=new SplitContainer{Dock=DockStyle.Top,Size=new Size(1000,535),FixedPanel=FixedPanel.Panel1,Panel1MinSize=240,Panel2MinSize=380,SplitterDistance=300,IsSplitterFixed=false,BorderStyle=BorderStyle.FixedSingle,Margin=new Padding(0,2,0,0)};split.Panel1.Padding=new Padding(0);split.Panel2.Padding=new Padding(18,0,0,0);
             var left=new TableLayoutPanel{Dock=DockStyle.Fill,RowCount=3,ColumnCount=1,Padding=new Padding(10),Margin=Padding.Empty};left.RowStyles.Add(new RowStyle(SizeType.AutoSize));left.RowStyles.Add(new RowStyle(SizeType.Percent,100));left.RowStyles.Add(new RowStyle(SizeType.Absolute,50));
             string listLabel=localSpec.LocalizedListLabel(language,group);var listTitle=Theme.Label(listLabel.Length>0?listLabel:language.T("resource_list"),11,true);listTitle.Margin=new Padding(0,0,0,8);left.Controls.Add(listTitle,0,0);
@@ -215,6 +227,140 @@ namespace TesmioAutoload
             if(preset!=null)list.SelectedItem="soviet"+preset+".ini";else{var hint=Theme.Label(language.T("textpack_select_help"),11,false);hint.ForeColor=Theme.Muted;hint.Dock=DockStyle.Top;details.Controls.Add(hint);}
             AddRow(inner,split);((CardLayout)card.Tag).Tall=split;
         }
+        // 0.5.5: the generated Workshop folders under media_soviet\workshop_wip. Read-only, with
+        // one exception: a folder whose config says $OWNER_ID 0 can have the number filled in.
+        // That zero is why the game asks about missing Workshop items on every save load, and
+        // Soviet Mod Loader's built-in generator writes it into every building it makes.
+        void BuildWipCard()
+        {
+            WipSpec spec=localSpec.Wip;
+            var card=BeginCard(780,localSpec.LocalizedWipLabel(language));
+            string help=localSpec.LocalizedWipDescription(language);if(help.Length>0)AddText(card,help,9,false,Theme.Muted);
+            List<WipBuilding> found=WipBuildings.Scan(resourceSession.Build,spec.Range);
+            // Before anything is drawn: a folder the generator rewrote gets the personal changes
+            // put back in. That is the promise of storing changes instead of a copy, and this is
+            // the moment for it - RMM runs before the game does.
+            var reapplied=new List<string>();var stuck=new List<string>();var foreign=new List<string>();
+            foreach(WipBuilding candidate in found)
+            {
+                WipEdit recorded=WipEdits.Load(resourceSession.Build,candidate.Id);
+                WipEdits.Sync sync=WipEdits.State(resourceSession.Build,candidate,recorded);
+                if(sync==WipEdits.Sync.Foreign){foreign.Add(candidate.Display);continue;}
+                if(sync!=WipEdits.Sync.Regenerated)continue;
+                try
+                {
+                    List<string> trouble=WipEdits.Reapply(resourceSession.Build,candidate,recorded);
+                    reapplied.Add(candidate.Display);
+                    foreach(string anchor in trouble)stuck.Add(candidate.Display+": "+anchor);
+                    Report(language.Format("wip_reapplied_one",candidate.Display,recorded.Operations.Count));
+                }
+                catch(Exception e){stuck.Add(candidate.Display+": "+language.Localize(e.Message));}
+            }
+            if(found.Count==0)
+            {
+                string empty=localSpec.LocalizedWipEmpty(language);
+                AddText(card,empty.Length>0?empty:language.T("wip_none"),10,false,Theme.Muted);
+                return;
+            }
+            var table=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,ColumnCount=3,Margin=new Padding(0,4,0,8)};
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            foreach(WipBuilding entry in found)
+            {
+                if(table.RowCount>0)
+                {
+                    var line=new Panel{Height=1,BackColor=Theme.Line,Dock=DockStyle.Top,Margin=new Padding(0,6,0,6)};
+                    int r=table.RowCount++;table.RowStyles.Add(new RowStyle(SizeType.AutoSize));table.SetColumnSpan(line,3);table.Controls.Add(line,0,r);
+                }
+                var names=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,ColumnCount=1,Margin=Padding.Empty};
+                var title=Theme.Label(entry.Display,10,true);title.Margin=new Padding(0,0,0,2);names.Controls.Add(title,0,0);
+                string origin=language.T("wip_origin_"+entry.Origin);
+                var detail=Theme.Label(entry.Id+"  ·  "+(entry.Object.Length>0?entry.Object+"  ·  ":"")+origin,9,false);detail.ForeColor=Theme.Muted;names.Controls.Add(detail,0,1);
+                // Personal changes get their own line: the state column can only say one thing, and
+                // a stale or owner-less folder must not hide the fact that changes of yours are in it.
+                WipEdit edit=WipEdits.Load(resourceSession.Build,entry.Id);
+                if(edit.Exists)
+                {
+                    var mine=Theme.Label(language.Format("wip_state_changed",edit.Operations.Count),9,false);
+                    mine.ForeColor=Theme.Blue;mine.Margin=new Padding(0,2,0,0);names.Controls.Add(mine,0,2);
+                }
+                string label=entry.Orphan?language.T("wip_state_orphan"):entry.OwnerMissing?language.T("wip_state_owner_missing"):entry.Owner.Length>0?language.T("wip_state_ok"):language.T("wip_state_no_config");
+                var state=Theme.Label(label,9,false);
+                state.ForeColor=entry.Orphan?Color.FromArgb(150,28,28):entry.OwnerMissing?Color.FromArgb(139,81,0):Theme.Muted;
+                state.Anchor=AnchorStyles.None;state.Margin=new Padding(12,0,8,0);
+                var actions=new FlowLayoutPanel{AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,Margin=new Padding(8,0,0,0),Anchor=AnchorStyles.None,WrapContents=false};
+                WipBuilding captured=entry;
+                var change=Theme.Button(language.T("wip_edit_button"),()=>Run(()=>OpenWipEditor(captured)),false);
+                change.AccessibleName="wip:edit:"+entry.Id;change.Enabled=WipEdits.BuildingFile(entry)!=null;change.Margin=new Padding(0,0,8,0);
+                string folder=entry.Folder;
+                var open=Theme.Button(language.T("path_open"),()=>Run(()=>OpenPath(folder,false)),false);
+                open.Margin=Padding.Empty;open.AccessibleName="wip:open:"+entry.Id;
+                actions.Controls.Add(change);actions.Controls.Add(open);
+                int row=table.RowCount++;table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                table.Controls.Add(names,0,row);table.Controls.Add(state,1,row);table.Controls.Add(actions,2,row);
+            }
+            var layout=(CardLayout)card.Tag;int at=layout.Inner.RowCount++;layout.Inner.RowStyles.Add(new RowStyle(SizeType.AutoSize));table.Dock=DockStyle.Top;layout.Inner.Controls.Add(table,0,at);
+            if(reapplied.Count>0)AddNotice(card,language.Format("wip_reapplied",String.Join(", ",reapplied)),"info");
+            if(foreign.Count>0)AddNotice(card,language.Format("wip_foreign",String.Join(", ",foreign)),"warning");
+            if(stuck.Count>0)AddNotice(card,language.Format("wip_stuck",String.Join("; ",stuck)),"warning");
+            // Stale folders first: this is the one that stops the game from starting at all.
+            var orphans=found.Where(x=>x.Orphan).ToList();
+            if(orphans.Count>0)AddNotice(card,language.Format("wip_orphan_notice",String.Join(", ",orphans.Select(x=>x.Id+" ("+x.Section+")"))),"error");
+            var missing=found.Where(x=>x.OwnerMissing).ToList();
+            if(missing.Count==0)return;
+            string owner=WipBuildings.Owner();
+            if(owner.Length==0){AddNotice(card,language.T("wip_no_steam_id"),"warning");return;}
+            AddNotice(card,language.Format("wip_owner_notice",missing.Count),"warning");
+            var buttons=new FlowLayoutPanel{Dock=DockStyle.Top,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,Margin=new Padding(0,4,0,0),Padding=Padding.Empty};
+            var fix=Theme.Button(language.T("wip_fix_owner"),()=>Run(()=>
+            {
+                int done=0;
+                foreach(WipBuilding entry in missing)if(WipBuildings.FixOwner(entry.Folder,owner))done++;
+                Report(language.Format("wip_owner_written",done,owner));
+                BuildLocalResourceEditor();
+            }),true);
+            fix.AccessibleName="wip:fix-owner";buttons.Controls.Add(fix);
+            int last=layout.Inner.RowCount++;layout.Inner.RowStyles.Add(new RowStyle(SizeType.AutoSize));layout.Inner.Controls.Add(buttons,0,last);
+        }
+        // The editor for one generated building. It writes straight through - the file belongs to
+        // the generator, not to the session, so there is nothing to stage and nothing to save
+        // afterwards. What RMM keeps is the receipt with the changes and the generator's baseline.
+        void OpenWipEditor(WipBuilding entry){RunWipEditor(entry,window=>Theme.Modal(FindForm(),window));}
+        void RunWipEditor(WipBuilding entry,Func<WipEditWindow,DialogResult> show)
+        {
+            string file=WipEdits.BuildingFile(entry);
+            if(file==null)throw new IOException(language.Format("wip_no_building_ini",entry.Id));
+            WipEdit edit=WipEdits.Load(resourceSession.Build,entry.Id);
+            if(!edit.Exists||edit.Baseline.Length==0)edit.Baseline=SafeFiles.Text(file);
+            using(var window=new WipEditWindow(language,entry,edit,Font,FindForm()==null?null:FindForm().Icon))
+            {
+                if(show(window)!=DialogResult.OK)return;
+                if(window.Reset)
+                {
+                    WipEdits.Revert(resourceSession.Build,entry,edit);
+                    Report(language.Format("wip_reverted",entry.Display));
+                }
+                else if(edit.Operations.Count==0)
+                {
+                    WipEdits.Revert(resourceSession.Build,entry,edit);
+                    Report(language.Format("wip_reverted",entry.Display));
+                }
+                else
+                {
+                    List<string> trouble=WipEdits.Write(resourceSession.Build,entry,edit);
+                    Report(language.Format("wip_written",entry.Display,edit.Operations.Count));
+                    if(trouble.Count>0)Report(language.Format("wip_stuck",entry.Display+": "+String.Join("; ",trouble)));
+                }
+            }
+            BuildLocalResourceEditor();
+        }
+        // Test hook: the window without a modal loop, driven by the test and then applied.
+        internal void TestWipEdit(string id,Action<WipEditWindow> drive)
+        {
+            WipBuilding entry=WipBuildings.Scan(resourceSession.Build,localSpec.Wip.Range).First(x=>x.Id==id);
+            RunWipEditor(entry,window=>{drive(window);return DialogResult.OK;});
+        }
         void StageTextPack(){resourceSession.StageDependencyWrites(textPack.Writes());UpdateStatus();}
         // Before a save (0.4.77): every own entry of the text pack's key group gets its missing
         // name/desc keys filled with the id in the fallback language, so the plugin never refuses
@@ -301,7 +447,7 @@ namespace TesmioAutoload
                 var buttons=new FlowLayoutPanel{Dock=DockStyle.Fill,FlowDirection=FlowDirection.RightToLeft,WrapContents=false,Padding=new Padding(0,8,0,0)};
                 var ok=Theme.Button(language.T("add"),()=>Run(()=>{string chosen=(string)combo.SelectedItem;textPack.AddLanguage(chosen);selectedTextLanguage=chosen;StageTextPack();dialog.DialogResult=DialogResult.OK;dialog.Close();}),true);
                 var cancel=Theme.Button(language.T("cancel"),()=>{dialog.DialogResult=DialogResult.Cancel;dialog.Close();},false);buttons.Controls.Add(ok);buttons.Controls.Add(cancel);buttons.Dock=DockStyle.Top;buttons.AutoSize=true;table.SetColumnSpan(buttons,2);table.RowStyles.Add(new RowStyle(SizeType.AutoSize));table.Controls.Add(buttons,0,1);dialog.Controls.Add(table);dialog.AcceptButton=ok;dialog.CancelButton=cancel;
-                if(dialog.ShowDialog(this)==DialogResult.OK)BuildLocalResourceEditor();
+                if(Theme.Modal(this,dialog)==DialogResult.OK)BuildLocalResourceEditor();
             }
         }
         void OpenTextPackKeyDialog(string lang)
@@ -315,7 +461,7 @@ namespace TesmioAutoload
                 var buttons=new FlowLayoutPanel{Dock=DockStyle.Fill,FlowDirection=FlowDirection.RightToLeft,WrapContents=false,Padding=new Padding(0,8,0,0)};
                 var ok=Theme.Button(language.T("add"),()=>Run(()=>{textPack.Set(lang,key.Text,value.Text);StageTextPack();dialog.DialogResult=DialogResult.OK;dialog.Close();}),true);
                 var cancel=Theme.Button(language.T("cancel"),()=>{dialog.DialogResult=DialogResult.Cancel;dialog.Close();},false);buttons.Controls.Add(ok);buttons.Controls.Add(cancel);buttons.Dock=DockStyle.Top;buttons.AutoSize=true;table.SetColumnSpan(buttons,2);table.RowStyles.Add(new RowStyle(SizeType.AutoSize));table.Controls.Add(buttons,0,2);dialog.Controls.Add(table);dialog.AcceptButton=ok;dialog.CancelButton=cancel;
-                if(dialog.ShowDialog(this)==DialogResult.OK)BuildLocalResourceEditor();
+                if(Theme.Modal(this,dialog)==DialogResult.OK)BuildLocalResourceEditor();
             }
         }
         // [folder:] / [file:] rows (0.4.28): a missing folder shows its notice and, with create = 1,
@@ -467,7 +613,7 @@ namespace TesmioAutoload
                 var add=Theme.Button(language.T("add"),()=>Run(()=>{string id;if(registry!=null){var option=picker.SelectedItem as ResourceOption;if(option==null)throw new InvalidOperationException(language.T("list_no_options"));id=option.Id;}else id=(typed!=null?typed.Text:picker.Text).Trim();resourceSession.AddRaw(id,ListTuple.Render(inputs.Select(x=>x.Text)));selectedLocalResource=id;dialog.DialogResult=DialogResult.OK;dialog.Close();}),true);add.Enabled=registry==null||picker.Items.Count>0;
                 var cancel=Theme.Button(language.T("cancel"),()=>{dialog.DialogResult=DialogResult.Cancel;dialog.Close();},false);buttons.Controls.Add(add);buttons.Controls.Add(cancel);buttons.Dock=DockStyle.Top;buttons.AutoSize=true;table.SetColumnSpan(buttons,2);table.RowStyles.Add(new RowStyle(SizeType.AutoSize));table.Controls.Add(buttons,0,rows-1);dialog.Controls.Add(table);dialog.AcceptButton=add;dialog.CancelButton=cancel;
                 if(registry!=null&&picker.Items.Count==0)Report(language.T("list_no_options"));
-                if(dialog.ShowDialog(this)==DialogResult.OK)BuildLocalResourceEditor();
+                if(Theme.Modal(this,dialog)==DialogResult.OK)BuildLocalResourceEditor();
             }
         }
         // ---- keyed_sections (one INI section per item) ----
@@ -567,7 +713,7 @@ namespace TesmioAutoload
                     // The player's own research of every extra group can be a parent too.
                     var own=resourceSession.Items().Where(i=>localSpec.GroupOfId(i.Id)!=null).Select(i=>localSpec.DisplayId(i.Id)).ToList();
                     using(var window=new ResearchPickerWindow(language,state.Build,own,Font,Icon))
-                        if(window.ShowDialog(this)==DialogResult.OK&&!String.IsNullOrEmpty(window.Result)){string existing=box.Text.Trim();box.Text=(existing.Length>0?existing+"\r\n":"")+window.Result;apply(box.Text);}
+                        if(Theme.Modal(this,window)==DialogResult.OK&&!String.IsNullOrEmpty(window.Result)){string existing=box.Text.Trim();box.Text=(existing.Length>0?existing+"\r\n":"")+window.Result;apply(box.Text);}
                 });
                 else if(lineList)box.Pick=()=>Run(()=>
                 {
@@ -575,7 +721,7 @@ namespace TesmioAutoload
                     if(itemId==null)throw new InvalidOperationException(language.T("research_lines_no_entry"));
                     var own=resourceSession.Items().Where(i=>localSpec.GroupOfId(i.Id)!=null).Select(i=>localSpec.DisplayId(i.Id)).ToList();string display=localSpec.DisplayId(itemId);
                     using(var window=new ResearchLinesWindow(language,state.Build,display,FindResearch(display),captured.PickerFormat,own,Font,Icon))
-                        if(window.ShowDialog(this)==DialogResult.OK&&!String.IsNullOrEmpty(window.Result)){string existing=box.Text.Trim();box.Text=(existing.Length>0?existing+"\r\n":"")+window.Result;apply(box.Text);}
+                        if(Theme.Modal(this,window)==DialogResult.OK&&!String.IsNullOrEmpty(window.Result)){string existing=box.Text.Trim();box.Text=(existing.Length>0?existing+"\r\n":"")+window.Result;apply(box.Text);}
                 });
                 else if(donorLines)box.Pick=()=>Run(()=>
                 {
@@ -584,13 +730,13 @@ namespace TesmioAutoload
                     string donor=DonorOf(itemId);
                     if(donor.Length==0)throw new InvalidOperationException(language.T("donor_lines_no_donor"));
                     using(var window=new DonorLinesWindow(language,state.Build,donor,Font,Icon))
-                        if(window.ShowDialog(this)==DialogResult.OK&&!String.IsNullOrEmpty(window.Result)){string existing=box.Text.Trim();box.Text=(existing.Length>0?existing+"\r\n":"")+window.Result;apply(box.Text);}
+                        if(Theme.Modal(this,window)==DialogResult.OK&&!String.IsNullOrEmpty(window.Result)){string existing=box.Text.Trim();box.Text=(existing.Length>0?existing+"\r\n":"")+window.Result;apply(box.Text);}
                 });
                 else if(picker)box.Pick=()=>Run(()=>
                 {
                     var current=box.Text.Replace("\r\n","\n").Split('\n').Select(x=>x.Trim()).Where(x=>x.Length>0).ToList();
                     using(var window=new BuildingPickerWindow(language,state.Build,state.WorkshopRoot,current,itemId!=null?TargetsUsedElsewhere(captured,itemId):null,Font,Icon))
-                        if(window.ShowDialog(this)==DialogResult.OK&&window.Result!=null){box.Text=String.Join("\r\n",window.Result);apply(box.Text);}
+                        if(Theme.Modal(this,window)==DialogResult.OK&&window.Result!=null){box.Text=String.Join("\r\n",window.Result);apply(box.Text);}
                 });
                 return box;
             }
@@ -630,7 +776,7 @@ namespace TesmioAutoload
                 var choose=Theme.Button(language.T("pick_donor"),()=>Run(()=>
                 {
                     using(var window=new BuildingPickerWindow(language,state.Build,state.WorkshopRoot,new[]{text.Text.Trim()},null,Font,Icon,true))
-                        if(window.ShowDialog(this)==DialogResult.OK&&window.Result!=null&&window.Result.Count>0){text.Text=window.Result[0];apply(text.Text);}
+                        if(Theme.Modal(this,window)==DialogResult.OK&&window.Result!=null&&window.Result.Count>0){text.Text=window.Result[0];apply(text.Text);}
                 }),false);
                 choose.AccessibleName="item:"+field.Id+":pick";
                 return new PickRow(text,choose);
@@ -707,7 +853,7 @@ namespace TesmioAutoload
                 var add=Theme.Button(language.T("add"),()=>Run(()=>{var values=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);if(tokenField!=null)values[tokenField.Id]=token.Text;foreach(var pair in inputs){var toggle=pair.Value as ToggleSwitch;values[pair.Key.Id]=toggle!=null?(toggle.Checked?"1":"0"):pair.Value.Text;}resourceSession.AddSection(name.Text,values,group);selectedLocalResource=(group==null?"":group.Prefix)+CollectionRules.IdFromName(name.Text);dialog.DialogResult=DialogResult.OK;dialog.Close();}),true);
                 var cancel=Theme.Button(language.T("cancel"),()=>{dialog.DialogResult=DialogResult.Cancel;dialog.Close();},false);buttons.Controls.Add(add);buttons.Controls.Add(cancel);buttons.Dock=DockStyle.Top;buttons.AutoSize=true;table.SetColumnSpan(buttons,2);table.RowStyles.Add(new RowStyle(SizeType.AutoSize));table.Controls.Add(buttons,0,row++);dialog.Controls.Add(table);dialog.AcceptButton=add;dialog.CancelButton=cancel;
                 if(registry!=null&&picker.Items.Count==0)Report(language.T("list_no_options"));
-                if(dialog.ShowDialog(this)==DialogResult.OK)BuildLocalResourceEditor();
+                if(Theme.Modal(this,dialog)==DialogResult.OK)BuildLocalResourceEditor();
             }
         }
         // One field of the detail panel (moved out of BuildLocalSectionDetails in 0.4.35).
@@ -785,7 +931,7 @@ namespace TesmioAutoload
             string target=PicturePath(picture,display);
             using(var dialog=new OpenFileDialog{Title=language.T("picture_choose_title"),Filter=language.T("picture_filter"),CheckFileExists=true,Multiselect=false})
             {
-                if(dialog.ShowDialog(this)!=DialogResult.OK)return;
+                if(Theme.Modal(this,dialog)!=DialogResult.OK)return;
                 string source=dialog.FileName;
                 using(var stream=new MemoryStream(File.ReadAllBytes(source)))using(var image=Image.FromStream(stream))
                     if(picture.Size>0&&(image.Width!=picture.Size||image.Height!=picture.Size))throw new FormatException(language.Format("picture_wrong_size",picture.Size,image.Width,image.Height));
@@ -826,7 +972,7 @@ namespace TesmioAutoload
                 var only=Theme.Button(localSpec.LocalizedRemoveLabel(language,group),()=>{dialog.DialogResult=DialogResult.No;dialog.Close();},false);only.Margin=new Padding(8,0,0,0);only.AccessibleName="remove:only";
                 var cancel=Theme.Button(language.T("cancel"),()=>{dialog.DialogResult=DialogResult.Cancel;dialog.Close();},false);cancel.Margin=new Padding(8,0,0,0);
                 buttons.Controls.Add(all);buttons.Controls.Add(only);buttons.Controls.Add(cancel);table.Controls.Add(buttons,0,1);dialog.Controls.Add(table);dialog.CancelButton=cancel;
-                answer=dialog.ShowDialog(this);
+                answer=Theme.Modal(this,dialog);
             }
             if(answer!=DialogResult.Yes&&answer!=DialogResult.No&&answer!=DialogResult.OK)return;
             if(answer==DialogResult.Yes)foreach(RemovalExtra extra in extras)extra.Apply();
@@ -975,7 +1121,7 @@ namespace TesmioAutoload
                 Theme.ApplyWindowChrome(dialog);var table=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,ColumnCount=2,RowCount=5,Padding=new Padding(20)};table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,190));table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));var id=new TextBox();var template=TemplatePicker("custom");var display=new TextBox();var transport=TransportPicker("",true);
                 // Picking a donor suggests its transport class; the class stays editable.
                 template.SelectedIndexChanged+=(s,e)=>{var donor=ResourceCatalogData.Find(template.Value);if(donor!=null&&template.Focused)transport.SelectedItem=donor.Transport;};
-                string[] labels={"resource_identifier","resource_template","resource_display_name","resource_transport"};Control[] controls={Fields.Wrap(id),template,Fields.Wrap(display),transport};for(int i=0;i<4;i++){table.RowStyles.Add(new RowStyle(SizeType.AutoSize));table.Controls.Add(Theme.Label(language.T(labels[i]),10,true),0,i);controls[i].Dock=DockStyle.Top;controls[i].Margin=new Padding(3,3,3,18);table.Controls.Add(controls[i],1,i);}var buttons=new FlowLayoutPanel{Dock=DockStyle.Fill,FlowDirection=FlowDirection.RightToLeft,WrapContents=false,Padding=new Padding(0,8,0,0)};var add=Theme.Button(language.T("add"),()=>Run(()=>{resourceSession.Add(id.Text,template.Value,display.Text,Convert.ToString(transport.SelectedItem));selectedLocalResource=id.Text.Trim().ToLowerInvariant();dialog.DialogResult=DialogResult.OK;dialog.Close();}),true);var cancel=Theme.Button(language.T("cancel"),()=>{dialog.DialogResult=DialogResult.Cancel;dialog.Close();},false);buttons.Controls.Add(add);buttons.Controls.Add(cancel);buttons.Dock=DockStyle.Top;buttons.AutoSize=true;table.SetColumnSpan(buttons,2);table.RowStyles.Add(new RowStyle(SizeType.AutoSize));table.Controls.Add(buttons,0,4);dialog.Controls.Add(table);dialog.AcceptButton=add;dialog.CancelButton=cancel;if(dialog.ShowDialog(this)==DialogResult.OK)BuildLocalResourceEditor();
+                string[] labels={"resource_identifier","resource_template","resource_display_name","resource_transport"};Control[] controls={Fields.Wrap(id),template,Fields.Wrap(display),transport};for(int i=0;i<4;i++){table.RowStyles.Add(new RowStyle(SizeType.AutoSize));table.Controls.Add(Theme.Label(language.T(labels[i]),10,true),0,i);controls[i].Dock=DockStyle.Top;controls[i].Margin=new Padding(3,3,3,18);table.Controls.Add(controls[i],1,i);}var buttons=new FlowLayoutPanel{Dock=DockStyle.Fill,FlowDirection=FlowDirection.RightToLeft,WrapContents=false,Padding=new Padding(0,8,0,0)};var add=Theme.Button(language.T("add"),()=>Run(()=>{resourceSession.Add(id.Text,template.Value,display.Text,Convert.ToString(transport.SelectedItem));selectedLocalResource=id.Text.Trim().ToLowerInvariant();dialog.DialogResult=DialogResult.OK;dialog.Close();}),true);var cancel=Theme.Button(language.T("cancel"),()=>{dialog.DialogResult=DialogResult.Cancel;dialog.Close();},false);buttons.Controls.Add(add);buttons.Controls.Add(cancel);buttons.Dock=DockStyle.Top;buttons.AutoSize=true;table.SetColumnSpan(buttons,2);table.RowStyles.Add(new RowStyle(SizeType.AutoSize));table.Controls.Add(buttons,0,4);dialog.Controls.Add(table);dialog.AcceptButton=add;dialog.CancelButton=cancel;if(Theme.Modal(this,dialog)==DialogResult.OK)BuildLocalResourceEditor();
             }
         }
         void RemoveLocalResource(string id)

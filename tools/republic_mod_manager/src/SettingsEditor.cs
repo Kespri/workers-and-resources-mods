@@ -82,16 +82,53 @@ namespace TesmioAutoload
         void ShowInfo(string message) { var card=BeginCard(0); AddText(card,message,11,false,Theme.Muted); ResizeCards(); }
         // 0.4.55: an entry that cannot be shown gets a red box instead of grey text.
         void ShowProblem(string message) { var card=BeginCard(0); AddNotice(card,message,"error"); ResizeCards(); }
+        // 0.5.1: resources, deposits, needs and buildings are built into Soviet Mod Loader.
+        // No DLL of their own, and their plugins\<name>.ini is generated at every start - so
+        // this is a blue notice about who is in charge, not a red box about missing files.
+        void ShowSmlHosted(LocalEditorSpec spec)
+        {
+            string name=spec.LocalizedName(language);
+            var card=BeginCard(0,language.Format("sml_hosted",name));
+            AddNotice(card,language.Format("sml_hosted_notice",name,spec.Plugin),"info");
+            AddText(card,language.Format("sml_hosted_generated",spec.ConfigName),10,false,Theme.Ink);
+            AddText(card,language.T("sml_hosted_wait"),10,true,Theme.Ink);
+            AddText(card,language.T("sml_hosted_how"),10,false,Theme.Ink);
+            AddText(card,language.Format("sml_hosted_back",spec.Plugin,spec.ConfigName),10,false,Theme.Muted);
+            ResizeCards();
+        }
         // 0.4.80: the page of a content package - its state, what it carries and which plugin takes each part.
         void BuildContentPage()
         {
             Theme.DisposeChildren(tabStrip); Theme.DisposeChildren(content); setters.Clear(); origins.Clear(); resetButtons.Clear();
             ContentSession c=contentSession; if(c==null) return;
             var notes=BeginCard(0,language.T("notices"));
-            if(c.UpdatePending) AddNotice(notes,language.Format("content_update",c.ProvidedVersion,c.Package.Version),"info");
-            else AddText(notes,c.Provided?language.Format("content_state_provided",c.ProvidedVersion):language.T("content_state_absent"),10,false,c.Provided?Color.FromArgb(26,132,61):Theme.Muted);
+            if(c.UpdatePending)
+            {
+                string text=language.Format("content_update",c.ProvidedVersion,c.Package.Version);
+                string changes=Startup.Changes(c.Package.Root,c.Package.Version,language.Code);
+                if(changes.Length>0)text+="  "+language.Format("update_changes",c.Package.Version,changes);
+                AddNotice(notes,text,"info");
+            }
+            else
+            {
+                // 0.5.3: under SML the entries are in the game without a receipt of ours - say that
+                // instead of "not provided yet", which the green dot would already contradict.
+                bool byLoader=!c.Provided&&ContentSession.MergedByLoader(state.Build,c.Package);
+                AddText(notes,c.Provided?language.Format("content_state_provided",c.ProvidedVersion):byLoader?language.T("content_state_sml"):language.T("content_state_absent"),10,false,c.Provided||byLoader?Color.FromArgb(26,132,61):Theme.Muted);
+            }
             foreach(string note in c.Notes) AddNotice(notes,language.Localize(note),"warning");
+            // 0.5.1: Soviet Mod Loader reads a package with content itself and merges it into its
+            // own generated INIs. Providing it a second time from here would write into a file SML
+            // rewrites at the next start, so the page says who is in charge and the switch stays away.
+            if(SmlOwnsContent(c)) AddNotice(notes,language.Format("sml_content",c.Package.Name),"info");
             foreach(var pair in c.Skipped) if(pair.Value.Count>0) AddNotice(notes,language.Format("content_skipped",language.T("content_kind_"+pair.Key.ToLowerInvariant()),String.Join(", ",pair.Value)),"info");
+            // 0.4.87: an id that already exists elsewhere blocks the package. Red, with the name
+            // of the entry in the way and what to do about it - saving would fail with the same text.
+            foreach(var clash in c.Conflicts(SessionFor))
+            {
+                string plugin; c.Targets.TryGetValue(clash.Key,out plugin);
+                AddNotice(notes,language.Format("content_conflict",c.Package.Name,String.Join(", ",clash.Value),plugin??"",language.T("content_kind_"+clash.Key.ToLowerInvariant())),"error");
+            }
             var contents=BeginCard(0,language.T("content_card_contents"));
             foreach(string key in ContentTargets.Keys)
             {
@@ -100,6 +137,9 @@ namespace TesmioAutoload
                 AddText(contents,!String.IsNullOrEmpty(plugin)?language.Format("content_target_line",language.T("content_kind_"+key),plugin,list):language.Format("content_target_none",language.T("content_kind_"+key),list),10,false,Theme.Ink);
             }
             if(c.Package.AssetFiles.Count>0) AddText(contents,language.Format("content_assets_count",c.Package.AssetFiles.Count,LocalEditorSpec.VfsRoot(state.Build)),10,false,Theme.Ink);
+            // 0.4.88: saved games that already know entries of this package.
+            var usedBy=SavesUsingCurrent();
+            if(usedBy.Count>0) AddText(notes,language.Format("saves_used_by",usedBy.Count,SaveGames.Names(usedBy,3,language.T("saves_and_more"))),10,false,Theme.Muted);
             ResizeCards();
         }
         // Everything a user should know about this entry before touching it: unmet
@@ -108,6 +148,11 @@ namespace TesmioAutoload
         {
             if(session==null) return;
             var problems=new List<string>(); var notes=new List<string>(); var warnings=new List<string>();
+            // 0.5.3: the package says SML replaces it, and SML really has that capability. Amber,
+            // because nothing is broken - the plugin simply waits, and the page says what to do
+            // if the player wants this one instead.
+            if(RuntimeStatus.Blocked(session.Package,state.Build))
+                warnings.Add(language.Format("sml_replaced",session.Package.Name,language.T("content_kind_"+session.Package.ReplacedBySml)));
             // 0.4.27: found is not enough - a dependency that is present but not switched on
             // gets a yellow box, an active one a quiet line; both name the package.
             foreach(Dependency d in session.Package.Dependencies)
@@ -129,8 +174,19 @@ namespace TesmioAutoload
             // gone after the next save, when the receipt matches the package again.
             string update=null;
             if(session.Update.Pending) update=language.Format("update_available",session.Update.PreviousVersion.Length>0?session.Update.PreviousVersion:"?",session.Update.CurrentVersion,(session.Update.DllChanged?language.T("update_dll"):"")+(session.Update.DllChanged&&session.Update.DefaultsChanged?", ":"")+(session.Update.DefaultsChanged?language.T("update_ini"):""));
+            // 0.4.88: what the update actually brings, out of the package README's version history -
+            // the yellow mark alone never said it.
+            if(update!=null)
+            {
+                string changes=Startup.Changes(session.Package.Root,session.Update.CurrentVersion,language.Code);
+                if(changes.Length>0) update+="  "+language.Format("update_changes",session.Update.CurrentVersion,changes);
+            }
             // Load path, file location and the last game start moved to the status bar below the tabs (0.4.12).
             if(session.RemoveOwnDll) notes.Add(language.Format("bridge_remove_copy","plugins\\"+session.Package.Target+".dll"));
+            // 0.4.88: saved games that still need this plugin - the line that makes the switch-off
+            // question below no surprise.
+            var usedBy=SavesUsingCurrent();
+            if(usedBy.Count>0) notes.Add(language.Format("saves_used_by",usedBy.Count,SaveGames.Names(usedBy,3,language.T("saves_and_more"))));
             // The overlay hint is a blue box of its own (0.4.19); the other package hints stay plain lines.
             string overlay=session.Package.Hints.Where(h=>Msg.KeyOf(h)=="hint_overlay").Select(language.Localize).FirstOrDefault()??"";
             notes.AddRange(session.Package.Hints.Where(h=>Msg.KeyOf(h)!="hint_overlay").Select(language.Localize));
@@ -434,7 +490,7 @@ namespace TesmioAutoload
             // an editor still offers it while other entries wait to be written.
             if(startButton!=null) startButton.Enabled=!blocked&&(available||total>0);
             string headingBase=heading.Text.EndsWith(" *")?heading.Text.Substring(0,heading.Text.Length-2):heading.Text;string headingNow=pending?headingBase+" *":headingBase;if(heading.Text!=headingNow)heading.Text=headingNow;
-            var dirtyNow=new HashSet<string>(parked.Keys,StringComparer.OrdinalIgnoreCase);if(pending&&this.current!=null)dirtyNow.Add(this.current.Root);if(!mods.DirtyRoots.SetEquals(dirtyNow)){mods.DirtyRoots.Clear();mods.DirtyRoots.UnionWith(dirtyNow);mods.Invalidate();}
+            var dirtyNow=new HashSet<string>(parked.Keys,StringComparer.OrdinalIgnoreCase);if(pending&&this.current!=null)dirtyNow.Add(this.current.Root);if(!mods.DirtyRoots.SetEquals(dirtyNow)){mods.DirtyRoots.Clear();mods.DirtyRoots.UnionWith(dirtyNow);mods.Invalidate();if(ListFilter!="all")FilterList();}
             foreach(var pair in origins)
             {
                 string id=pair.Key,current=draft.ContainsKey(id)?draft[id]:"",original=baseline.ContainsKey(id)?baseline[id]:"";
@@ -452,7 +508,7 @@ namespace TesmioAutoload
         }
 
         void OpenResourceDialog(CollectionSpec collection)
-        {using(var dialog=BuildResourceDialog(collection))dialog.ShowDialog(this);}
+        {using(var dialog=BuildResourceDialog(collection))Theme.Modal(this,dialog);}
         Form BuildResourceDialog(CollectionSpec collection)
         {
             if(collection==null)throw new InvalidOperationException(language.T("resource_unavailable"));

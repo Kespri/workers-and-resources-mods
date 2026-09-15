@@ -197,7 +197,7 @@ namespace TesmioAutoload
                 var cancel = Theme.Button(language.T("cancel"), () => dialog.DialogResult = DialogResult.Cancel, false); cancel.Margin = new Padding(8, 0, 0, 0);
                 buttons.Controls.Add(ok); buttons.Controls.Add(cancel); grid.Controls.Add(buttons, 0, 4);
                 dialog.Controls.Add(grid); dialog.AcceptButton = ok; dialog.CancelButton = cancel;
-                if (dialog.ShowDialog(this) != DialogResult.OK) return null;
+                if (Theme.Modal(this,dialog) != DialogResult.OK) return null;
                 return new KeyValuePair<string, string>(name.Text, note.Text);
             }
         }

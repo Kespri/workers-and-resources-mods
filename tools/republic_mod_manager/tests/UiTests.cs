@@ -34,7 +34,7 @@ static class UiTests
             if(args.Length!=2)return 2;string source=Path.GetFullPath(args[0]),root=Path.GetFullPath(args[1]);if(Directory.Exists(root))throw new IOException("Use a fresh UI test directory.");
             string collection=Path.Combine(root,"workshop"),package=Path.Combine(collection,"fixture_vehicle_materials"),loader=Path.Combine(root,"build");CopyTree(source,package);
             string simple=MakeSimplePackage(collection,Path.Combine(package,"hooks","vehicle_materials.dll"));string unsupported=Path.Combine(collection,"9876543210");Write(Path.Combine(unsupported,"soviet.mod.ini"),"[mod]\nid=example.other\nname=ZZ Other Mod\nversion=1.0\n[hooks]\ndll=one.dll\ndll=two.dll\n");
-            string plugins=Path.Combine(loader,"plugins"),resourceIni=Path.Combine(plugins,"resources.ini"),resourceDll=Path.Combine(plugins,"resources.dll");Directory.CreateDirectory(plugins);File.WriteAllBytes(resourceDll,new byte[]{1,2,3});string needsDll=Path.Combine(plugins,"needs.dll");File.WriteAllBytes(needsDll,new byte[]{9,8,7});Write(Path.Combine(plugins,"needs.ini"),"[list]\nfurniture = eletronics, 1.0, advanced, 0.35, 0.010\nmedicine = eletronics, 0.5, none, 0.30, 0.008\n[needs]\nenabled = 1\ndemand = 1\nstorage = 1\nmax_demands = 7\nwhen_full = skip\nprobe = 1\nlog_seconds = 60\n");string needsDllHash=SafeFiles.HashFile(needsDll);string depositsDll=Path.Combine(plugins,"deposits.dll");File.WriteAllBytes(depositsDll,new byte[]{5,5,5});Write(Path.Combine(plugins,"deposits.ini"),"[deposits]\ncode_patch = 1\nminimap = 1\neditor = 1\n[copper]\ntoken = $TYPE_MINE_COPPER\ntype = 10\nmap = resourcemap2\ncomponent = 3\nradius = ore\nicon = copper_ore\nminimap = 1\neditor = copper\n[sand]\ntoken = $TYPE_MINE_SAND\ntype = 11\nmap = terrain\ncomponent = 1\nradius = gravel\nicon = sand\nminimap = 1\neditor = sand\n");string depositsDllHash=SafeFiles.HashFile(depositsDll);
+            string plugins=Path.Combine(loader,"plugins"),resourceIni=Path.Combine(plugins,"resources.ini"),resourceDll=Path.Combine(plugins,"resources.dll");Directory.CreateDirectory(plugins);File.WriteAllBytes(resourceDll,new byte[]{1,2,3});string needsDll=Path.Combine(plugins,"needs.dll");File.WriteAllBytes(needsDll,new byte[]{9,8,7});Write(Path.Combine(plugins,"needs.ini"),"[list]\nfurniture = eletronics, 1.0, advanced, 0.35, 0.010\nmedicine = eletronics, 0.5, none, 0.30, 0.008\n[needs]\nenabled = 1\ndemand = 1\nstorage = 1\nmax_demands = 7\nwhen_full = skip\nprobe = 1\nlog_seconds = 60\n");string needsDllHash=SafeFiles.HashFile(needsDll);string depositsDll=Path.Combine(plugins,"deposits.dll");File.WriteAllBytes(depositsDll,new byte[]{5,5,5});Write(Path.Combine(plugins,"deposits.ini"),"[deposits]\ncode_patch = 1\nminimap = 1\neditor = 1\n[copper]\ntoken = $TYPE_MINE_COPPER\ntype = 10\nmap = resourcemap2\ncomponent = 3\nradius = ore\nicon = copper_ore\nminimap = 1\neditor = copper\n[sand]\ntoken = $TYPE_MINE_SAND\ntype = 11\nmap = terrain\ncomponent = 1\nradius = gravel\nicon = sand\nminimap = 1\neditor = sand\n");string depositsDllHash=SafeFiles.HashFile(depositsDll);File.WriteAllBytes(Path.Combine(plugins,"buildings_plus.dll"),new byte[]{4,4,4});Write(Path.Combine(plugins,"buildings_plus.ini"),"[buildings_plus]\nenabled = 1\nprune = 0\n\n[example]\ndonor = shop_clothes\nobject = Pharmacy\nname = Pharmacy\n");
             Write(resourceIni,"[list]\nglass=aluminium, Glass\ncable=steel, Cable\nsand=bauxite, Sand\n[resources]\nhook=2\n");Write(Path.Combine(loader,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\nresources=1\nneeds=1\ndeposits=1\nvehicle_materials=1\nsample_plugin=1\n");
             string resourcesHash=SafeFiles.HashFile(resourceIni),resourceDllHash=SafeFiles.HashFile(resourceDll),profile=Path.Combine(root,"ui-state.ini");var defaults=new UiState{Build=loader,WorkshopRoot=collection,SelectedSource=package,Language="de"};var notes=new List<string>();var store=new UiStateStore(profile);
             Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
@@ -128,6 +128,58 @@ static class UiTests
                 form.SelectTab("deposits");form.ResourceRemovePrompt=text=>DialogResult.OK;form.TestRemoveLocalResource("copper");Check(form.LocalResourceCount==2&&form.LocalHidden().Contains("copper"),"an original deposit can be hidden");
                 Check(form.TestSaveLocal(()=>{})&&!new LooseIni(SafeFiles.Text(Path.Combine(plugins,"deposits.ini"))).HasSection("copper")&&new LooseIni(SafeFiles.Text(Path.Combine(plugins,"deposits.ini"))).Get("glass","type")=="12"&&SafeFiles.HashFile(Path.Combine(plugins,"deposits.dll"))==depositsDllHash,"Deposits settings save the effective INI without replacing the DLL");
                 using(var image=new Bitmap(form.Width,form.Height)){form.DrawToBitmap(image,new Rectangle(0,0,form.Width,form.Height));image.Save(Path.Combine(root,"ui-deposits-master-detail.png"));}
+
+                // 0.5.5: the SML buildings tab. It lists what another generator wrote into
+                // media_soviet\workshop_wip and offers the one write there is - the missing owner
+                // id, the zero that makes the game report missing Workshop items on every load.
+                string wipFolder=Path.Combine(root,"media_soviet","workshop_wip","9188000001"),wipConfig=Path.Combine(wipFolder,"workshopconfig.ini");
+                Write(Path.Combine(wipFolder,"tesmioloader.stamp"),"tesmioloader plugins\\buildings.dll generated this folder.\r\nsection=salt_mine donor=bauxite_mine\r\nhash=1\r\n");
+                Write(wipConfig,"$ITEM_ID 9188000001\r\n\r\n$OWNER_ID 0\r\n\r\n$OBJECT_BUILDING SaltMine\r\n\r\n$ITEM_NAME \"Salt Mine\"\r\n\r\n$END\r\n");
+                WipBuildings.TestOwner="76561198017498697";
+                form.TestSearch("Buildings Plus");form.SelectIndex(0);Application.DoEvents();
+                Check(form.HasLocalResourceEditor&&form.TabCount==3,"Buildings Plus opens with General, Buildings and the SML buildings tab");
+                form.SelectTab("sml");Application.DoEvents();
+                Check(Children(form).OfType<Card>().Single().HeaderText.StartsWith("Von Soviet Mod Loader")&&Children(form).OfType<Label>().Any(x=>x.Text.Contains("9188000001")&&x.Text.Contains("SaltMine")),"the SML tab lists the generated folder with id, object and origin");
+                Check(Children(form).OfType<Label>().Any(x=>x.Text=="Salt Mine")&&Children(form).OfType<Label>().Any(x=>x.Text.Contains("kein Paket mehr")),"the name comes from the folder, and a folder no package declares is reported as stale");
+                var fixOwner=Children(form).OfType<Button>().FirstOrDefault(x=>(x.AccessibleName??"")=="wip:fix-owner");
+                Check(fixOwner!=null,"a missing owner id offers the fill-in button");
+                fixOwner.PerformClick();Application.DoEvents();
+                Check(SafeFiles.Text(wipConfig).Contains("$OWNER_ID 76561198017498697")&&SafeFiles.Text(wipConfig).Contains("$ITEM_NAME \"Salt Mine\"")&&!Children(form).OfType<Button>().Any(x=>(x.AccessibleName??"")=="wip:fix-owner"),"the button writes the owner, leaves the rest of the file alone and then has nothing left to do");
+                Check(File.Exists(Path.Combine(wipFolder,"tesmioloader.stamp")),"the stamp of the other generator is never touched");
+
+                // 0.5.5 step 3: personal changes to the generated building.ini, kept as operations.
+                string wipBuilding=Path.Combine(wipFolder,"SaltMine","building.ini");
+                Write(wipBuilding,"; generated by tesmioloader plugins\\buildings.dll\r\n$NAME_STR \"Salt Mine\"\r\n$TYPE_FACTORY\r\n$WORKERS_NEEDED 10\r\n$PRODUCTION rocksalt 3.0\r\n");
+                form.SelectTab("sml");Application.DoEvents();
+                Check(Children(form).OfType<Button>().Any(x=>(x.AccessibleName??"")=="wip:edit:9188000001"),"every building offers the Change button");
+                form.TestWipEdit("9188000001",window=>
+                {
+                    Check(window.LineCount==5&&window.ChangeCount==0,"the window lists the generator's lines and starts without changes");
+                    window.TestReplace(3,"$WORKERS_NEEDED 25");window.TestAdd("$POLLUTION_SMALL");
+                    Check(window.ChangeCount==2,"replace and add are recorded as two changes");
+                    window.TestSearch("PRODUCTION");Check(window.LineCount==1,"the search narrows the list of lines");
+                    window.TestSearch("");
+                    window.ShowInTaskbar=false;window.StartPosition=FormStartPosition.Manual;window.Location=new Point(-20000,-20000);window.Show();Application.DoEvents();
+                    using(var shot=new Bitmap(window.Width,window.Height)){window.DrawToBitmap(shot,new Rectangle(0,0,window.Width,window.Height));shot.Save(Path.Combine(root,"ui-wip-editor.png"));}
+                    window.Hide();
+                });
+                Application.DoEvents();
+                string written=SafeFiles.Text(wipBuilding);
+                Check(written.Contains("$WORKERS_NEEDED 25")&&!written.Contains("$WORKERS_NEEDED 10")&&written.TrimEnd().EndsWith("$POLLUTION_SMALL"),"applying writes the changed building.ini");
+                Check(Children(form).OfType<Label>().Any(x=>x.Text.Contains("2 Änderungen von dir")),"the row says how many changes the building carries");
+                // The generator writes anew, with an improvement of its own: RMM puts the changes
+                // back in and keeps what the package changed.
+                Write(wipBuilding,"; generated by tesmioloader plugins\\buildings.dll\r\n$NAME_STR \"Salt Mine\"\r\n$TYPE_FACTORY\r\n$WORKERS_NEEDED 10\r\n$PRODUCTION rocksalt 4.2\r\n");
+                Write(Path.Combine(wipFolder,"tesmioloader.stamp"),"tesmioloader plugins\\buildings.dll generated this folder.\r\nsection=salt_mine donor=bauxite_mine\r\nhash=99\r\n");
+                form.SelectTab("general");form.SelectTab("sml");Application.DoEvents();
+                written=SafeFiles.Text(wipBuilding);
+                Check(written.Contains("$WORKERS_NEEDED 25")&&written.Contains("$PRODUCTION rocksalt 4.2"),"after a regeneration the changes are back and the new recipe survived");
+                Check(Children(form).OfType<Label>().Any(x=>x.Text.Contains("wieder drin")),"and the blue notice says it happened");
+                form.TestWipEdit("9188000001",window=>window.TestDrop(0));
+                form.TestWipEdit("9188000001",window=>window.TestDrop(0));
+                Application.DoEvents();
+                Check(SafeFiles.Text(wipBuilding).Contains("$WORKERS_NEEDED 10")&&!SafeFiles.Text(wipBuilding).Contains("$POLLUTION_SMALL"),"dropping every change puts the generator's file back");
+                WipBuildings.TestOwner=null;
                 form.TestSearch("Vehicle");form.SelectIndex(0);Application.DoEvents();form.SelectTab("general");Check(Children(form).OfType<Button>().Count(x=>(x.AccessibleName??"").StartsWith("link:"))==1&&Children(form).OfType<Button>().Any(x=>(x.AccessibleName??"")=="link:readme"&&x.Enabled),"general tab shows exactly the guide of the active language");form.SelectTab("resources");Check(!Children(form).OfType<Button>().Any(x=>(x.AccessibleName??"").StartsWith("link:"))&&!Children(form).OfType<Card>().Any(x=>x.HeaderText=="Hinweise"),"other tabs carry neither guides nor the notices card");
                 // 0.4.15: number inputs keep the reset button's column free at every window size (user report: cut off after resizing).
                 {
@@ -149,6 +201,74 @@ static class UiTests
             {HiddenShow(form);form.PendingPrompt=()=>DialogResult.No;Check(form.DisplayedValue("resources/count")=="0","deleted collection remains empty after reopening");form.TestEdit("general/enabled","1");Check(form.StatusDetailText.Contains("“Resources” tab")&&form.StatusDetailText.Contains("under “Materials”")&&form.StatusDetailText.Contains("Use +")&&!form.StatusDetailText.Contains("Reiter"),"English validation names the translated schema-derived tab and group");form.TestEdit("general/enabled","0");bool started=false;Check(form.TestSaveAndLaunch(()=>{},()=>started=true)&&started&&!form.Visible,"Save + Start closes Settings after successful launch");}
             Check(SafeFiles.HashFile(resourceIni)==resourcesHash,"all collection operations leave provider INI byte-for-byte unchanged");
             using(var icon=Icon.ExtractAssociatedIcon(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"rmm.exe"))){Check(icon!=null,"EXE contains native application icon");}
+            // 0.4.93: the options window. What it changes must land in the saved view (that layer
+            // wins over rmm.ini), take effect at once, and say where the value differs from rmm.ini.
+            {
+                AppOptions.IniLauncherWindow="0"; AppOptions.IniWatchSeconds="15"; AppOptions.IniVersionCheck="1";
+                LauncherOptions.ShowWindow=false; LauncherOptions.WatchSeconds=15; GameVersion.CheckEnabled=true;
+                var view=new UiState{Build=loader,Language="de"};
+                string report=null;
+                using(var window=new OptionsWindow(new Language("de"),view,()=>"Republic Mod Manager 0.4.93\nSteam: Ready",new Font("Segoe UI",10),null))
+                {
+                    window.Copied=t=>report=t;
+                    Check(window.TestNote("launcher_window")==""&&window.TestNote("watch_seconds")=="","no note while everything matches rmm.ini");
+                    window.TestLauncherWindow=true;
+                    Check(view.LauncherWindow=="1"&&LauncherOptions.ShowWindow&&window.Changed,"the launcher switch is staged and takes effect at once");
+                    Check(window.TestNote("launcher_window").Contains("rmm.ini")&&window.TestNote("launcher_window").Contains("AUS"),"a value differing from rmm.ini names the shipped default");
+                    window.TestWatch="0";
+                    Check(view.WatchSeconds=="0"&&LauncherOptions.WatchSeconds==0&&window.TestNote("watch_seconds").Contains("15"),"the watch seconds are staged and the rmm.ini default is shown");
+                    window.TestVersionCheck=false;
+                    Check(view.VersionCheck=="0"&&!GameVersion.CheckEnabled,"the version check switch is staged and takes effect at once");
+                    window.TestCopy();
+                    Check(report!=null&&report.Contains("Republic Mod Manager"),"the report goes through the copy hook");
+                    // 0.4.94: the reset asks before it touches anything, and the word window only
+                    // opens the door when the word actually fits.
+                    ResetPlan asked=null; bool applied=false;
+                    window.Planner=everything=>{var p=new ResetPlan{Everything=everything};p.Files.Add("user_config\\x.ini");return p;};
+                    window.Applier=p=>{applied=true;return "backup = "+Path.Combine(root,"reset-backup");};
+                    window.ConfirmHook=p=>{asked=p;return false;};
+                    window.TestReset(true);
+                    Check(asked!=null&&asked.Everything&&!applied&&!window.ResetDone,"the reset asks first and does nothing when the answer is no");
+                    window.ConfirmHook=p=>true;
+                    window.TestReset(false);
+                    Check(applied&&window.ResetDone,"a yes carries the plan out");
+                }
+                using(var word=new ResetWordWindow(new Language("de"),new Font("Segoe UI",10),null))
+                {
+                    Check(!word.TestReady,"the final button starts locked");
+                    word.TestType("löschen");Check(word.TestReady,"the typed word unlocks it, upper or lower case");
+                    word.TestType("lösche");Check(!word.TestReady,"a half word locks it again");
+                }
+                // Saved and read back: the view wins over the rmm.ini defaults.
+                string viewPath=Path.Combine(root,"optionsview","state.ini"); Directory.CreateDirectory(Path.GetDirectoryName(viewPath));
+                var optionStore=new UiStateStore(viewPath); optionStore.Load(new UiState(),new List<string>()); optionStore.Save(view);
+                LauncherOptions.ShowWindow=false; LauncherOptions.WatchSeconds=15; GameVersion.CheckEnabled=true;
+                var back=new UiStateStore(viewPath).Load(new UiState{Build=loader},new List<string>());
+                AppOptions.Apply(back);
+                Check(LauncherOptions.ShowWindow&&LauncherOptions.WatchSeconds==0&&!GameVersion.CheckEnabled,"the saved options win over the rmm.ini defaults");
+                LauncherOptions.ShowWindow=false; LauncherOptions.WatchSeconds=15; GameVersion.CheckEnabled=true;
+            }
+            // 0.4.95: every dialog dims what is behind it. The backdrop is an owned form and it
+            // has to be gone again the moment the dialog closes.
+            {
+                using(var owner=new Form{ShowInTaskbar=false,StartPosition=FormStartPosition.Manual,Location=new Point(-20000,-20000),Size=new Size(900,700)})
+                {
+                    owner.Show();Application.DoEvents();
+                    bool dimmed=false;int behind=0;
+                    using(var dialog=new Form{ShowInTaskbar=false,StartPosition=FormStartPosition.Manual,Location=new Point(-20000,-20000),Size=new Size(300,200)})
+                    {
+                        dialog.Shown+=(s,e)=>
+                        {
+                            foreach(Form owned in owner.OwnedForms) if(owned!=dialog&&owned.BackColor==Color.Black&&owned.Opacity<0.9) {dimmed=true;behind=owned.Bounds==owner.Bounds?1:0;}
+                            dialog.DialogResult=DialogResult.OK;dialog.Close();
+                        };
+                        Check(Theme.Modal(owner,dialog)==DialogResult.OK,"the dimmed dialog returns its result");
+                    }
+                    Check(dimmed&&behind==1,"a dark backdrop covers the owner while the dialog is open");
+                    Check(owner.OwnedForms.Length==0,"the backdrop is gone when the dialog closes");
+                    owner.Close();
+                }
+            }
             // 0.23.0: profiles and restore points window, driven through its test hooks.
             using(var window=new ProfilesWindow(new Language("de"),loader,new Font("Segoe UI",10),null))
             {
@@ -163,7 +283,16 @@ static class UiTests
                 Write(loaderIni,original);window.TestDelete();Check(window.ProfileCount==0,"deleting removes the profile");
             }
             using(var form=new MainForm(new UiState{Build=loader,WorkshopRoot=collection,SelectedSource=package,Language="de"},null,false))
-            {HiddenShow(form);Check(Children(form).OfType<SidebarButton>().Count()==5,"sidebar offers folders, log, profiles, language and refresh");}
+            {HiddenShow(form);Check(Children(form).OfType<SidebarButton>().Count()==7,"sidebar offers folders, start check, log, profiles, language, settings and refresh");
+             // 0.4.88: the state filter beside the search box. 0.4.90: an entry that does not match
+             // is really gone - only unsaved work stays under every filter, marked by the amber dot.
+             Check(Children(form).OfType<Label>().Count(x=>(x.AccessibleName??"").StartsWith("filter:"))==4,"the list offers four state filters");
+             int all=form.ModCount; form.TestFilter("problems");
+             Check(form.ModCount<all&&!form.ShownListed,"a filter narrows the list and drops the shown entry when it has no problem");
+             form.TestFilter("all"); Check(form.ModCount==all&&form.ShownListed,"'all' brings everything back");
+             form.TestEdit("general/debug","1"); form.TestFilter("problems");
+             Check(form.ShownListed&&form.DirtyMarks==1,"an entry with unsaved changes stays listed under every filter");
+             form.TestEdit("general/debug","0"); form.TestFilter("all");}
             // 0.32.0: the building picker, driven through its hooks against a fake game folder.
             {
                 string game=Path.Combine(root,"fake-game"),ms=Path.Combine(game,"media_soviet");

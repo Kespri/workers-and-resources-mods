@@ -16,13 +16,17 @@ Republic Mod Manager (kurz RMM) ist ein Fenster für alle deine TesmioLoader-Plu
 6. [Wie ein Plugin ins Spiel kommt](#-wie-ein-plugin-ins-spiel-kommt)
 7. [Inhaltspakete](#-inhaltspakete-ressourcen-vorkommen-gebäude)
 8. [Dateien nur lokal](#-dateien-nur-lokal)
-9. [Das Protokollfenster](#-das-protokollfenster)
-10. [Profile und Wiederherstellung](#-profile-und-wiederherstellung)
-11. [Listen-Editoren: Resources, Needs, Deposits und Paket-Editoren](#-listen-editoren)
-12. [Spielversion und rmm.ini](#-spielversion-und-rmmini)
-13. [Wo deine Dateien liegen](#-wo-deine-dateien-liegen)
-14. [Wenn etwas nicht klappt](#-wenn-etwas-nicht-klappt)
-15. [Für Plugin-Autoren](#-für-plugin-autoren)
+9. [Vor dem Spielstart](#-vor-dem-spielstart)
+10. [Spielstände](#-spielstände)
+11. [Das Protokollfenster](#-das-protokollfenster)
+12. [Das Einstellungsfenster](#-das-einstellungsfenster)
+13. [Profile und Wiederherstellung](#-profile-und-wiederherstellung)
+14. [Listen-Editoren: Resources, Needs, Deposits und Paket-Editoren](#-listen-editoren)
+15. [Erzeugte Gebäude (Reiter „SML-Gebäude“)](#️-erzeugte-gebäude-reiter-sml-gebäude)
+16. [Spielversion und rmm.ini](#-spielversion-und-rmmini)
+17. [Wo deine Dateien liegen](#-wo-deine-dateien-liegen)
+18. [Wenn etwas nicht klappt](#-wenn-etwas-nicht-klappt)
+19. [Für Plugin-Autoren](#-für-plugin-autoren)
 
 ---
 
@@ -39,6 +43,10 @@ RMM liegt als `rmm.exe` im Ordner `tesmioloader\build`. Starte es von dort oder 
 ## 🖥️ Das Fenster
 
 **Links die Liste.** Jede Zeile ist ein Plugin: abonnierte Workshop-Pakete und alles, was als DLL in `tesmioloader\build\plugins` liegt. Das Symbol zeigt die Herkunft: Steam-Symbol für Workshop-Pakete, TesmioLauncher-Symbol für Plugins im plugins-Ordner, Zahnrad für alles andere. Ein grüner Punkt heißt: Dieses Plugin läuft beim nächsten Spielstart. Ein gelbes „Update“ heißt: Das Workshop-Paket ist neuer als das, was du zuletzt gespeichert hast. Ein bernsteinfarbener Punkt heißt: Hier hast du etwas geändert und noch nicht gespeichert.
+
+**Unter dem Suchfeld vier Filter:** „Alle“, „Aktiv“, „Probleme“ und „Updates“. Sie zeigen genau die Einträge, auf die das zutrifft — steht ein Plugin nicht unter „Probleme“, hat es auch keins. Nur ein Eintrag mit ungespeicherten Änderungen bleibt in jedem Filter stehen; der bernsteinfarbene Punkt sagt dir, warum. Die offene Seite bleibt geöffnet, auch wenn ihr Eintrag gerade herausgefiltert ist; „Alle“ holt ihn zurück.
+
+Rechts neben dem Suchfeld sitzt der Aktualisieren-Knopf: Er liest die Paketordner neu, wenn du zwischendurch etwas abonniert oder kopiert hast.
 
 **Oben der Kopf.** Name, Version und Beschreibung des Plugins, rechts der Schalter „Plugin aktiv“ und die Sprache der Oberfläche. RMM spricht Deutsch und Englisch; „Automatisch“ nimmt Deutsch, wenn Windows auf Deutsch läuft, sonst Englisch.
 
@@ -88,6 +96,8 @@ Speichern geht nur, wenn Spiel und TesmioLauncher beendet sind und alle Werte im
 
 **Speichern + Starten** speichert genauso und startet dann das Spiel über `tesmiolauncher.exe` ohne dessen Fenster. RMM schließt sich dabei. Willst du das Launcher-Fenster sehen, setze in `rmm.ini` unter `[settings]` den Wert `tesmiolauncher_window = 1`.
 
+Nach dem Start schaut RMM dem Spiel noch etwa 15 Sekunden zu und schließt sich erst dann. Beendet sich das Spiel **sofort** wieder — in den ersten fünf Sekunden, bevor es überhaupt geladen hat —, sagt RMM dir das und nennt den häufigsten Grund: einen Steam-Client, der zwar läuft, gerade aber kein Spiel annimmt, das ausserhalb von Steam startet; dann hilft nur, Steam ganz zu beenden und neu zu starten. Machst du das Spiel selbst wieder zu, und sei es gleich nach dem Ladebildschirm, bleibt RMM still und schließt sich einfach. Willst du das alte Verhalten (RMM schließt sofort), setze in `rmm.ini` unter `[settings]` den Wert `launch_watch_seconds = 0`.
+
 Vor dem Start prüft RMM außerdem, ob alle Ressourcen, auf die eingeschaltete Plugins verweisen, im Plugin Resources vorhanden sind. Fehlt eine, nennt die Meldung das Plugin, und der Start wartet.
 
 ---
@@ -112,6 +122,10 @@ Der TesmioLoader allein lädt nur DLLs aus `tesmioloader\build\plugins`. Für Wo
 2. **Soviet Mod Loader:** Ist SML installiert und eingeschaltet, lädt er alle abonnierten Pakete. RMM schreibt dann nur INI-Dateien und nie eine DLL. Liegt von einem Paket noch eine DLL in `plugins\`, weigert sich RMM zu speichern, weil das Plugin sonst doppelt laden würde. Die Bridge hält sich unter SML zurück.
 3. **TesmioLoader klassisch:** Ohne Bridge und SML kopiert RMM DLL und INI nach `plugins\` und schaltet das Plugin in `tesmioloader.ini` ein.
 
+**Resources, Deposits, Needs und Buildings gehören unter SML dem Mod Loader.** Diese vier Fähigkeiten sind in SML eingebaut, es gibt darum keine eigene `plugins\resources.dll` und so weiter, und ihre `plugins\*.ini` schreibt SML bei jedem Spielstart neu (die erste Zeile der Datei sagt das). Bearbeiten kannst du sie trotzdem: SML merkt sich seine Grundfassung unter `tesmioloader\build\soviet_mod_loader\base`, liest sie bei jedem Start und schreibt sie nie zurück — genau dorthin setzen die Editoren deine Einträge. Ein blauer Hinweis über den Karten sagt es, und in der Statuszeile steht „Grundfassung von Soviet Mod Loader". Was ein Paket beisteuert, legt SML beim Zusammenführen dazu; es erscheint in der Liste des Editors darum nicht. Solange SML noch nie gelaufen ist, gibt es diese Grundfassung nicht — dann steht auf der Seite, dass ein Spielstart sie anlegt.
+
+**Ein Plugin, das SML ersetzt, leuchtet orange.** Manche Pakete machen dasselbe wie eine der vier eingebauten Fähigkeiten — Deposits Plus zum Beispiel. Läuft SML, treten sie beim Spielstart von selbst zur Seite. Der Punkt in der Liste ist dann nicht grau (das hiesse „du hast es ausgeschaltet"), sondern orange, und die Karte „Hinweise" sagt, wer gerade dran ist und wie du umschaltest.
+
 Die Workshop Bridge erscheint selbst als Plugin in der Liste. Ihre Karte hat den Schalter „Bridge aktiv“, den Workshop-Ordner (normalerweise „auto“ = der Steam-Workshop-Ordner deines Spiels), die Regel, welche Pakete geladen werden, und einen Knopf „Jetzt aufräumen“, der Einträge von Paketen entfernt, die du nicht mehr hast. Die Paketliste selbst pflegst du nie von Hand; das macht der Schalter „Plugin aktiv“ der Pakete.
 
 ---
@@ -126,11 +140,13 @@ Einschalten und Speichern macht drei Dinge:
 - Die mitgelieferten Dateien landen unter `tesmioloader\vfs`, wo das Spiel sie statt seiner eigenen liest.
 - Bei Vorkommen vergibt RMM die Typnummer selbst, damit sie sich nie mit einem anderen Vorkommen beisst. Eine einmal vergebene Nummer bleibt.
 
-In den Editoren erscheinen die Einträge als Originale mit Schloss: du kannst ihre Werte für dich überschreiben, aber den Eintrag selbst nicht löschen. Einen Eintrag, den es schon gibt, lässt RMM unangetastet und sagt auf der Paketseite, welcher übersprungen wurde.
+In den Editoren erscheinen die Einträge als Originale mit Schloss: du kannst ihre Werte für dich überschreiben, aber den Eintrag selbst nicht löschen.
+
+**Kollisionen gewinnst du.** Bringt ein Paket eine Kennung mit, die es in deinem Spiel schon gibt — deine eigene Ressource, ein Eintrag eines anderen Pakets oder einer aus der ausgelieferten INI des Plugins —, dann wird das Paket **gar nicht** bereitgestellt: keine Einträge, keine Dateien im vfs. Auf der Paketseite steht eine rote Meldung mit der Kennung, die im Weg ist. Nimm sie erst weg — einen eigenen Eintrag im RMM, einen Originaleintrag direkt in `plugins\<plugin>.ini` — und schalte das Paket danach wieder ein. Dein Bestand wird nie stillschweigend ersetzt, und eine Datei, die vor dem Paket im vfs lag, wird ohnehin weder überschrieben noch später gelöscht.
 
 Ausschalten und Speichern nimmt Einträge und Dateien wieder heraus. Deine eigenen Einträge und deine Überschreibungen bleiben. Ändert sich das Paket im Workshop, erscheint in der Liste die gelbe Marke „Update“; einmal speichern übernimmt den neuen Stand.
 
-Ist ein Plugin nicht eingerichtet, sagt die Paketseite das (zum Beispiel „Für Gebäude ist kein passendes Plugin eingerichtet“) und überspringt diesen Teil. Unter Soviet Mod Loader brauchst du den Schalter nicht: SML führt solche Pakete beim Spielstart selbst zusammen.
+Ist ein Plugin nicht eingerichtet, sagt die Paketseite das (zum Beispiel „Für Gebäude ist kein passendes Plugin eingerichtet“) und überspringt diesen Teil. Unter Soviet Mod Loader ist der Schalter gar nicht erst da: SML führt solche Pakete beim Spielstart selbst zusammen, abonnieren reicht. Die Paketseite sagt das mit einem blauen Hinweis und zeigt weiterhin, was drin ist.
 
 ---
 
@@ -142,6 +158,27 @@ Ausschalten und Speichern entfernt genau diese Dateien wieder, nach einer Rückf
 
 ---
 
+## ✅ Vor dem Spielstart
+
+Das Klemmbrett-Symbol in der Seitenleiste öffnet eine Seite, die alles zusammenfasst, was der nächste Spielstart tun wird:
+
+- **Überblick:** wie viele Plugins geladen werden, wie viele ausgeschaltet sind, wie viele Pakete ein ungespeichertes Update haben, wann das Spiel zuletzt lief und wie viele Spielstände gefunden wurden.
+- **Was im Weg steht:** fehlende Abhängigkeiten, abgewiesene Pakete, wartende Updates — und Abhängigkeiten, die **zu spät** geladen werden. Ein Klick auf eine Zeile schliesst das Fenster und zeigt den betroffenen Eintrag.
+- **Ladereihenfolge:** die Liste in der Reihenfolge, in der der Loader arbeitet. Zuerst alles aus `plugins\` in der Reihenfolge der `tesmioloader.ini`, danach die Workshop-Pakete über die Bridge in der Reihenfolge ihrer Ordnernamen. Das ist wichtig, wenn ein Plugin einen Dienst eines anderen braucht: Den gibt es erst, wenn der Anbieter geladen ist.
+
+---
+
+## 💾 Spielstände
+
+RMM liest die Datei `tesmioloader.save.ini`, die der Loader neben jeden Spielstand legt. Darin steht, welche Plugins geladen waren und welche Ressourcen und Vorkommen die Welt kennt. Geschrieben wird dort nie etwas.
+
+Daraus werden zwei Dinge:
+
+- Auf der Seite eines Plugins oder Inhaltspakets steht eine Zeile **„Wird von … Spielständen benutzt"** mit den Namen.
+- Beim **Ausschalten** fragt RMM nach und nennt genau diese Spielstände. „Nein" lässt den Schalter, wo er war.
+
+---
+
 ## 📜 Das Protokollfenster
 
 Das Protokoll-Symbol in der Seitenleiste öffnet ein Fenster mit drei Arten von Quellen: dem Journal dieser RMM-Sitzung, `tesmioloader.log` aus dem Loader-Ordner und jedem Plugin-Protokoll `tesmioloader.<plugin>.log`, egal ob es im Unterordner `logs\` oder direkt im Loader-Ordner liegt. Die Dateien lassen sich auch lesen, während das Spiel läuft; „Aktualisieren“ liest neu, „Ordner öffnen“ zeigt den Loader-Ordner im Explorer.
@@ -150,6 +187,29 @@ Das Protokoll-Symbol in der Seitenleiste öffnet ein Fenster mit drei Arten von 
 
 ---
 
+
+## ⚙️ Das Einstellungsfenster
+
+Das Schieberegler-Symbol in der Seitenleiste öffnet die Einstellungen von RMM selbst — nicht die des gewählten Plugins:
+
+- **Fenster des TesmioLaunchers zeigen:** AUS startet das Spiel sofort, EIN zeigt erst den Launcher.
+- **Nach dem Start zusehen:** wie viele Sekunden RMM prüft, ob das Spiel oben bleibt. 0 schliesst sofort.
+- **Sprache** der Oberfläche, dasselbe wie der Knopf `DE` daneben.
+- **Vor unbekannter Spielversion warnen:** EIN meldet, wenn dein Spiel nicht die Version ist, für die die Plugins gebaut wurden.
+- **Angaben für einen Fehlerbericht:** legt Versionen, Ordner, gefundene Plugins und den Zustand von Steam in die Zwischenablage.
+
+Die Werte gelten sofort und werden beim Schliessen gespeichert — und zwar dort, wo RMM sich alles merkt, nicht in der `rmm.ini`. Weicht dein Wert von dem ab, was in der `rmm.ini` steht, sagt dir eine kleine Zeile unter dem Feld, was dort vorgegeben ist.
+
+**Neu anfangen.** Ganz unten im Einstellungsfenster stehen zwei Knöpfe, die sauber getrennt sind:
+
+- **RMM-Daten löschen** (gelb) räumt nur weg, was RMM sich selbst merkt: Profile, Wiederherstellungspunkte und den gemerkten Fensterzustand. Deine Plugins, ihre Einstellungen und deine Spielstände bleiben unberührt.
+- **Alles zurücknehmen** (rot) nimmt zusätzlich alles zurück, was RMM je in den Loader-Ordner geschrieben hat: deine Überschreibungen, lokale Kopien in `plugins\`, Dateien im `vfs`, die Einträge in `tesmioloader.ini` und in der Liste der Workshop Bridge; die gesicherten Original-INIs schreibt RMM zurück.
+
+Vor dem roten Knopf zeigt RMM erst, was verloren geht — **einschliesslich der Namen deiner Spielstände**, die auf die betroffenen Pakete bauen. Danach musst du das Wort `LÖSCHEN` eintippen, bevor der letzte Knopf überhaupt anklickbar wird. Der Fokus liegt überall auf Abbrechen, damit die Eingabetaste nichts kaputtmacht.
+
+Vorher legt RMM eine Sicherung aller INI-Dateien unter `tesmioloader\rmm_reset_backup\<Zeitstempel>` an. Nicht angefasst werden der Spielordner mit deinen Spielständen, deine Abos im Workshop, der TesmioLoader selbst und alles, was RMM nie geschrieben hat. Willst du auch das Programm loswerden, nimm `Uninstall-RMM.bat` aus dem Workshop-Paket.
+
+---
 ## 🗂️ Profile und Wiederherstellung
 
 Das Archiv-Symbol in der Seitenleiste öffnet das Fenster „Profile und Wiederherstellung“ mit zwei Reitern.
@@ -179,7 +239,34 @@ Einige Plugins verwalten Listen statt einzelner Werte. RMM zeigt sie als Liste l
 
 **Deposits:** Reiter „Allgemein“ mit den Plugin-Schaltern und Reiter „Vorkommen“ mit einem Eintrag je Vorkommen: Kennung, Typnummer, Karte, Platz auf der Karte, Symbol und mehr. Die Typnummer schlägt der Dialog als nächste freie vor; eine doppelte wird abgewiesen.
 
+**Buildings Plus:** Reiter „Allgemein“ mit den Plugin-Schaltern, Reiter „Gebäude“ mit deinen eigenen Erklärungen — und Reiter „SML-Gebäude“, siehe unten.
+
 **Paket-Editoren** bringen ihre eigenen Reiter, Listen und Hilfen mit. Manche haben Knöpfe, die Anleitungen des Pakets öffnen, Auswahlfenster für Gebäude, Forschungen oder Spieltexte, Bildvorschauen oder einen Reiter für Übersetzungen.
+
+---
+
+## 🏗️ Erzeugte Gebäude (Reiter „SML-Gebäude“)
+
+Ein Gebäude aus einem Inhaltspaket wird beim Spielstart als vollständiges Workshop-Objekt nach `media_soviet\workshop_wip\<Nummer>\` geschrieben — von Buildings Plus oder, wenn Soviet Mod Loader läuft, von dessen eigenem Gebäude-Teil. Das sieht aus wie ein Abo, ist aber deine eigene Datei auf deiner Platte.
+
+Der Reiter zeigt je Ordner Name, Nummer, Objektordner und Herkunft. Zwei Dinge meldet er von sich aus:
+
+- **Besitzer fehlt.** Steht in der `workshopconfig.ini` eine `$OWNER_ID 0`, meldet das Spiel bei **jedem** Laden eines Spielstands, dass Workshop-Objekte fehlen. Soviet Mod Loader schreibt diese Null in jedes Gebäude, das es erzeugt. Der Knopf „Besitzer eintragen“ setzt deine Steam-ID ein — geändert wird genau diese eine Zahl, jedes andere Byte der Datei bleibt, wie es war.
+- **Verwaist.** Gibt es zu einem Ordner kein Paket mehr, das ihn erklärt, **beendet Soviet Mod Loader das Spiel beim Start** mit einer Fehlerbox ohne Reparaturangebot. RMM sagt dir das vorher und nennt die Ordner. Lösche sie, sobald kein Spielstand die Gebäude mehr nutzt.
+
+Ist Buildings Plus eingeschaltet, trägt es die fehlende Nummer beim Spielstart ohnehin selbst nach — der Knopf ist für den Fall, dass du es aus hast. Verändert wird sonst nichts: der Stempel `tesmioloader.stamp` bleibt unangetastet, denn ein Ordner ohne ihn bringt Soviet Mod Loader ebenfalls zum Abbruch.
+
+### Ein erzeugtes Gebäude ändern
+
+„Ändern…" öffnet die `building.ini` des Gebäudes. Links stehen die Zeilen, die der Generator schreibt, rechts **deine Änderungen**: eine Zeile ersetzen, eine Zeile entfernen, eine Zeile hinzufügen. Ein `*` markiert links jede Zeile, an der schon etwas von dir hängt.
+
+Wichtig ist, **was** gespeichert wird: nicht die geänderte Datei, sondern deine Änderungen. Das klingt nach Haarspalterei, entscheidet aber den Ernstfall — wenn das Paket ein Update bekommt, schreibt der Generator die Datei neu, und RMM spielt deine Änderungen in die **neue** Fassung ein. Was der Autor in der Zwischenzeit verbessert hat, bleibt also erhalten; eine gespeicherte Kopie hätte es weggeworfen. Passt eine Zeile nach dem Update nicht mehr (sie ist weg oder steht jetzt mehrfach da), sagt RMM das und lässt sie aus, statt still nichts zu tun.
+
+Das Nachziehen passiert, sobald du den Reiter öffnest — also bevor du das Spiel startest. Eine blaue Zeile sagt dir, dass es passiert ist.
+
+Hast du die Datei **von Hand** geändert, außerhalb von RMM, merkt RMM das (die Datei ist nicht mehr die, die es geschrieben hat) und fasst sie nicht an. Deine gespeicherten Änderungen liegen dann brach, bis du im Fenster auf „Übernehmen" gehst.
+
+„Alles zurücksetzen" im Fenster wirft deine Änderungen weg und stellt die Fassung des Generators wieder her. Dasselbe macht „Alles zurücknehmen" im Einstellungsfenster für alle Gebäude auf einmal.
 
 ---
 
@@ -195,6 +282,7 @@ Beim Start liest RMM die Kennung von `SOVIET64.exe`. Gehört sie zu keiner Spiel
 | `[settings] language` | `auto` (Deutsch bei deutschem Windows, sonst Englisch), `de` oder `en`. |
 | `[settings] version_check` | 0 schaltet die Warnung zur Spielversion ab. |
 | `[settings] tesmiolauncher_window` | 1 zeigt das Fenster des TesmioLaunchers bei „Speichern + Starten“. |
+| `[settings] launch_watch_seconds` | Wie lange RMM nach „Speichern + Starten“ zusieht, ob das Spiel oben bleibt. Standard 15, 0 schaltet es ab. |
 
 Was du im Fenster einstellst, hat Vorrang vor der Datei.
 **Ohne Fenster speichern.** Für Wartung von der Kommandozeile aus:
@@ -212,6 +300,14 @@ rmm.exe --activate on --save --build "<Spiel>\tesmioloader\build" --package "<Or
 ```
 
 `on` schaltet ein, `off` aus. Das ist derselbe Klick wie im Fenster, nur ohne Maus: bei einem Inhaltspaket heißt das "Im Spiel bereitstellen", bei einem Plugin "Plugin aktiv". Geschrieben wird erst durch `--save`; ohne `--save` weist RMM die Option ab.
+
+**Steam-Anmeldung prüfen.** Weil das Spiel hier direkt und nicht über Steam startet, braucht es einen angemeldeten Steam-Client. Ob einer da ist, sagt dir:
+
+```bash
+rmm.exe --steam-check
+```
+
+Die Antwort ist eine Zeile mit PASS oder FAIL und dazu das, was RMM in der Steam-Registrierung gefunden hat. Dieselbe Prüfung läuft vor „Speichern + Starten“; warnen tut sie nur, wenn Steam keinen angemeldeten Spieler einträgt oder gar kein Client läuft. Kann RMM nicht nachsehen, sagt es nichts und startet.
 
 ---
 

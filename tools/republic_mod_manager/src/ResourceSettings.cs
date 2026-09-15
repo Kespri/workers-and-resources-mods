@@ -181,6 +181,13 @@ namespace TesmioAutoload
         public static string Render(IEnumerable<string> parts){var list=parts.Select(x=>(x??"").Trim()).ToList();while(list.Count>0&&list[list.Count-1].Length==0)list.RemoveAt(list.Count-1);return String.Join(", ",list);}
     }
 
+    // 0.5.5: [wip_buildings] - a tab that lists the generated folders under
+    // media_soviet\workshop_wip. range: sml | own | all (see WipBuildings.Scan).
+    public sealed class WipSpec
+    {
+        public string Tab = "", Range = "sml";
+        public string Label = "", LabelKey = "", Description = "", DescriptionKey = "", Empty = "", EmptyKey = "";
+    }
     public sealed class LocalTab { public string Id, Label, LabelKey; public int Order; }
     public sealed class LocalCard { public string Id, Tab, Label="", LabelKey="", Description="", DescriptionKey="", Notice="", NoticeKey="", NoticeStyle="warning"; public int Order; }
     // Language: when set (de, en, ...) the link is shown only while that UI language is active.
@@ -248,6 +255,7 @@ namespace TesmioAutoload
         public readonly List<LocalPathRow> PathRows=new List<LocalPathRow>();   // 0.4.28
         public readonly List<ItemGroup> ExtraGroups=new List<ItemGroup>();   // 0.4.29
         public TextPackSpec TextPack;   // 0.4.30: [textpack], null when the schema has none
+        public WipSpec Wip;   // 0.5.5: [wip_buildings], a tab that lists generated Workshop folders
         public readonly List<LocalPictureRow> Pictures=new List<LocalPictureRow>();   // 0.4.35
         public IEnumerable<LocalPictureRow> PicturesFor(ItemGroup group){string gid=group==null?"":group.Id;return Pictures.Where(x=>x.Group.Equals(gid,StringComparison.OrdinalIgnoreCase));}
         public readonly List<LocalBlockRow> Blocks=new List<LocalBlockRow>();   // 0.4.42
@@ -258,6 +266,9 @@ namespace TesmioAutoload
         public string LocalizedPictureDescription(Language l,LocalPictureRow p){return Text(l,p.DescriptionKey,p.Description).Replace("\\n","\n");}
         public string RemoveLabel="",RemoveLabelKey="";   // [list] remove_label (0.4.35)
         public string LocalizedRemoveLabel(Language l,ItemGroup g){string s=g==null?Text(l,RemoveLabelKey,RemoveLabel):Text(l,g.RemoveLabelKey,g.RemoveLabel);return s.Length>0?s:l.T("remove_item_only");}
+        public string LocalizedWipLabel(Language l){return Wip==null?"":Text(l,Wip.LabelKey,Wip.Label);}
+        public string LocalizedWipDescription(Language l){return Wip==null?"":Text(l,Wip.DescriptionKey,Wip.Description).Replace("\\n","\n");}
+        public string LocalizedWipEmpty(Language l){return Wip==null?"":Text(l,Wip.EmptyKey,Wip.Empty).Replace("\\n","\n");}
         public string LocalizedTextPackLabel(Language l){return TextPack==null?"":Text(l,TextPack.LabelKey,TextPack.Label);}
         public string LocalizedTextPackDescription(Language l){return TextPack==null?"":Text(l,TextPack.DescriptionKey,TextPack.Description).Replace("\\n","\n");}
         public string LocalizedTextPackMissing(Language l){return TextPack==null?"":Text(l,TextPack.MissingKey,TextPack.Missing).Replace("\\n","\n");}
@@ -526,6 +537,14 @@ namespace TesmioAutoload
                 if(!s.Tabs.Any(x=>x.Id.Equals(tp.Tab,StringComparison.OrdinalIgnoreCase))||(tp.KeysFrom.Length>0&&s.GroupById(tp.KeysFrom)==null)||(tp.Namespace.Length>0&&!Token(tp.Namespace)))throw new FormatException(Msg.Key("err_ungueltiges_textpaket", tp.Tab));
                 s.TextPack=tp;
             }
+            // [wip_buildings] (0.5.5): a tab that lists the generated Workshop folders under
+            // media_soviet\workshop_wip. Reads only; the one write it offers is a missing owner id.
+            if(ini.Sections.Any(x=>x.Equals("wip_buildings",StringComparison.OrdinalIgnoreCase)))
+            {
+                var w=new WipSpec{Tab=ini.Get("wip_buildings","tab",s.GlobalTab),Range=ini.Get("wip_buildings","range","sml").Trim().ToLowerInvariant(),Label=ini.Get("wip_buildings","label","Generated buildings"),LabelKey=ini.Get("wip_buildings","label_key",""),Description=ini.Get("wip_buildings","description",""),DescriptionKey=ini.Get("wip_buildings","description_key",""),Empty=ini.Get("wip_buildings","empty",""),EmptyKey=ini.Get("wip_buildings","empty_key","")};
+                if(!s.Tabs.Any(x=>x.Id.Equals(w.Tab,StringComparison.OrdinalIgnoreCase))||(w.Range!="sml"&&w.Range!="own"&&w.Range!="all"))throw new FormatException(Msg.Key("err_ungueltige_wip_liste", w.Tab));
+                s.Wip=w;
+            }
             s.Fields.Sort((a,b)=>a.Order!=b.Order?a.Order.CompareTo(b.Order):String.CompareOrdinal(a.Id,b.Id));return s;
         }
         Ini Translation(string code)
@@ -718,6 +737,9 @@ namespace TesmioAutoload
     public sealed class LocalResourceSession
     {
         public readonly LocalEditorSpec Spec;public readonly string Build,LocalIni,LocalDll,UserIni,UpstreamFile,Receipt;
+        // Set when Soviet Mod Loader hosts this plugin: the path of its baseline, which the
+        // editor writes instead of the generated file in plugins\.
+        public readonly string SmlBaseline;
         public readonly Dictionary<string,string> Before=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);public readonly List<string> Notes=new List<string>();
         public readonly List<string> DisappearedExternal=new List<string>();
         public ResourceOverrideStore Overrides;string upstreamText,initialOverrides;readonly string localAtOpen;bool refreshUpstream;
@@ -735,13 +757,21 @@ namespace TesmioAutoload
         public LocalResourceSession(LocalEditorSpec spec,string build):this(spec,build,null){}
         public LocalResourceSession(LocalEditorSpec spec,string build,Package package)
         {
-            Spec=spec;Build=Path.GetFullPath(build);LocalIni=SafeFiles.Child(Build,"plugins\\"+Spec.ConfigName);LocalDll=SafeFiles.Child(Build,"plugins\\"+Spec.Plugin+".dll");UserIni=SafeFiles.Child(Build,"user_config\\"+Spec.Plugin+".editor.ini");UpstreamFile=SafeFiles.Child(Build,"user_config\\.autoload\\"+Spec.Plugin+".upstream.ini");Receipt=SafeFiles.Child(Build,"user_config\\.autoload\\"+Spec.Plugin+".editor.receipt.ini");LoaderIni=SafeFiles.Child(Build,"tesmioloader.ini");
+            Spec=spec;Build=Path.GetFullPath(build);
+            // 0.5.3: with Soviet Mod Loader in charge, plugins\<config>.ini is generated output -
+            // it rewrites the file from its own baseline plus the packages at every game start.
+            // SmlBaseline is that baseline; SML reads it and never writes it, so the editor writes
+            // there instead and everything the player enters survives.
+            SmlBaseline=package==null?Sml.Baseline(Build,spec.Plugin,spec.ConfigName):null;
+            LocalIni=SmlBaseline??SafeFiles.Child(Build,"plugins\\"+Spec.ConfigName);LocalDll=SafeFiles.Child(Build,"plugins\\"+Spec.Plugin+".dll");UserIni=SafeFiles.Child(Build,"user_config\\"+Spec.Plugin+".editor.ini");UpstreamFile=SafeFiles.Child(Build,"user_config\\.autoload\\"+Spec.Plugin+".upstream.ini");Receipt=SafeFiles.Child(Build,"user_config\\.autoload\\"+Spec.Plugin+".editor.receipt.ini");LoaderIni=SafeFiles.Child(Build,"tesmioloader.ini");
             ExternalLoader=package!=null;
-            if(package==null&&(!File.Exists(LocalDll)||!File.Exists(LocalIni)))throw new IOException(Msg.Key("err_benoetigte_lokale_dateien_fehlen", Spec.Plugin, Spec.ConfigName));
+            if(package==null&&SmlBaseline==null&&(!File.Exists(LocalDll)||!File.Exists(LocalIni)))throw new IOException(Msg.Key("err_benoetigte_lokale_dateien_fehlen", Spec.Plugin, Spec.ConfigName));
             if(package!=null&&(package.DefaultsBytes==null||!package.Target.Equals(Spec.Plugin,StringComparison.OrdinalIgnoreCase)||!package.ConfigName.Equals(Spec.ConfigName,StringComparison.OrdinalIgnoreCase)))throw new FormatException(Msg.Key("err_editor_schema_passt_nicht"));
             // DLL and loader entry belong to the package's Session when the editor is
             // package-backed; only the files this editor writes are watched then.
-            foreach(string path in package==null?new[]{LocalIni,LocalDll,UserIni,UpstreamFile,Receipt,LoaderIni}:new[]{LocalIni,UserIni,UpstreamFile,Receipt})Before[path]=SafeFiles.HashFile(path);
+            // Under SML neither the DLL nor the loader entry is ours: the DLL does not exist and
+            // SML rewrites tesmioloader.ini itself, which must not turn into "file changed meanwhile".
+            foreach(string path in package==null&&SmlBaseline==null?new[]{LocalIni,LocalDll,UserIni,UpstreamFile,Receipt,LoaderIni}:new[]{LocalIni,UserIni,UpstreamFile,Receipt})Before[path]=SafeFiles.HashFile(path);
             LoaderEnabled=ReadLoaderSwitch();
             localAtOpen=File.Exists(LocalIni)?SafeFiles.Text(LocalIni):"";string localHash=Before[LocalIni];string recorded="";if(File.Exists(Receipt))try{recorded=new Ini(SafeFiles.Text(Receipt)).Get("state","effective_hash","");}catch{}
             Overrides=File.Exists(UserIni)?ResourceOverrideStore.Parse(SafeFiles.Text(UserIni)):new ResourceOverrideStore();
@@ -886,7 +916,9 @@ namespace TesmioAutoload
         // ---- the loader's own switch, [plugins] <plugin> in tesmioloader.ini ----
         public string LoaderIni{get;private set;}
         public bool LoaderEnabled{get;private set;}
-        bool ReadLoaderSwitch(){try{return !File.Exists(LoaderIni)||new Ini(SafeFiles.Text(LoaderIni)).Get("plugins",Spec.Plugin,"1")!="0";}catch(FormatException){return true;}}
+        // Under SML the plugin's own key in tesmioloader.ini stands at 0 on purpose - that key
+        // belongs to the separate DLL, which does not exist. SML runs it, so it counts as on.
+        bool ReadLoaderSwitch(){if(SmlBaseline!=null)return true;try{return !File.Exists(LoaderIni)||new Ini(SafeFiles.Text(LoaderIni)).Get("plugins",Spec.Plugin,"1")!="0";}catch(FormatException){return true;}}
         public bool LoaderChanged{get{return LoaderEnabled!=ReadLoaderSwitch();}}
         // Whether the INI's own activity key (for example [needs] enabled) is on; true
         // when the schema has no such key.
@@ -895,7 +927,8 @@ namespace TesmioAutoload
         public bool SwitchOn{get{return LoaderEnabled&&ActivityOn;}}
         public void SetLoaderEnabled(bool enabled)
         {
-            LoaderEnabled=enabled;
+            // Under SML there is no loader entry of our own to flip; only the INI key follows.
+            LoaderEnabled=SmlBaseline!=null||enabled;
             // Switching on also flips the INI's activity key, otherwise the DLL would
             // load and decline; switching off leaves the INI alone.
             LocalDetailField activity=Spec.ActivityField;
@@ -1022,14 +1055,18 @@ namespace TesmioAutoload
         public void RehashShared(){if(Before.ContainsKey(LoaderIni))Before[LoaderIni]=SafeFiles.HashFile(LoaderIni);}
         public string Commit(Action guard)
         {
-            string mutexName="Local\\TesmioAutoload_"+SafeFiles.Hash(SafeFiles.Utf8.GetBytes(Build.ToUpperInvariant()));using(var mutex=new Mutex(false,mutexName)){bool held=false;try{try{held=mutex.WaitOne(0);}catch(AbandonedMutexException){held=true;}if(!held)throw new IOException(Msg.Key("err_ein_anderes_autoload_fenster"));guard();AssertUnchanged();ValidateAll();string effective=Effective(),personal=Overrides.Render();var writes=new Dictionary<string,byte[]>(dependentWrites,StringComparer.OrdinalIgnoreCase);writes[UserIni]=SafeFiles.Utf8.GetBytes(personal);if(!ExternalLoader&&LoaderChanged)writes[LoaderIni]=RenderLoaderIni();if(refreshUpstream||!File.Exists(UpstreamFile))writes[UpstreamFile]=SafeFiles.Utf8.GetBytes(baseText);writes[LocalIni]=SafeFiles.Utf8.GetBytes(effective);writes[Receipt]=SafeFiles.Utf8.GetBytes("[state]\r\nid = "+Spec.Id+"\r\neffective_hash = "+SafeFiles.Hash(SafeFiles.Utf8.GetBytes(effective))+"\r\nupstream_hash = "+SafeFiles.Hash(SafeFiles.Utf8.GetBytes(upstreamText))+"\r\nschema_hash = "+Spec.SchemaHash+"\r\n");string backup=Transaction.Apply(Build,Spec.Id,writes,Before,guard);foreach(string path in Before.Keys.ToList())Before[path]=SafeFiles.HashFile(path);initialOverrides=personal;dependentWrites.Clear();refreshUpstream=false;Generation++;return backup;}finally{if(held)mutex.ReleaseMutex();}}
+            string mutexName="Local\\TesmioAutoload_"+SafeFiles.Hash(SafeFiles.Utf8.GetBytes(Build.ToUpperInvariant()));using(var mutex=new Mutex(false,mutexName)){bool held=false;try{try{held=mutex.WaitOne(0);}catch(AbandonedMutexException){held=true;}if(!held)throw new IOException(Msg.Key("err_ein_anderes_autoload_fenster"));guard();AssertUnchanged();ValidateAll();string effective=Effective(),personal=Overrides.Render();var writes=new Dictionary<string,byte[]>(dependentWrites,StringComparer.OrdinalIgnoreCase);writes[UserIni]=SafeFiles.Utf8.GetBytes(personal);if(!ExternalLoader&&LoaderChanged)writes[LoaderIni]=RenderLoaderIni();if(refreshUpstream||!File.Exists(UpstreamFile))writes[UpstreamFile]=SafeFiles.Utf8.GetBytes(baseText);writes[LocalIni]=SafeFiles.Utf8.GetBytes(effective);writes[Receipt]=SafeFiles.Utf8.GetBytes("[state]\r\nid = "+Spec.Id+"\r\neffective_file = "+Sml.Show(Build,LocalIni)+"\r\neffective_hash = "+SafeFiles.Hash(SafeFiles.Utf8.GetBytes(effective))+"\r\nupstream_hash = "+SafeFiles.Hash(SafeFiles.Utf8.GetBytes(upstreamText))+"\r\nschema_hash = "+Spec.SchemaHash+"\r\n");string backup=Transaction.Apply(Build,Spec.Id,writes,Before,guard);foreach(string path in Before.Keys.ToList())Before[path]=SafeFiles.HashFile(path);initialOverrides=personal;dependentWrites.Clear();refreshUpstream=false;Generation++;return backup;}finally{if(held)mutex.ReleaseMutex();}}
         }
     }
 
     public static class LocalResourceRuntime
     {
         public static bool Active(CatalogEntry entry,string build)
-        {try{var spec=LocalEditorSpec.Load(entry.Root);string root=Path.GetFullPath(build),dll=SafeFiles.Child(root,"plugins\\"+spec.Plugin+".dll"),ini=SafeFiles.Child(root,"plugins\\"+spec.ConfigName);if(!File.Exists(dll)||!File.Exists(ini))return false;string loader=SafeFiles.Child(root,"tesmioloader.ini");if(File.Exists(loader)&&new Ini(SafeFiles.Text(loader)).Get("plugins",spec.Plugin,"1")=="0")return false;if(spec.ActiveSection.Length>0){string value=new LooseIni(SafeFiles.Text(ini)).Get(spec.ActiveSection,spec.ActiveKey);if(!spec.ActiveValues.Contains(value,StringComparer.OrdinalIgnoreCase))return false;}return true;}catch{return false;}}
+        {try{var spec=LocalEditorSpec.Load(entry.Root);string root=Path.GetFullPath(build),dll=SafeFiles.Child(root,"plugins\\"+spec.Plugin+".dll"),ini=SafeFiles.Child(root,"plugins\\"+spec.ConfigName);
+            // 0.5.1: Soviet Mod Loader carries this capability inside itself. There is no DLL then,
+            // and its own entry in tesmioloader.ini is switched off on purpose - it still runs.
+            bool sml=Sml.Hosts(root,spec.Plugin);
+            if(!File.Exists(ini)||(!sml&&!File.Exists(dll)))return false;string loader=SafeFiles.Child(root,"tesmioloader.ini");if(!sml&&File.Exists(loader)&&new Ini(SafeFiles.Text(loader)).Get("plugins",spec.Plugin,"1")=="0")return false;if(spec.ActiveSection.Length>0){string value=new LooseIni(SafeFiles.Text(ini)).Get(spec.ActiveSection,spec.ActiveKey);if(!spec.ActiveValues.Contains(value,StringComparer.OrdinalIgnoreCase))return false;}return true;}catch{return false;}}
     }
     public static class LocalResourceGuard
     {

@@ -220,6 +220,16 @@ namespace TesmioAutoload
 
         public BuildingPickerWindow(Language language, string build, string workshopRoot, IEnumerable<string> current, IDictionary<string, string> used, Font font, Icon icon)
             : this(language, build, workshopRoot, current, used, font, icon, false) { }
+        // How a donor is written: a base-game building by its plain name, a Workshop building
+        // as <item>\<object> - its target is <item>\<object>\building.ini, so the file name
+        // comes off. An entry that is shaped differently is not a donor and drops out.
+        static string DonorOf(BuildingEntry entry)
+        {
+            if (entry.Origin == "game") return entry.Name;
+            string[] parts = entry.Target.Split('\\');
+            return parts.Length == 3 && parts[2].Equals("building.ini", StringComparison.OrdinalIgnoreCase) ? parts[0] + "\\" + parts[1] : "";
+        }
+
         // 0.4.80: donorsOnly restricts the list to the base game's buildings_types (the only buildings
         // a clone can start from) and works with their plain names; picking one replaces the choice.
         public BuildingPickerWindow(Language language, string build, string workshopRoot, IEnumerable<string> current, IDictionary<string, string> used, Font font, Icon icon, bool donorsOnly)
@@ -227,9 +237,13 @@ namespace TesmioAutoload
             this.language = language; this.single = donorsOnly; initial = current.Select(x => x.Trim()).Where(x => x.Length > 0).ToList(); usedElsewhere = new Dictionary<string, string>(used ?? new Dictionary<string, string>(), StringComparer.OrdinalIgnoreCase);
             string cacheKey = (build ?? "") + "|" + (workshopRoot ?? "");
             lock (cache) { if (!cache.TryGetValue(cacheKey, out all)) { all = GameBuildings.Scan(build, workshopRoot); cache[cacheKey] = all; } }
-            // A donor is addressed by its plain name, so the name becomes the identity here.
-            if (donorsOnly) all = all.Where(e => e.Origin == "game" && e.Target.StartsWith("buildings_types\\", StringComparison.OrdinalIgnoreCase))
-                .Select(e => new BuildingEntry { Target = e.Name, Name = e.Name, Type = e.Type, Origin = e.Origin, OriginLabel = e.OriginLabel, Obsolete = e.Obsolete }).ToList();
+            // A base-game donor is addressed by its plain name, a Workshop building by
+            // <item>\<object> (0.4.86) - in both cases what the plugin writes into `donor`
+            // becomes the identity here. DLC buildings are left out: the clone cannot
+            // start from them.
+            if (donorsOnly) all = all.Where(e => (e.Origin == "game" && e.Target.StartsWith("buildings_types\\", StringComparison.OrdinalIgnoreCase)) || e.Origin.StartsWith("workshop:", StringComparison.Ordinal))
+                .Select(e => new BuildingEntry { Target = DonorOf(e), Name = e.Name, Type = e.Type, Origin = e.Origin, OriginLabel = e.OriginLabel, Obsolete = e.Obsolete })
+                .Where(e => e.Target.Length > 0).ToList();
             foreach (BuildingEntry entry in all) byTarget[entry.Target] = entry;
             foreach (string target in initial) if (!byTarget.ContainsKey(target)) { var missing = new BuildingEntry { Target = target, Name = target, Type = "", Origin = "missing", OriginLabel = "" }; all = all.Concat(new[] { missing }).ToList(); byTarget[target] = missing; }
             chosen.AddRange(initial.Where(t => byTarget.ContainsKey(t)).Distinct(StringComparer.OrdinalIgnoreCase));

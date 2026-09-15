@@ -31,12 +31,30 @@ namespace TesmioAutoload
         // The game folder: walks up from the loader folder until media_soviet is found.
         // 0.4.80: a clone's donor is a plain name under media_soviet\buildings_types; this is its
         // building.ini path, and the lines the player can take over from it.
+        // 0.4.86: a donor is either that plain name or one building of a Workshop item,
+        // written <item>\<object> - the same spelling the target files use. The item is
+        // looked for in the Steam Workshop folder and in media_soviet\workshop_wip, the
+        // two places the plugin itself searches.
         public static string DonorFile(string build, string donor)
         {
             string game = GameRoot(build);
-            if (game == null || String.IsNullOrWhiteSpace(donor) || !Regex.IsMatch(donor, "^[A-Za-z0-9._-]{1,64}$")) return null;
-            string path = Path.Combine(game, "media_soviet", "buildings_types", donor + ".ini");
-            return File.Exists(path) ? path : null;
+            if (game == null || String.IsNullOrWhiteSpace(donor)) return null;
+            donor = donor.Trim().Replace('/', '\\');
+            if (Regex.IsMatch(donor, "^[A-Za-z0-9._-]{1,64}$"))
+            {
+                string plain = Path.Combine(game, "media_soviet", "buildings_types", donor + ".ini");
+                return File.Exists(plain) ? plain : null;
+            }
+            if (!Regex.IsMatch(donor, @"^[A-Za-z0-9._+()\- ]{1,96}\\[A-Za-z0-9._+()\- ]{1,96}$") || donor.Contains("..")) return null;
+            foreach (string root in new[] { SteamWorkshopFor(game), Path.Combine(game, "media_soviet", "workshop_wip") })
+            {
+                if (String.IsNullOrEmpty(root)) continue;
+                string path;
+                try { path = Path.Combine(root, donor, "building.ini"); }
+                catch (ArgumentException) { return null; }
+                if (File.Exists(path)) return path;
+            }
+            return null;
         }
         public static List<string> DonorLines(string build, string donor)
         {

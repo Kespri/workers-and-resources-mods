@@ -9,6 +9,99 @@ folder>` generates the sections of a real INI from a real game folder into an ou
 so a declaration can be checked before it goes into the game (the game folder is only read; the catalog
 goes to `<out>\plugins`). History newest first.
 
+## 0.1.8 (2026-09-15)
+
+- The owner repair now covers generated folders this plugin did not write. Soviet Mod Loader's
+  built-in buildings component is the original plugin and hard-codes `$OWNER_ID 0`, so every
+  building it generates makes the game ask about missing Workshop items each time a saved game
+  using it is loaded. `repair_owner_ids` is on by default, because there is nothing the player
+  could do about that dialog otherwise.
+- `ReplaceOwnerZero` swaps the single zero and leaves every other byte alone, line endings
+  included - the file belongs to another generator and nothing is known about the rest of it.
+  The match has to begin and end a line, so an `$OWNER_ID 07…` is never taken for a zero.
+- Four conditions, all of them: the folder name is a generated id (9000000000..9999999999), the
+  folder carries a `tesmioloader.stamp` (a generator wrote it, not the game's own editor), the
+  file names no owner at all, and our own id resolved. A folder that already names somebody is
+  never touched. The pass runs after prune, so a folder about to go is not written to first.
+- The stamp itself is never touched. Soviet Mod Loader validates every folder of its own
+  9100000000..9199999999 range against its plan and closes the game when one carries no stamp,
+  belongs to another section, or is not in its catalog. It reads the folder name, the stamp and
+  its catalog, never `workshopconfig.ini` - which is why writing the owner there is safe. Timing
+  fits as well: SML generates during its init, this plugin runs in `TsmPluginStart` afterwards,
+  so a folder it has just rewritten is put right in the same launch.
+- Five self-tests (repair off, foreign folder repaired byte for byte, stamp untouched, no stamp
+  means no repair, an existing owner is kept) and a run against copies of three real SML folders:
+  the result is byte-identical to the same fix made by hand.
+
+## 0.1.7 (2026-09-15)
+
+- `workshopconfig.ini` carries the SteamID64 of the player who generated the building instead of
+  `$OWNER_ID 0`. The game checks the owner of every Workshop item a saved game uses, and a zero makes
+  it report "the Workshop items used in this saved game were not found" on every load - the save still
+  loads and the building keeps working, but the dialog comes back every time. Proven in the game:
+  same folder, same save, only the number changed by hand, and the warning was gone. The game's own
+  editor writes the real id, which is why buildings made there never showed the message.
+- Two sources, in this order: `HKCU\Software\Valve\Steam\ActiveProcess`, value `ActiveUser` (the 32 bit
+  account id, SteamID64 = 76561197960265728 + it) and, when that is zero because the client is signed
+  out, the `"MostRecent" "1"` section of `<SteamPath>\config\loginusers.vdf`. Neither answers: the zero
+  stays, because a wrong owner is worse than none. `advapi32` is loaded by hand, so the build line
+  keeps its single `kernel32.lib`.
+- A folder written by an older version is put right on the next start: when the stamp still matches,
+  `RepairOwner` rewrites that one file if it says `$OWNER_ID 0` and the id is known. The owner is
+  deliberately NOT part of the stamp hash - a start with Steam signed out would otherwise rewrite
+  every folder with a zero. `GENERATOR_VERSION` is unchanged for the same reason.
+- Two self-tests: the generated config carries the id, and an up to date folder with a zero has it
+  written into it. The test main sets a fixed id, so the checks say the same on every machine.
+
+## 0.1.6 (2026-09-14)
+
+- A `line` without a `$TOKEN` is now a data line of the one above it, the grammar the game's own
+  building.ini uses. Before, validation refused every such line ("line N has no $TOKEN") and skipped
+  the whole section, which meant no token carrying data could be declared at all: no
+  `$CONNECTION_*`, no `$RESOURCE_VISUALIZATION`, no `$VEHICLE_STATION`. `strip` could remove such a
+  block since 0.1.1 but nothing could create one.
+- Only the first line of a section still has to carry a token: it is emitted after the `$NAME` line,
+  so a data line there would attach itself to the name, and a typo would quietly become data. An
+  empty line is refused as well. The replacement logic already ignored tokenless lines
+  (`if (!mine.empty() && ...)`), and the writer already emitted them verbatim in order, so the block
+  lands in the generated file exactly as declared; a blank line separates it from the donor's part.
+
+## 0.1.5 (2026-09-14)
+
+- An explicit `id` between 9100000000 and 9199999999 is rejected with a reason. Soviet Mod Loader
+  reserves that range for the buildings it generates itself and checks every folder of it in
+  `media_soviet\workshop_wip` against its own plan before the game starts; one it does not know
+  terminates the launch. The automatic assignment has always stayed out of the range (9300000000..),
+  so this only catches a hand-written number - the way the salt buildings used to be numbered.
+- The self-test fixtures moved from 91xx to 94xx for the same reason, and one more section checks
+  that a reserved id is refused.
+
+## 0.1.4 (2026-09-14)
+
+- `donor =` may name one building of a Workshop item, written `<item>\<object>` - the spelling
+  Vanilla Buildings uses for its targets. Searched in `<library>\steamapps\workshop\content\784150`
+  (derived from the game folder) and in `media_soviet\workshop_wip`, so an unpublished building of
+  one's own serves as a donor too. Nothing of such a donor ships with the plugin: the copy is made
+  on the player's machine from the item he is subscribed to.
+- What travels with the clone: the chosen object folder, every loose file of the item, and every
+  subfolder that holds no `building.ini` of its own. Asset folders carry whatever name their author
+  picked (`mtl`, `Textures`, `materials`, `parking acc`), so the rule asks what is IN a folder and
+  never what it is called. The other buildings of a multi-building item stay behind; the item's own
+  `workshopconfig.ini` is replaced by one that lists the single declared object.
+- The donor's `renderconfig.ini` is taken over verbatim, because it names the donor's own mesh and
+  material (`Vokzal_Medium.nmf`, `Material.mtl` inside the object folder are both real cases); only
+  an item without one gets a generated one. `building.ini` is the only file that is rewritten.
+- Afterwards the clone is measured against the two references that are written as paths -
+  renderconfig `MODEL`/`MATERIAL`/`MATERIALEMISSIVE` and `$TEXTURE_MTL` of every copied material -
+  and a file that is still missing is fetched from the donor item under the same relative path
+  (two passes, so a fetched material can pull its own textures). What the item does not have either
+  is named in one warning per file rather than silently left out.
+- The stamp hash covers the relative path, size and write time of every file that will be copied, so
+  an updated Workshop item regenerates the clone. Reading several MB of meshes at every game start
+  would cost far more than it could catch. Regenerating an item donor deletes the stamped folder
+  first, because a different donor brings different file names along.
+- `GENERATOR_VERSION` 5: every folder is written once more.
+
 ## 0.1.3 (2026-09-13)
 
 - `name =` may hold a localisation key instead of a caption. A value with at least one dot and

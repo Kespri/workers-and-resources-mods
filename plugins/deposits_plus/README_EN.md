@@ -1,4 +1,4 @@
-# 🏭 Deposits Plus 0.4.7
+# 🏭 Deposits Plus 0.4.8
 
 **Extension of the TesmioLoader plugin deposits**
 
@@ -528,6 +528,8 @@ MyGame\
 
 - **Within the 0.4 series:** updates carry save games and `tesmio_deposits.bin` over automatically; type numbers, map slots and tokens of running save games stay off limits (see above)
 - **With Deposit Depletion:** keeps working as before; the key `deplete` is passed on to the depletion plugin
+- **With Soviet Mod Loader:** SML brings deposits of its own. While it runs, this plugin pauses and says so in the log; if you want Deposits Plus instead, switch `soviet_mod_loader` off in `tesmioloader.ini` (in Republic Mod Manager the "Plugin active" switch)
+- **0.4.8:** the plugin steps aside on its own under Soviet Mod Loader
 - **0.4.7:** the brush name may now be up to 31 characters. Existing names and the two PNG files stay as they are
 
 ---
@@ -632,5 +634,5 @@ A: No. Republic Mod Manager shows every setting with a description, checks the v
 
 ---
 
-**Last update:** Deposits Plus 0.4.7  
+**Last update:** Deposits Plus 0.4.8  
 **For:** WRSR 1.1.1.9 | TesmioLoader API 4

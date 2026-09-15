@@ -54,6 +54,7 @@ launcher_schema = config\my_plugin.launcher.ini
 user_config = my_plugin.ini             ; file name only, lies next to the DLL
 user_overlay = 0                        ; 1: the DLL reads user_config\<target>.ini itself
 local_copy = 0                          ; 1: offers "Files local only"
+replaced_by_sml =                       ; resources | deposits | needs | buildings
 
 [assets]
 dir = hooks\my_plugin                   ; folder that travels with the DLL on "Files local only"
@@ -71,6 +72,7 @@ other.plugin = >=1.2.0
 
 - `tesmio_api_min` / `tesmio_api_max`: if given, API 4 must be in range.
 - `user_overlay = 1`: the DLL merges `user_config\<target>.ini` over its INI itself. RMM then provides the original INI unchanged and writes personal values only to `user_config`.
+- `replaced_by_sml = deposits`: your plugin does the same job as one of the four capabilities Soviet Mod Loader has built in (`resources`, `deposits`, `needs`, `buildings`) and steps aside at game start while SML runs. RMM then shows the entry with an amber dot instead of grey and writes into the "Notices" card who is in charge. Any other value rejects the package. Your plugin has to step aside itself — the key only describes what it does.
 - `local_copy = 1`: the "Notes" card offers "Files local only" for packages that run through the Workshop Bridge. RMM copies DLL, INI and the `[assets] dir` folder to `plugins\` (the folder under its own name, `plugins\my_plugin\...`). The asset folder may not contain `.dll` or `.exe` files, at most 512 files of 64 MB each, no reparse points.
 - `[dependencies]`: `mod.id = <condition>` with `>=`, `>`, `=`, `<=`, `<`, a bare version (minimum) or `*`. Resolved against the packages in the Workshop folder; a classic plugin `plugins\<name>.dll` also counts when `<name>` is the last part of the id (version unchecked). A hook package in the bridge list counts as satisfied. Unmet dependencies block provisioning.
 - `[content]` without `[hooks] dll` is a pure content package: listed, never provisioned, applied only by the Soviet Mod Loader.
@@ -515,6 +517,30 @@ required_notice_key = re.textpack.required   ; text of the red box (required_not
 ```
 
 The tab shows the fallback language, the language files (with "+" from the game's languages), per own entry name and description, and further keys with a trash button that removes a key from all language files.
+
+### 6.7 A tab for generated Workshop folders
+
+```ini
+[tab:sml]
+label = SML buildings
+label_key = bp.tab.sml
+order = 30
+
+[wip_buildings]
+tab = sml
+range = sml                  ; sml = written by another generator (the 9100000000..9199999999 range included)
+                             ; own = the folders carrying this plugin's own stamp
+                             ; all = every folder under media_soviet\workshop_wip
+label_key = bp.wip
+description_key = bp.wip.description
+empty_key = bp.wip.empty     ; text when no folder matches
+```
+
+The tab reads `media_soviet\workshop_wip` and shows name (from `$ITEM_NAME`, otherwise from `$NAME_STR` of the building.ini), number, object folder and origin per folder. The origin comes from `tesmioloader.stamp`: Buildings Plus, the TesmioLoader buildings component (which Soviet Mod Loader ships), or no stamp at all - then the folder came from the game's own editor.
+
+Reported without asking: a folder with `$OWNER_ID 0` (the button fills the Steam id in, and **only** that number) and a folder no package declares any more (Soviet Mod Loader closes the game at startup over it). The stamp is never touched.
+
+"Change..." lets the player edit the generated `building.ini`. What is stored are **changes**, not the file: per building `user_config\.autoload\wip\` holds a receipt `<id>.receipt.ini` with `replace = old line | new line`, `remove = line` and `add = line`, plus `<id>.baseline.ini`, the generator's output verbatim. When the generator writes anew (the hash in `tesmioloader.stamp` changes), its fresh output becomes the new baseline and the changes are applied again - whatever the package improved is kept. An anchor that matches no line, or more than one, is reported and left out. A schema needs nothing beyond `[wip_buildings]` for this.
 
 ---
 

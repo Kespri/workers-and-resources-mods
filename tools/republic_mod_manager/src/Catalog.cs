@@ -276,9 +276,11 @@ namespace TesmioAutoload
     public sealed class UiState
     {
         public string Build = "", WorkshopRoot = "", SelectedId = "", SelectedSource = "", SelectedTab = "", Language = "auto";
+        // 0.4.93: what the options window set. Empty means "not set here" - then the rmm.ini value counts.
+        public string LauncherWindow = "", WatchSeconds = "", VersionCheck = "";
         // Last window size in physical pixels (0 = not saved yet) and whether it was maximized.
         public int WindowWidth, WindowHeight; public bool WindowMaximized;
-        public UiState Copy() { return new UiState { Build = Build, WorkshopRoot = WorkshopRoot, SelectedId = SelectedId, SelectedSource = SelectedSource, SelectedTab = SelectedTab, Language = Language, WindowWidth = WindowWidth, WindowHeight = WindowHeight, WindowMaximized = WindowMaximized }; }
+        public UiState Copy() { return new UiState { Build = Build, WorkshopRoot = WorkshopRoot, SelectedId = SelectedId, SelectedSource = SelectedSource, SelectedTab = SelectedTab, Language = Language, WindowWidth = WindowWidth, WindowHeight = WindowHeight, WindowMaximized = WindowMaximized, LauncherWindow = LauncherWindow, WatchSeconds = WatchSeconds, VersionCheck = VersionCheck }; }
     }
     public sealed class UiStateStore
     {
@@ -299,6 +301,7 @@ namespace TesmioAutoload
                 state.SelectedId = ini.Get("selection", "id", ""); state.SelectedSource = ini.Get("selection", "source", "");
                 state.SelectedTab = ini.Get("selection", "tab", "");
                 state.Language = ini.Get("ui", "language", "auto");
+                state.LauncherWindow = ini.Get("ui", "tesmiolauncher_window", ""); state.WatchSeconds = ini.Get("ui", "launch_watch_seconds", ""); state.VersionCheck = ini.Get("ui", "version_check", "");
                 int w, h; Int32.TryParse(ini.Get("ui", "window_width", "0"), out w); Int32.TryParse(ini.Get("ui", "window_height", "0"), out h);
                 state.WindowWidth = w > 0 ? w : 0; state.WindowHeight = h > 0 ? h : 0; state.WindowMaximized = ini.Get("ui", "window_maximized", "0") == "1";
             }
@@ -310,6 +313,9 @@ namespace TesmioAutoload
             if (!readable) throw new IOException(Msg.Key("err_besch_digter_ansichtsspeicher_wird", PathName));
             var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "ui/format", "1" } };
             values.Add("ui/language", state.Language);
+            if (state.LauncherWindow.Length > 0) values.Add("ui/tesmiolauncher_window", state.LauncherWindow);
+            if (state.WatchSeconds.Length > 0) values.Add("ui/launch_watch_seconds", state.WatchSeconds);
+            if (state.VersionCheck.Length > 0) values.Add("ui/version_check", state.VersionCheck);
             if (state.WindowWidth > 0 && state.WindowHeight > 0) { values.Add("ui/window_width", state.WindowWidth.ToString(System.Globalization.CultureInfo.InvariantCulture)); values.Add("ui/window_height", state.WindowHeight.ToString(System.Globalization.CultureInfo.InvariantCulture)); values.Add("ui/window_maximized", state.WindowMaximized ? "1" : "0"); }
             if (state.Build.Length > 0) values.Add("paths/loader_build", state.Build);
             if (state.WorkshopRoot.Length > 0) values.Add("paths/workshop_root", state.WorkshopRoot);

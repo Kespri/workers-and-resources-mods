@@ -12,7 +12,7 @@ namespace TesmioAutoload
 {
     public sealed partial class MainForm : Form
     {
-        readonly UiState state; readonly UiStateStore stateStore; readonly bool persistUi;
+        readonly UiState state; readonly UiStateStore stateStore; bool persistUi;   // a reset switches persisting off (0.4.94)
         readonly ModList mods = new ModList(); readonly TextBox search = new TextBox();
         Button saveButton, startButton;   // 0.4.51: primary only while something is unsaved
         readonly Label searchLabel = Theme.Label("",10,false), pluginLabel = Theme.Label("",15,true);
@@ -66,7 +66,7 @@ namespace TesmioAutoload
         {
             state = initial.Copy(); stateStore = store; persistUi = saveUi; language = new Language(state.Language); Theme.CopyMenuLabel=()=>language.T("copy_text");
             mods.Cache=icons; icons.Warning=message=>Report(language.T("icon_warning")+" "+message); icons.LoaderExe=()=>Path.Combine(state.Build,"tesmiolauncher.exe");
-            Text = "Republic Mod Manager 0.4.85-beta  ·  "+language.T("app_dependency"); Font = new Font("Segoe UI",10); ForeColor = Theme.Ink; BackColor = Color.White;Theme.ApplyWindowChrome(this);
+            Text = "Republic Mod Manager 0.5.6-beta  ·  "+language.T("app_dependency"); Font = new Font("Segoe UI",10); ForeColor = Theme.Ink; BackColor = Color.White;Theme.ApplyWindowChrome(this);
             AutoScaleDimensions = new SizeF(96,96); AutoScaleMode = AutoScaleMode.Dpi; Size = new Size(1600,1000); MinimumSize = new Size(1560,760); StartPosition = FormStartPosition.CenterScreen;   // 0.4.36: minimum 1560 - the section editors' detail panel needs it; RestoreWindowSize caps it to the screen
             Load += (s,e) => RestoreWindowSize();
             using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Tesmio.icon")) using (var icon = new Icon(stream)) Icon = (Icon)icon.Clone();
@@ -75,17 +75,32 @@ namespace TesmioAutoload
             var body = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Margin = Padding.Empty };
             body.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,330)); body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100)); shell.Controls.Add(body,0,0);
             var sidebar = new TableLayoutPanel { BackColor = Theme.Navy, Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 6, Padding = new Padding(12,20,12,0), Margin = Padding.Empty };
-            foreach (float height in new float[] {38,24,37,8}) sidebar.RowStyles.Add(new RowStyle(SizeType.Absolute,height));
+            // rows: title, search label, search box + refresh, filter chips (0.4.98: a little more
+            // air under the search line so the chips do not sit right against it)
+            foreach (float height in new float[] {38,24,37,38}) sidebar.RowStyles.Add(new RowStyle(SizeType.Absolute,height));
             sidebar.RowStyles.Add(new RowStyle(SizeType.Percent,100)); sidebar.RowStyles.Add(new RowStyle(SizeType.Absolute,58));
             pluginLabel.ForeColor = Color.White; sidebar.Controls.Add(pluginLabel,0,0); searchLabel.ForeColor = Color.FromArgb(185,204,226); sidebar.Controls.Add(searchLabel,0,1);
-            search.Dock = DockStyle.Fill; search.AccessibleName = "Plugin search"; search.TextChanged += (s,e) => FilterList(); sidebar.Controls.Add(search,0,2);
+            // 0.4.94: the refresh button sits next to the search box, not in the window row below -
+            // it reads the catalog again and therefore belongs to the list, and it leaves the row
+            // below one slot of air.
+            var searchRow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Margin = Padding.Empty, Padding = Padding.Empty, BackColor = Theme.Navy };
+            // 0.4.98: the search box is a field like every other one (37 px, framed) instead of a
+            // bare text box of font height - next to the square button the two now share one line.
+            searchRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100)); searchRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,43));
+            search.AccessibleName = "Plugin search"; search.TextChanged += (s,e) => FilterList();
+            var searchField=Fields.Wrap(search); searchField.Dock=DockStyle.Fill; searchField.Margin=Padding.Empty; searchRow.Controls.Add(searchField,0,0);
+            var refresh=Sidebar("refresh","reload",()=>Scan(true)); refresh.Accent=true; refresh.Size=new Size(Fields.Height,Fields.Height); refresh.Margin=new Padding(6,0,0,0); searchRow.Controls.Add(refresh,1,0);
+            sidebar.Controls.Add(searchRow,0,2);
+            sidebar.Controls.Add(FilterChips(),0,3);
             mods.Dock = DockStyle.Fill; mods.Margin = new Padding(-8,0,-8,0); mods.SelectedIndexChanged += (s,e) => { if (!selecting) Run(SelectionChanged); }; sidebar.Controls.Add(mods,0,4);
             var navigation=new SidebarBar();
             navigation.Controls.Add(Sidebar("folders","folder",ChooseFolders));
+            navigation.Controls.Add(Sidebar("startcheck","check",ShowStartCheck));
             navigation.Controls.Add(Sidebar("log","document",ShowLog));
-            navigation.Controls.Add(Sidebar("profiles","archive",ShowProfiles));
+            navigation.Controls.Add(Sidebar("profiles","profile",ShowProfiles));
             languageButton=Sidebar("language","text:DE",ChooseLanguage); navigation.Controls.Add(languageButton);
-            var reload=Sidebar("refresh","reload",()=>Scan(true));reload.Accent=true;navigation.Controls.Add(reload); sidebar.Controls.Add(navigation,0,5);
+            navigation.Controls.Add(Sidebar("options","sliders",ShowOptions));
+            sidebar.Controls.Add(navigation,0,5);
             body.Controls.Add(sidebar,0,0);
             page = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 4, ColumnCount = 1, Padding = new Padding(26,20,24,0), Margin = Padding.Empty };
             page.RowStyles.Add(new RowStyle(SizeType.Absolute,105)); page.RowStyles.Add(new RowStyle(SizeType.Absolute,48)); page.RowStyles.Add(new RowStyle(SizeType.Absolute,36)); page.RowStyles.Add(new RowStyle(SizeType.Percent,100)); body.Controls.Add(page,1,0);
@@ -95,7 +110,10 @@ namespace TesmioAutoload
             enableBox.Controls.AddRange(new Control[] {switchLabel,activation,switchNote});
             // The caption sits right beside the switch, whatever its translated width.
             switchLabel.SizeChanged+=(s,e)=>switchLabel.Left=Math.Max(0,activation.Left-switchLabel.Width-8);
-            header.Controls.AddRange(new Control[] {heading,description,enableBox}); page.Controls.Add(header,0,0);
+            // 0.4.88: the package's own preview image, left of the title - a list of names becomes a
+            // list of mods. 64 px, nothing clickable; missing or unreadable simply stays hidden.
+            preview=new PictureBox{Size=new Size(64,64),SizeMode=PictureBoxSizeMode.Zoom,Location=new Point(0,4),Visible=false};
+            header.Controls.AddRange(new Control[] {preview,heading,description,enableBox}); page.Controls.Add(header,0,0);
             activation.CheckedChanged += (s,e) => Run(ActivationChanged);
             // The header text wraps beside the switch boxes and the header row grows
             // with it, so the description never runs under the switches or into the
@@ -124,11 +142,28 @@ namespace TesmioAutoload
         {
             var button=new SidebarButton {Glyph=glyph}; button.Click+=(s,e)=>Run(action); translatedSidebar[button]=key; return button;
         }
+        PictureBox preview;
+        // The preview image of the shown entry, if the package has one.
+        void ShowPreview(string root)
+        {
+            if(preview==null)return;
+            Image old=preview.Image; preview.Image=null; if(old!=null)old.Dispose();
+            preview.Visible=false;
+            if(String.IsNullOrEmpty(root))return;
+            string file;
+            try{file=SafeFiles.Child(root,"previewimage.png");}catch(Exception){return;}
+            if(!File.Exists(file))return;
+            // Loaded through a copy so the file stays free for a Workshop update.
+            try{using(var stream=new MemoryStream(SafeFiles.Read(file,8*1024*1024)))preview.Image=Image.FromStream(stream);preview.Visible=true;}
+            catch(Exception){preview.Visible=false;}
+        }
         void LayoutHeader()
         {
             if(header==null||page==null||heading==null||description==null) return;
             int reserved=268;
-            int w=Math.Max(200,header.ClientSize.Width-reserved);
+            int shift=preview!=null&&preview.Visible?76:0;
+            heading.Left=shift; description.Left=shift;
+            int w=Math.Max(200,header.ClientSize.Width-reserved-shift);
             // Both labels are measured explicitly: a narrow window wraps the heading
             // too, and the description has to start below the wrapped heading.
             TextFormatFlags wrap=TextFormatFlags.WordBreak|TextFormatFlags.NoPrefix;
@@ -138,7 +173,9 @@ namespace TesmioAutoload
             int wrapped=description.Text.Length==0?0:TextRenderer.MeasureText(description.Text,description.Font,new Size(w,Int32.MaxValue),wrap).Height;
             int lines=Math.Max(1,(int)Math.Ceiling(wrapped/(double)Math.Max(1,description.Font.Height)));
             int shown=Math.Min(lines,5)*description.Font.Height+4;
-            description.AutoSize=false; description.MaximumSize=Size.Empty; description.Location=new Point(0,heading.Bottom+6); description.Size=new Size(w,shown); description.AutoEllipsis=lines>5;
+            // The X stays at the shift of the preview image: setting Location with 0 here put the
+            // description back under the image and cut off its first words (0.4.89).
+            description.AutoSize=false; description.MaximumSize=Size.Empty; description.Location=new Point(shift,heading.Bottom+6); description.Size=new Size(w,shown); description.AutoEllipsis=lines>5;
             int need=Math.Max(105,description.Bottom+18);
             if(page.RowStyles.Count>0 && (int)page.RowStyles[0].Height!=need)
             {
@@ -167,6 +204,9 @@ namespace TesmioAutoload
         void ActivationChanged()
         {
             if(refreshing) return; bool on=activation.Checked;
+            // 0.4.88: switching something off that a saved game still needs is the one click that
+            // can cost a world. The question names the saves; No puts the switch back.
+            if(!on&&!SaveGamesAllowOff()) { refreshing=true; try{activation.Checked=true;}finally{refreshing=false;} return; }
             if(contentSession!=null) { contentSession.PendingOn=on; lastAction="ready"; UpdateStatus(); return; }
             if(resourceSession!=null) { if(session!=null&&session.LoaderSwitchApplies) session.SetLoaderEnabled(on); resourceSession.SetLoaderEnabled(on); lastAction="ready"; if(on && localSpec.ActivityField!=null) BuildLocalResourceEditor(); else { SyncActivation(); UpdateStatus(); } return; }
             if(session==null || presentation==null) return;
@@ -190,6 +230,14 @@ namespace TesmioAutoload
         void ShowSwitch(bool visible,string note)
         // The switch explains itself; the note only survives as a tooltip on it.
         { switchLabel.Visible=visible; activation.Visible=visible; switchNote.Visible=false; switchNote.Text=""; tips.SetToolTip(activation,note); tips.SetToolTip(switchLabel,note); }
+        // 0.5.1: true when at least one part of this content package would land in a plugin that
+        // Soviet Mod Loader hosts - then SML merges the package itself and RMM keeps its hands off.
+        internal bool SmlOwnsContent(ContentSession c)
+        {
+            if(c==null) return false;
+            foreach(var pair in c.Targets) if(pair.Value.Length>0&&Sml.Hosts(state.Build,pair.Value)) return true;
+            return false;
+        }
         internal bool SwitchVisible { get { return activation.Visible; } }
         internal bool SwitchChecked { get { return activation.Checked; } }
         internal string SwitchNote { get { return tips.GetToolTip(activation) ?? ""; } }
@@ -223,15 +271,61 @@ namespace TesmioAutoload
         }
         void RefreshActivity()
         {
-            mods.ActiveStates.Clear(); foreach(var entry in entries) mods.ActiveStates[entry.Root]=RuntimeStatus.ConfiguredActive(entry,state.Build);
+            mods.ActiveStates.Clear(); mods.BlockedRoots.Clear();
+            foreach(var entry in entries){mods.ActiveStates[entry.Root]=RuntimeStatus.ConfiguredActive(entry,state.Build);if(RuntimeStatus.BlockedBySml(entry,state.Build))mods.BlockedRoots.Add(entry.Root);}
             mods.UpdateBadge=language.T("update_badge"); pendingUpdates=Catalog.MarkUpdates(entries,state.Build); mods.Invalidate();
         }
         List<string> pendingUpdates=new List<string>();
+        // 0.4.88: besides the search a state filter - with twenty entries "show me the problems"
+        // beats typing. 0.4.90: only entries that really match are listed. An entry with unsaved
+        // changes stays under every filter, because the amber dot in front of its name says why it
+        // is there; the shown entry gets no free pass any more - a clean plugin sitting in the
+        // "problems" list with nothing to show for it reads like a broken filter.
+        internal string ListFilter="all";
+        bool Passes(CatalogEntry entry)
+        {
+            if(mods.DirtyRoots.Contains(entry.Root))return true;
+            switch(ListFilter)
+            {
+                case "active": return RuntimeStatus.ConfiguredActive(entry,state.Build);
+                case "problems": return entry.Problem.Length>0||entry.Dependencies.Any(d=>!d.Found||!d.VersionOk);
+                case "updates": return entry.Updated;
+                default: return true;
+            }
+        }
         void FilterList()
         {
             selecting=true; mods.BeginUpdate();
-            try { mods.Items.Clear(); foreach(var e in entries.Where(e=> (e.Name+" "+e.Id).IndexOf(search.Text,StringComparison.CurrentCultureIgnoreCase)>=0)) mods.Items.Add(e); mods.SelectedItem=current; }
+            try { mods.Items.Clear(); foreach(var e in entries.Where(e=> (e.Name+" "+e.Id).IndexOf(search.Text,StringComparison.CurrentCultureIgnoreCase)>=0&&Passes(e))) mods.Items.Add(e); mods.SelectedItem=current; }
             finally { mods.EndUpdate(); selecting=false; }
+        }
+        internal void TestFilter(string filter){SetFilter(filter);}
+        readonly Dictionary<string,Label> filterChips=new Dictionary<string,Label>(StringComparer.OrdinalIgnoreCase);
+        void SetFilter(string filter)
+        {
+            ListFilter=filter;
+            foreach(var pair in filterChips)
+            {
+                bool on=pair.Key.Equals(filter,StringComparison.OrdinalIgnoreCase);
+                pair.Value.BackColor=on?Theme.Blue:Color.FromArgb(24,52,84);
+                pair.Value.ForeColor=on?Color.White:Color.FromArgb(185,204,226);
+            }
+            FilterList();
+        }
+        // The four chips under the search box.
+        Control FilterChips()
+        {
+            var row=new FlowLayoutPanel{Dock=DockStyle.Fill,WrapContents=false,FlowDirection=FlowDirection.LeftToRight,Margin=Padding.Empty,BackColor=Theme.Navy,Padding=Padding.Empty};
+            foreach(string key in new[]{"all","active","problems","updates"})
+            {
+                string captured=key;
+                var chip=new Label{Text=language.T("filter_"+key),AutoSize=false,Size=new Size(66,22),TextAlign=ContentAlignment.MiddleCenter,Margin=new Padding(0,10,5,0),Cursor=Cursors.Hand,Font=new Font("Segoe UI",8.5f)};
+                chip.AccessibleName="filter:"+key;
+                chip.Click+=(s,e)=>SetFilter(captured);
+                filterChips[key]=chip; row.Controls.Add(chip);
+            }
+            SetFilter("all");
+            return row;
         }
         void SelectionChanged()
         { var candidate=mods.SelectedItem as CatalogEntry; if(candidate==null || candidate==current) return; ShowEntry(candidate); }
@@ -267,6 +361,7 @@ namespace TesmioAutoload
             if(!same) state.SelectedTab="";
             Park();
             current=entry; work=new Workspace{Entry=entry}; restoreButton.Visible=entry!=null&&entry.Installed&&entry.Supported&&entry.Problem.Length==0; ShowSwitch(false,""); switchLabel.Text=language.T("enabled"); SetActions(false);
+            ShowPreview(entry==null||entry.Installed?null:entry.Root);
             Theme.DisposeChildren(tabStrip); Theme.DisposeChildren(content); setters.Clear(); origins.Clear(); resetButtons.Clear(); UpdateLoadPath();
             refreshing=true; activation.Checked=false; refreshing=false;
             if(entry==null) { heading.Text=language.T("no_mods"); description.Text=""; tips.SetToolTip(heading,""); ShowInfo(language.T("no_mods_help")); SaveView(); UpdateStatus(); return; }
@@ -277,7 +372,14 @@ namespace TesmioAutoload
             {
                 if(entry.LocalEditor)
                 {
-                    localSpec=LocalEditorSpec.Load(entry.Root);resourceSession=new LocalResourceSession(localSpec,state.Build);resourceSession.References=new ReferenceSets(state.Build,state.WorkshopRoot,language.Code);heading.Text=localSpec.LocalizedName(language);description.Text=localSpec.LocalizedDescription(language);BuildLocalResourceEditor();SetActions(true);UpdateLoadPath();foreach(string note in resourceSession.Notes)Report(note);if(resourceSession.DisappearedExternal.Count>0)ShowDisappeared(resourceSession.DisappearedExternal);SaveView();UpdateStatus();return;
+                    // 0.5.1: Soviet Mod Loader brings resources, deposits, needs and buildings
+                    // along. Then there is no DLL of their own and their INI is generated output,
+                    // so the page says who is in charge instead of failing on the missing files.
+                    LocalEditorSpec hosted=LocalEditorSpec.Load(entry.Root);
+                    // 0.5.3: with SML the editor works on its baseline. Only when that baseline does
+                    // not exist yet - SML installed but never run - is there nothing to edit.
+                    if(Sml.Hosts(state.Build,hosted.Plugin)&&Sml.Baseline(state.Build,hosted.Plugin,hosted.ConfigName)==null){heading.Text=hosted.LocalizedName(language);description.Text=hosted.LocalizedDescription(language);ShowSmlHosted(hosted);SaveView();UpdateStatus();return;}
+                    localSpec=hosted;resourceSession=new LocalResourceSession(localSpec,state.Build);resourceSession.References=new ReferenceSets(state.Build,state.WorkshopRoot,language.Code);heading.Text=localSpec.LocalizedName(language);description.Text=localSpec.LocalizedDescription(language);BuildLocalResourceEditor();SetActions(true);UpdateLoadPath();foreach(string note in resourceSession.Notes)Report(note);if(resourceSession.DisappearedExternal.Count>0)ShowDisappeared(resourceSession.DisappearedExternal);SaveView();UpdateStatus();return;
                 }
                 var package=entry.Installed?InstalledPlugins.Load(state.Build,entry.Target,Catalog.SchemaRoot):Package.Load(entry.Root);
                 Catalog.ResolveDependencies(package.Dependencies,entries);
@@ -288,7 +390,7 @@ namespace TesmioAutoload
                     // 0.4.80: no DLL, no editor - one switch that provides or removes the package's
                     // fragments and assets, and a page that says what it carries and where it goes.
                     contentSession=new ContentSession(package,state.Build); description.Text=language.T("content_package_short");
-                    BuildContentPage(); ShowSwitch(true,language.T("content_switch_note")); switchLabel.Text=language.T("content_switch"); SyncActivation(); SetActions(true); UpdateLoadPath();
+                    BuildContentPage(); ShowSwitch(!SmlOwnsContent(contentSession)||contentSession.Provided,language.T("content_switch_note")); switchLabel.Text=language.T("content_switch"); SyncActivation(); SetActions(true); UpdateLoadPath();
                     foreach(string note in contentSession.Notes) Report(entry.Name+": "+language.Localize(note));
                     SaveView(); UpdateStatus(); return;
                 }
@@ -314,12 +416,15 @@ namespace TesmioAutoload
             statusBar.SuspendLayout(); Theme.DisposeChildren(statusFlow); statusRight.Text="";
             if(current==null||contentSession!=null||(session==null&&resourceSession==null)){statusBar.Visible=false;statusBar.ResumeLayout();return;}
             bool installed=session!=null?session.Package.Installed:current.Installed;
-            bool bridge=session!=null&&session.BridgeActive, sml=session!=null&&session.SmlActive&&!installed, loader=!bridge&&!sml, local=session!=null&&session.PreferLocal;
+            // 0.5.3: a keyed editor working on SML's baseline is loaded by SML, not by TesmioLoader.
+            bool smlBase=session==null&&resourceSession!=null&&resourceSession.SmlBaseline!=null;
+            bool bridge=session!=null&&session.BridgeActive, sml=smlBase||session!=null&&session.SmlActive&&!installed, loader=!bridge&&!sml, local=session!=null&&session.PreferLocal;
             LoadPathText(language.T("status_loadpath")+":",Theme.Muted,null);
             LoadPathDot(bridge,language.T("status_bridge"),language.T(bridge?"status_bridge_tip":"status_inactive_tip"));
             LoadPathDot(sml,language.T("status_sml"),language.T(sml?"status_sml_tip":"status_inactive_tip"));
             LoadPathDot(loader,language.T("status_loader"),language.T(loader?(installed?"status_loader_installed_tip":"status_loader_tip"):"status_inactive_tip"));
-            string filesKey=local?"status_files_local":(bridge||sml)?"status_files_package":"status_files_plugins"; string filesTip=language.T(filesKey+"_tip");
+            string filesKey=smlBase?"status_files_sml_base":local?"status_files_local":(bridge||sml)?"status_files_package":"status_files_plugins";
+            string filesTip=smlBase?language.Format("status_files_sml_base_tip",Sml.Show(state.Build,resourceSession.SmlBaseline)):language.T(filesKey+"_tip");
             var gap=LoadPathText("",Theme.Muted,null); gap.Margin=new Padding(10,0,0,0);
             LoadPathText(language.T("status_files")+":",Theme.Muted,filesTip); var files=LoadPathText(language.T(filesKey),Theme.Blue,filesTip); files.Font=new Font("Segoe UI",9.5f,FontStyle.Bold);
             string target=session!=null?session.Package.Target:current.Target; DateTime? when=InstalledPlugins.LogTime(state.Build); string seen;
@@ -434,7 +539,7 @@ namespace TesmioAutoload
                 row.Controls.Add(apply); row.Controls.Add(cancel); dialog.AcceptButton=apply; dialog.CancelButton=cancel;
                 list.DoubleClick+=(s,e)=>{if(list.SelectedItem!=null){dialog.DialogResult=DialogResult.OK;dialog.Close();}};
                 dialog.Controls.Add(list); dialog.Controls.Add(row);
-                if(dialog.ShowDialog(this)==DialogResult.OK && list.SelectedItem!=null) ChangeLanguage(((KeyValuePair<string,string>)list.SelectedItem).Key);
+                if(Theme.Modal(this,dialog)==DialogResult.OK && list.SelectedItem!=null) ChangeLanguage(((KeyValuePair<string,string>)list.SelectedItem).Key);
             }
         }
         bool HasPending { get { return contentSession!=null?contentSession.NeedsWrite:resourceSession!=null?(resourceSession.Dirty||session!=null&&(session.LoaderChanged||session.LocalCopyChanged)):session!=null && (session.LoaderChanged || session.LocalCopyChanged || resets.Count>0 || draft.Count!=baseline.Count || draft.Any(p=>!baseline.ContainsKey(p.Key)||!SameDraftValue(p.Key,p.Value,baseline[p.Key]))); } }
@@ -601,17 +706,46 @@ namespace TesmioAutoload
             EnsureGlobalResourceConsistency();
             if(!ConfirmSteamSession()) return;
             string build=Path.GetFullPath(state.Build);
-            Process.Start(new ProcessStartInfo(SafeFiles.Child(build,"tesmiolauncher.exe")){Arguments=LauncherOptions.Arguments,WorkingDirectory=build,UseShellExecute=true});Report(language.T("launched"));Close();
+            Process.Start(new ProcessStartInfo(SafeFiles.Child(build,"tesmiolauncher.exe")){Arguments=LauncherOptions.Arguments,WorkingDirectory=build,UseShellExecute=true});Report(language.T("launched"));
+            WatchLaunch();
+        }
+        // 0.4.92: RMM used to close the moment the launcher was started, so a game that quit
+        // a second later left the player with nothing but a Steam error and no idea why. Now
+        // the window stays for a few seconds and says what it saw. Nothing is blocked while it
+        // waits: the game has the screen, this only watches. launch_watch_seconds = 0 in
+        // rmm.ini gives back the old behaviour.
+        System.Windows.Forms.Timer launchTimer; DateTime launchStart; LaunchWatch launchWatch;
+        void WatchLaunch()
+        {
+            if(LauncherOptions.WatchSeconds<=0){Close();return;}
+            launchWatch=new LaunchWatch(LauncherOptions.WatchSeconds); launchStart=DateTime.UtcNow;
+            statusDetail.Text=language.T("launch_watching"); tips.SetToolTip(statusDetail,statusDetail.Text);
+            launchTimer=new System.Windows.Forms.Timer{Interval=500};
+            launchTimer.Tick+=(s,e)=>LaunchTick();
+            launchTimer.Start();
+        }
+        void LaunchTick()
+        {
+            bool running; try{running=RuntimeGuard.GameRunning();}catch(Exception){running=true;}
+            launchWatch.Tick(running,(DateTime.UtcNow-launchStart).TotalSeconds);
+            if(!launchWatch.Finished) return;
+            launchTimer.Stop(); launchTimer.Dispose(); launchTimer=null;
+            if(!launchWatch.Died){Close();return;}
+            Report(language.T("launch_died"));
+            MessageWindow.Show(this,language,Text,language.T("launch_died")+"\n\n"+language.T("launch_died_hint"),MessageWindow.Kind.Warning,DialogResult.OK);
+            UpdateStatus();
         }
         // The game is started outside Steam, so it needs the client's own record
         // of a logged-in user. Without it the game shows its own Steam error and
-        // nothing says why; this asks first instead.
+        // nothing says why; this asks first instead. 0.4.91: the warning names what
+        // RMM actually found, so a false alarm can be told from a real logout.
         bool ConfirmSteamSession()
         {
-            if(SteamSession.Check()!=SteamSession.State.LoggedOut) return true;
-            Report(language.T("steam_logged_out"));
+            string reason; if(SteamSession.Check(out reason)!=SteamSession.State.LoggedOut) return true;
+            string found=reason.Length>0?"\n\n"+language.T(reason):"";
+            Report(language.T("steam_logged_out")+(reason.Length>0?" "+language.T(reason):""));
             return MessageWindow.Show(this,language,Text,
-                language.T("steam_logged_out")+"\n\n"+language.T("steam_logged_out_hint"),
+                language.T("steam_logged_out")+found+"\n\n"+language.T("steam_logged_out_hint"),
                 MessageWindow.Kind.Warning,DialogResult.Yes,DialogResult.No)==DialogResult.Yes;
         }
         void InspectStartupConsistency()
@@ -683,17 +817,138 @@ namespace TesmioAutoload
                 var paths=new[] {new TextBox {Text=state.Build,Dock=DockStyle.Fill},new TextBox {Text=state.WorkshopRoot,Dock=DockStyle.Fill}};
                 for(int i=0;i<2;i++) { int index=i; table.RowStyles.Add(new RowStyle(SizeType.Absolute,48)); table.Controls.Add(Theme.Label(language.T(i==0?"build":"workshop"),10,false),0,i); table.Controls.Add(paths[i],1,i); table.Controls.Add(Theme.Button(language.T("browse"),()=>{using(var browse=new FolderBrowserDialog {SelectedPath=paths[index].Text,ShowNewFolderButton=false}) if(browse.ShowDialog(form)==DialogResult.OK) paths[index].Text=browse.SelectedPath;},false),2,i); }
                 table.Controls.Add(Theme.Button(language.T("apply"),()=>Run(()=>{ string b=Path.GetFullPath(paths[0].Text), w=Catalog.NormalizeRoot(paths[1].Text); if(!ResolvePending()) return; state.Build=b; state.WorkshopRoot=w; form.DialogResult=DialogResult.OK; }),true),2,2);
-                if(form.ShowDialog(this)==DialogResult.OK) Scan(false);
+                if(Theme.Modal(this,form)==DialogResult.OK) Scan(false);
             }
         }
         void ShowLog()
-        { using(var form=new LogWindow(language,state.Build,()=>journal.ToString(),Font,Icon)) form.ShowDialog(this); }
+        { using(var form=new LogWindow(language,state.Build,()=>journal.ToString(),Font,Icon)) Theme.Modal(this,form); }
+        // 0.4.88: one page for "what happens at the next start" - what loads, in which order, and
+        // everything that would spoil it. A click on a problem lands on the entry that has it.
+        void ShowStartCheck()
+        {
+            DateTime? when=InstalledPlugins.LogTime(state.Build);
+            string seen=when.HasValue?language.Format("startcheck_last_start",when.Value.ToString("g")):"";
+            using(var form=new StartCheckWindow(language,state.Build,entries,Saves(),seen,Font,Icon))
+            {
+                Theme.Modal(this,form);
+                if(form.Jump.Length==0)return;
+                CatalogEntry target=entries.FirstOrDefault(e=>e.Root.Equals(form.Jump,StringComparison.OrdinalIgnoreCase));
+                if(target!=null){ShowEntry(target);FilterList();}
+            }
+        }
+        // The saves that need what the shown entry provides: a plugin by its target name, a content
+        // package by the ids its receipt says it added.
+        internal List<SaveGame> SavesUsingCurrent()
+        {
+            var found=new List<SaveGame>();
+            if(current==null)return found;
+            if(contentSession!=null)
+            {
+                foreach(var pair in contentSession.Added)
+                {
+                    string kind=pair.Key.Equals("deposits",StringComparison.OrdinalIgnoreCase)?"deposits":pair.Key.Equals("resources",StringComparison.OrdinalIgnoreCase)?"resources":"";
+                    if(kind.Length==0)continue;
+                    foreach(SaveGame save in SaveGames.Using(Saves(),kind,pair.Value))if(!found.Contains(save))found.Add(save);
+                }
+                return found;
+            }
+            string target=session!=null?session.Package.Target:current.Target;
+            if(target.Length==0)return found;
+            return SaveGames.Using(Saves(),"plugins",new[]{target});
+        }
+        // Answered with Yes = switch off anyway. The test hook replaces the dialog.
+        internal Func<string,DialogResult> SaveOffPrompt=null;
+        bool SaveGamesAllowOff()
+        {
+            var using_=SavesUsingCurrent();
+            if(using_.Count==0)return true;
+            string text=language.Format("saves_off_question",current.Name,SaveGames.Names(using_,3,language.T("saves_and_more")));
+            DialogResult answer=SaveOffPrompt!=null?SaveOffPrompt(text)
+                :MessageWindow.Show(this,language,language.T("app"),text,MessageWindow.Kind.Warning,DialogResult.Yes,DialogResult.No);
+            return answer==DialogResult.Yes;
+        }
+        // Snapshot and test hook: the loss list of a full reset, planned from the real folder.
+        // Planning reads only - nothing is written until somebody clicks through both dialogs.
+        internal Form TestResetWindow()
+        {
+            return new ResetConfirmWindow(language,ResetTool.Plan(state.Build,entries,SaveGamesQuiet(),true),Font,Icon);
+        }
+        // Snapshot and test hook: the start check as a window, without showing it.
+        internal Form TestStartCheckWindow()
+        {
+            DateTime? when=InstalledPlugins.LogTime(state.Build);
+            return new StartCheckWindow(language,state.Build,entries,Saves(),when.HasValue?language.Format("startcheck_last_start",when.Value.ToString("g")):"",Font,Icon);
+        }
+        // The saved games of this game folder, read once per session: which of them still needs a
+        // plugin or a resource decides how loud a warning has to be before something is switched off.
+        List<SaveGame> savedGames;
+        internal List<SaveGame> Saves()
+        {
+            if(savedGames==null)try{savedGames=SaveGames.Scan(state.Build);}catch(Exception){savedGames=new List<SaveGame>();}
+            return savedGames;
+        }
         // Profiles and restore points write through the same transaction as a save;
         // pending edits are settled first and the list is rescanned afterwards.
+        // 0.4.93: the settings of RMM itself. Changes take effect while the window is open;
+        // the saved view is written when it closes, and a new language rebuilds the page.
+        void ShowOptions()
+        {
+            if(!ResolvePending()) return;
+            string before=state.Language;
+            using(var form=new OptionsWindow(language,state,Diagnostics,Font,Icon))
+            {
+                // The reset knows nothing about files: the main window hands it the plan and the
+                // execution, so the window stays a window (and the tests can answer its dialogs).
+                form.Planner=everything=>ResetTool.Plan(state.Build,entries,SaveGamesQuiet(),everything);
+                form.Applier=plan=>
+                {
+                    string report=ResetTool.Apply(state.Build,plan,()=>RuntimeGuard.NoGameRunning(state.Build));
+                    if(plan.View&&stateStore!=null)
+                    {
+                        // The saved view goes too - and RMM must stop writing it back, otherwise
+                        // closing the window would recreate what was just removed.
+                        try{ if(File.Exists(stateStore.PathName)) File.Delete(stateStore.PathName); }catch(Exception){}
+                        persistUi=false;
+                    }
+                    return report;
+                };
+                form.Journal=Report;
+                Theme.Modal(this,form);
+                if(form.Changed&&!form.ResetDone) SaveView();
+                if(form.LanguageCode!=before) ChangeLanguage(form.LanguageCode);
+                // 0.4.99: a reset rewrites the very files the open sessions were built from, so
+                // every workspace - shown and parked - is stale afterwards. Keeping them meant
+                // "save" failed with "file changed in the meantime". Everything is dropped and
+                // read again from disk.
+                if(form.ResetDone) { parked.Clear(); work=new Workspace{Entry=current}; Scan(false); }
+            }
+        }
+        // The saved games, or an empty list when the game folder cannot be read.
+        List<SaveGame> SaveGamesQuiet()
+        {
+            try { return SaveGames.Scan(state.Build); } catch(Exception) { return new List<SaveGame>(); }
+        }
+        // Everything a bug report needs, in one block: versions, folders, how many entries
+        // were found and what Steam says right now.
+        string Diagnostics()
+        {
+            var text=new StringBuilder();
+            text.AppendLine("Republic Mod Manager "+Application.ProductVersion);
+            text.AppendLine("Windows "+Environment.OSVersion.Version+", .NET "+Environment.Version);
+            text.AppendLine("Loader: "+state.Build);
+            text.AppendLine("Workshop: "+state.WorkshopRoot);
+            try { text.AppendLine("Loader file: "+SafeFiles.HashFile(SafeFiles.Child(state.Build,"tesmioloader.dll")).Substring(0,16)); } catch(Exception){}
+            try { bool known; text.AppendLine("Game: "+GameVersion.Describe(state.Build,out known)+(known?"":" (unknown build)")); } catch(Exception){}
+            text.AppendLine("Entries: "+entries.Count+", shown: "+(current==null?"-":current.Name+" "+current.Version));
+            string reason; SteamSession.State steam=SteamSession.Check(out reason);
+            text.AppendLine("Steam: "+steam+(reason.Length>0?" ("+reason+")":"")+"  ["+SteamSession.Evidence()+"]");
+            foreach(CatalogEntry entry in entries.Where(e=>e.Problem.Length>0)) text.AppendLine("Problem: "+entry.Name+" - "+entry.Problem);
+            return text.ToString();
+        }
         void ShowProfiles()
         {
             if(!ResolvePending()) return;
-            using(var form=new ProfilesWindow(language,state.Build,Font,Icon)) { form.ShowDialog(this); foreach(string note in form.Journal) Report(note); if(form.Changed) Scan(false); }
+            using(var form=new ProfilesWindow(language,state.Build,Font,Icon)) { Theme.Modal(this,form); foreach(string note in form.Journal) Report(note); if(form.Changed) Scan(false); }
         }
         protected override void Dispose(bool disposing) { if(disposing) { tips.Dispose(); icons.Dispose(); if(Icon!=null) Icon.Dispose(); } base.Dispose(disposing); }
         internal int ModCount {get{return mods.Items.Count;}}
@@ -726,6 +981,7 @@ namespace TesmioAutoload
         internal bool StartEnabled {get{return startButton!=null&&startButton.Enabled;}}
         internal int DirtyCount {get{return Unsaved.Count;}}
         internal int DirtyMarks {get{return mods.DirtyRoots.Count;}}
+        internal bool ShownListed {get{return mods.Items.Cast<CatalogEntry>().Any(x=>x==current);}}
         internal bool TestSaveAll(Action guard) {return SaveAll(guard,()=>true);}
         // 0.4.81: --save. The Save button's own path with the real runtime checks; every question
         // the button would ask is declined, because nobody is there to answer it. Returns one line.
@@ -790,3 +1046,4 @@ namespace TesmioAutoload
         internal List<string> LocalHidden(){return resourceSession.SuppressedIds();}
     }
 }
+
