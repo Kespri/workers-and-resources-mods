@@ -13,7 +13,7 @@ namespace TesmioAutoload
     // this is the one Workshop-shaped place RMM may look into and, on request, put right.
     public sealed class WipBuilding
     {
-        public string Id = "", Folder = "", Object = "", Name = "", Section = "", Owner = "";
+        public string Id = "", Folder = "", Object = "", Name = "", Section = "", Owner = "", Donor = "";
         public string Origin = "other";   // buildings_plus | sml | editor | other
         public bool Generated;            // ten digits starting with 9 - written, never subscribed
         public bool SmlRange;             // 9100000000..9199999999, reserved by Soviet Mod Loader
@@ -95,6 +95,13 @@ namespace TesmioAutoload
                              : stamp.IndexOf(LoaderMark, StringComparison.OrdinalIgnoreCase) >= 0 ? "sml" : "other";
                 Match section = Regex.Match(stamp, @"section=([^\s]+)");
                 if (section.Success) entry.Section = section.Groups[1].Value;
+                // donor= and object= are in there too. They let the card list say "will be rebuilt
+                // at the next start" without recomputing the generator's hash, which covers the
+                // size and time of the donor file as well and cannot be repeated here.
+                Match donor = Regex.Match(stamp, @"donor=([^\s]+)");
+                if (donor.Success) entry.Donor = donor.Groups[1].Value;
+                Match stamped = Regex.Match(stamp, @"object=([^\s]+)");
+                if (stamped.Success && entry.Object.Length == 0) entry.Object = stamped.Groups[1].Value;
             }
             string config = TextOf(Path.Combine(dir, "workshopconfig.ini"));
             if (config != null)

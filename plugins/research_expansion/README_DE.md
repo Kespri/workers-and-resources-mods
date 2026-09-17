@@ -1,4 +1,4 @@
-# 🔬 Research Expansion 0.4.1
+# 🔬 Research Expansion 0.4.2
 
 **TesmioLoader-Plugin für neue Forschungen und Änderungen am Forschungsbaum**
 
@@ -48,6 +48,9 @@ Fügt *Workers & Resources: Soviet Republic* 1.1.1.9 eigene Forschungseinträge 
 - ✅ Eigene Icons je Forschung mit Ersatz-Icon
 - ✅ Jeder Fehler weist die ganze Erweiterung ab und lässt die Vanilla-Forschung aktiv; das Log nennt Datei, Regel und Zeile
 - ✅ Originaldateien bleiben unverändert; die erzeugte Datei liegt im VFS des Loaders
+
+### 🆕 Neu in 0.4.2
+- Nur Protokolltext: Die Startmeldung nennt jetzt die Versionsnummer des laufenden Plugins statt einer festen Zahl.
 
 ### 🆕 Neu in 0.4.1
 - Nur Protokolltext: Die Meldung zu den ungenutzten Schlüsseln `icon_folder` und `noimage_name` ist klarer formuliert.
@@ -123,7 +126,7 @@ Wähle **eine** der vier Methoden. Dieselbe DLL darf nie zweimal geladen werden.
 
 ## 🧰 Republic Mod Manager
 
-Das Paket enthält im Ordner `config` ein Editor-Schema. Republic Mod Manager (ab 0.33.0) zeigt Research Expansion damit in zwei Reitern, deutsch und englisch:
+Das Paket enthält im Ordner `config` ein Editor-Schema. Republic Mod Manager zeigt Research Expansion damit in zwei Reitern, deutsch und englisch:
 
 - **Allgemein:** Hinweise, „Dateien nur lokal“, Knopf für diese Anleitung und die Plugin-Einstellungen (Erweiterung anwenden, Forschungs-Icons, Diagnoseprotokoll)
 - **Vanilla-Änderungen:** links die geänderten Forschungen, rechts die gewählte mit Schalter und je einem Mehrzeilenfeld für ersetzen, entfernen, hinzufügen, einfügen und verschieben; der Plus-Knopf legt eine Änderung für eine Vanilla-Forschungs-ID an
@@ -140,7 +143,7 @@ Die DLL liest in dieser Reihenfolge:
 - **Zuerst:** `tesmioloader\build\plugins\research_expansion.ini`, falls vorhanden (klassische Installation, „Dateien nur lokal“ oder die von Republic Mod Manager geschriebene wirksame INI)
 - **Sonst:** die INI neben der DLL, im Paket `hooks\research_expansion.ini` (Soviet Mod Loader, Workshop Bridge)
 
-⚠️ **Kommentare nur in eigenen Zeilen mit `;`.** UTF-8 ohne BOM, höchstens 8 MiB. Direktivennamen sind schreibungsabhängig. In `[general]` sind nur `enabled` und `debug` erlaubt (`icon_folder` und `noimage_name` aus 1.5 werden ignoriert). Änderungen gelten nach einem vollständigen Neustart.
+⚠️ **Kommentare nur in eigenen Zeilen mit `;`.** UTF-8 ohne BOM, höchstens 8 MiB. Direktivennamen sind schreibungsabhängig. In `[general]` sind nur `enabled` und `debug` erlaubt (`icon_folder` und `noimage_name` werden ignoriert). Änderungen gelten nach einem vollständigen Neustart.
 
 ### Abschnitt `[general]`
 
@@ -276,6 +279,7 @@ Forschungen sind Teil des Spielstands: Eine neue Forschung, die ein Spielstand b
 Localization ist Pflicht. Andere Plugins, die `research.ini` ersetzen, werden nicht zusammengeführt.
 
 ### Versionskompatibilität
+- **0.4.2:** nur Protokolltext; Logik und INI unverändert
 - **0.4.1:** nur Protokolltext; Logik und INI unverändert
 - **0.4.0:** erste veröffentlichte Fassung
 
@@ -373,5 +377,5 @@ A: Für neue Forschungsblöcke ja. Änderungen an Vanilla-Forschungen und die Pl
 
 ---
 
-**Letzte Aktualisierung:** Research Expansion 0.4.1  
+**Letzte Aktualisierung:** Research Expansion 0.4.2  
 **Für:** WRSR 1.1.1.9 | TesmioLoader API 4

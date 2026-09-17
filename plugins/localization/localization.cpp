@@ -243,7 +243,7 @@ static std::string Join(const std::string& a, const std::string& b)
     return (c == '\\' || c == '/') ? a + b : a + "\\" + b;
 }
 
-// Folder of this DLL with a trailing backslash (1.2). A Workshop package
+// Folder of this DLL with a trailing backslash. A Workshop package
 // loaded by Soviet Mod Loader or the Workshop Bridge carries its INI and its
 // text packs beside the DLL instead of below plugins\.
 static std::string OwnDirectory(void)

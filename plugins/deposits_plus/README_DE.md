@@ -100,6 +100,8 @@ Falls `plugins\deposits.dll` existiert:
 
 ### Methode 2️⃣: Soviet Mod Loader (SML)
 
+⚠️ **Solange SML läuft, bleibt Deposits Plus untätig.** SML bringt seine eigenen Vorkommen mit; das Plugin lädt, tritt zur Seite und schreibt eine Zeile ins Protokoll. Willst du Deposits Plus, schalte `soviet_mod_loader` in der `tesmioloader.ini` aus (im Republic Mod Manager der Schalter „Plugin aktiv") und nimm Methode 1 oder 3. Der Weg unten lohnt nur, wenn du das Paket für später bereithalten willst.
+
 ```
 1. Workshop-Objekt abonnieren – SML liest abonnierte Pakete von selbst
 2. SML lädt die DLL über soviet.mod.ini aus dem Paket

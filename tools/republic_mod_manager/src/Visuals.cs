@@ -13,6 +13,12 @@ namespace TesmioAutoload
     static class Theme
     {
         public static readonly Color Blue = Color.FromArgb(0, 85, 215), SelectionBlue = Color.FromArgb(34,84,151), TabHover = Color.FromArgb(231,240,255), Navy = Color.FromArgb(12, 32, 54), Ink = Color.FromArgb(22, 33, 49), Muted = Color.FromArgb(91, 104, 121), Line = Color.FromArgb(217, 224, 234), Pale = Color.FromArgb(246, 248, 252), Chrome = Color.FromArgb(239,243,249), Danger = Color.FromArgb(190,42,47);
+        // 0.5.8: the frame of the window - title bar, footer and the tabs that are not active.
+        // Darker than Chrome on purpose, so a tab reads as a tab before anything is clicked;
+        // Chrome stays what it is, or every ordinary button would darken with it.
+        public static readonly Color Frame = Color.FromArgb(206,215,229), FrameHover = Color.FromArgb(224,232,244);
+        // 0.5.9: a paused page - Soviet Mod Loader has this plugin's job, so the cards go grey.
+        public static readonly Color Dim = Color.FromArgb(238,240,243), DimInk = Color.FromArgb(128,136,148), DimHeader = Color.FromArgb(138,148,163);
         [DllImport("dwmapi.dll", PreserveSig=true)] static extern int DwmSetWindowAttribute(IntPtr handle,int attribute,ref int value,int size);
         public static Label Label(string text, float size, bool bold)
         { return new Label { Text = text, AutoSize = true, Font = new Font("Segoe UI", size, bold ? FontStyle.Bold : FontStyle.Regular), ForeColor = Ink, Margin = new Padding(0, 0, 0, 7), UseMnemonic = false, ContextMenuStrip = CopyMenu() }; }
@@ -40,13 +46,31 @@ namespace TesmioAutoload
             button.FlatAppearance.MouseDownBackColor = primary ? Color.FromArgb(0,61,158) : Color.FromArgb(217,231,252);
             button.Click += (s,e) => click(); return button;
         }
+        // 0.5.8: a tab of the strip. Its top corners are rounded, so a tab reads as a tab and not
+        // as a rectangle in a row; the bottom stays square because it sits on the strip's line.
+        // Tabs sit close together - a wide gap makes a row of buttons out of them.
+        public static Button TabButton(string text, Action click)
+        {
+            var button = new TabShape { Text = text, AutoSize = true, Height = 42, Padding = new Padding(10, 4, 10, 4), Margin = new Padding(0, 0, 1, 0), Cursor = Cursors.Hand, BackColor = Frame, ForeColor = Ink };
+            button.Click += (s, e) => click();
+            return button;
+        }
+        internal static GraphicsPath TopRounded(Rectangle r, int radius)
+        {
+            var path = new GraphicsPath(); int d = radius * 2;
+            path.AddArc(r.X, r.Y, d, d, 180, 90);
+            path.AddArc(r.Right - d, r.Y, d, d, 270, 90);
+            path.AddLine(r.Right, r.Bottom, r.X, r.Bottom);
+            path.CloseFigure();
+            return path;
+        }
         public static void ApplyWindowChrome(Form form)
         {
             form.HandleCreated+=(s,e)=>
             {
                 try
                 {
-                    int caption=ColorTranslator.ToWin32(Chrome),text=ColorTranslator.ToWin32(Ink);
+                    int caption=ColorTranslator.ToWin32(Frame),text=ColorTranslator.ToWin32(Ink);
                     DwmSetWindowAttribute(form.Handle,35,ref caption,sizeof(int));
                     DwmSetWindowAttribute(form.Handle,36,ref text,sizeof(int));
                 }
@@ -131,6 +155,7 @@ namespace TesmioAutoload
     {
         public string HeaderText = "";
         const int HeaderHeight = 56;
+        public bool Dimmed;
         public Card(string header = "") { DoubleBuffered = true; ResizeRedraw = true; BackColor = Color.White; HeaderText=header??""; int s=Theme.Shadow; Padding = HeaderText.Length==0?new Padding(20,20,20+s,20+s):new Padding(20,HeaderHeight+17,20+s,20+s); Margin = new Padding(0,0,0,18); }
         protected override void OnPaint(PaintEventArgs e)
         {
@@ -139,11 +164,14 @@ namespace TesmioAutoload
             Theme.DrawShadow(e.Graphics,frame,8,Theme.Shadow,7);
             using (var p = Theme.Rounded(frame,8))
             {
-                using (var white = new SolidBrush(Color.White)) e.Graphics.FillPath(white,p);
+                // 0.5.9: Dimmed = the plugin is paused (Soviet Mod Loader has its job). The card is
+                // drawn grey instead of white and its header loses its colour, so a whole page can
+                // be seen but is visibly out of service.
+                using (var white = new SolidBrush(Dimmed?Theme.Dim:Color.White)) e.Graphics.FillPath(white,p);
                 if(HeaderText.Length>0)
                 {
                     var state=e.Graphics.Save();e.Graphics.SetClip(p);
-                    using(var fill=new SolidBrush(Theme.SelectionBlue))e.Graphics.FillRectangle(fill,0,0,frame.Width+1,HeaderHeight);
+                    using(var fill=new SolidBrush(Dimmed?Theme.DimHeader:Theme.SelectionBlue))e.Graphics.FillRectangle(fill,0,0,frame.Width+1,HeaderHeight);
                     e.Graphics.Restore(state);
                     using(var font=new Font("Segoe UI",15,FontStyle.Bold))TextRenderer.DrawText(e.Graphics,HeaderText,font,new Rectangle(23,0,Math.Max(0,frame.Width-46),HeaderHeight),Color.White,TextFormatFlags.Left|TextFormatFlags.VerticalCenter|TextFormatFlags.EndEllipsis|TextFormatFlags.NoPrefix);
                 }
@@ -175,19 +203,47 @@ namespace TesmioAutoload
     }
     // The row of tab buttons: a line in the selection blue underneath, on which the
     // active tab sits, and a soft halo around the active tab.
+    // A tab of the strip. It paints itself instead of wearing a clipped region: a region is a
+    // yes-or-no mask per pixel, so its rounded corners come out as stairs, while a filled path
+    // with anti-aliasing blends the edge the way the cards and the footer do. It stays a Button
+    // so everything that looks for one - the strip's halo, the tests - still finds it.
+    sealed class TabShape : Button
+    {
+        bool hot;
+        public TabShape()
+        {
+            FlatStyle = FlatStyle.Flat; FlatAppearance.BorderSize = 0; UseVisualStyleBackColor = false;
+            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.SupportsTransparentBackColor, true);
+        }
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            e.Graphics.Clear(Parent != null ? Parent.BackColor : Color.White);
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            bool active = BackColor == Theme.SelectionBlue;
+            Color fill = !active && hot ? (BackColor == Theme.Frame ? Theme.FrameHover : Theme.TabHover) : BackColor;
+            using (var path = Theme.TopRounded(new Rectangle(0, 0, Width, Height), 7))
+            using (var brush = new SolidBrush(fill)) e.Graphics.FillPath(brush, path);
+            TextRenderer.DrawText(e.Graphics, Text, Font, ClientRectangle, ForeColor,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
+        }
+        protected override void OnMouseEnter(EventArgs e) { base.OnMouseEnter(e); hot = true; Invalidate(); }
+        protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); hot = false; Invalidate(); }
+        protected override void OnBackColorChanged(EventArgs e) { base.OnBackColorChanged(e); Invalidate(); }
+    }
     sealed class TabStrip : FlowLayoutPanel
     {
         public const int TabHeight = 42, Inset = 4;
         public TabStrip()
         {
-            DoubleBuffered = true; WrapContents = false; Margin = Padding.Empty; Padding = new Padding(0,Inset,0,0); BackColor = Color.White;
+            // 0.5.8: room on the left, or the halo of the first tab is cut off at the edge.
+            DoubleBuffered = true; WrapContents = false; Margin = Padding.Empty; Padding = new Padding(Inset+3,Inset,0,0); BackColor = Color.White;
             SetStyle(ControlStyles.UserPaint|ControlStyles.AllPaintingInWmPaint|ControlStyles.OptimizedDoubleBuffer,true);
         }
         protected override void OnPaint(PaintEventArgs e)
         {
+            // 0.5.8: no halo behind the active tab any more - the colour of the others and the
+            // line below carry it, and a glow only muddied the edge.
             base.OnPaint(e); e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            foreach (Control child in Controls)
-                if (child.Visible && child.BackColor == Theme.SelectionBlue) Theme.DrawHalo(e.Graphics,child.Bounds,5,22);
             int y = Inset + TabHeight;
             using (var pen = new Pen(Theme.SelectionBlue,2)) e.Graphics.DrawLine(pen,0,y+1,Math.Max(Width,DisplayRectangle.Right),y+1);
         }
@@ -671,6 +727,12 @@ namespace TesmioAutoload
         public bool Primary;
         public bool Danger;
         public float GlyphScale=1f;
+        // 0.5.8: a caption right of the glyph and a pill shape, for the "Add" button that sits in
+        // the blue header strip of a card. `Behind` is the colour it sits on - the header paints
+        // itself, so the parent's BackColor would put a white box around the pill.
+        public string Caption="";
+        public bool Pill;
+        public Color Behind=Color.Empty;
         bool hot;
         public VectorButton()
         {
@@ -680,10 +742,30 @@ namespace TesmioAutoload
         protected override void OnPaint(PaintEventArgs e)
         {
             Color fill=!Enabled?SystemColors.Control:Danger?(hot?Color.FromArgb(154,29,35):Theme.Danger):Primary?(hot?Color.FromArgb(0,70,180):Theme.Blue):(hot?Theme.TabHover:BackColor);
-            e.Graphics.Clear(fill);
-            e.Graphics.SmoothingMode=SmoothingMode.AntiAlias;
-            if(DrawBorder) using(var border=new Pen(Theme.Line)) e.Graphics.DrawRectangle(border,0,0,Width-1,Height-1);
-            float cx=Width/2f,cy=(Height-1)/2f;
+            if(Pill)
+            {
+                using(var back=new SolidBrush(Behind.IsEmpty?(Parent!=null?Parent.BackColor:Color.White):Behind)) e.Graphics.FillRectangle(back,ClientRectangle);
+                e.Graphics.SmoothingMode=SmoothingMode.AntiAlias;
+                var frame=new Rectangle(0,0,Width-1,Height-1);
+                using(var path=Theme.Rounded(frame,Math.Max(4,Height/2)))
+                {
+                    using(var brush=new SolidBrush(fill)) e.Graphics.FillPath(brush,path);
+                    if(DrawBorder) using(var border=new Pen(Theme.Line)) e.Graphics.DrawPath(border,path);
+                }
+            }
+            else
+            {
+                e.Graphics.Clear(fill);
+                e.Graphics.SmoothingMode=SmoothingMode.AntiAlias;
+                if(DrawBorder) using(var border=new Pen(Theme.Line)) e.Graphics.DrawRectangle(border,0,0,Width-1,Height-1);
+            }
+            // With a caption the glyph moves out of the middle and sits in front of the text.
+            float cx=Caption.Length>0?17f:Width/2f,cy=(Height-1)/2f;
+            if(Caption.Length>0)
+            {
+                using(var font=new Font("Segoe UI",10,FontStyle.Bold))
+                    TextRenderer.DrawText(e.Graphics,Caption,font,new Rectangle(30,0,Math.Max(0,Width-34),Height),Enabled?ForeColor:SystemColors.GrayText,TextFormatFlags.Left|TextFormatFlags.VerticalCenter|TextFormatFlags.NoPrefix);
+            }
             float scale=Math.Max(.75f,GlyphScale);
             using(var pen=new Pen(Enabled?ForeColor:SystemColors.GrayText,1.35f*scale))
             {

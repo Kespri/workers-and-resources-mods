@@ -1,4 +1,4 @@
-// Republic Mod Manager 0.5.7-beta: generic manifest/schema driven plugin deployment.
+// Republic Mod Manager 0.5.9: generic manifest/schema driven plugin deployment.
 // Never loads a DLL during discovery and never edits Workshop defaults or loader code.
 // Since 0.9.0 a package needs only [mod] and [hooks] dll; everything Autoload used
 // to declare is derived by convention, and a plugin without a launcher schema gets
@@ -533,7 +533,10 @@ namespace TesmioAutoload
                     p.ContentFragments[key] = text; p.InputHashes.Add(path, SafeFiles.Hash(bytes));
                 }
                 foreach (string key in content)
-                    if (!ContentTargets.Keys.Contains(key, StringComparer.OrdinalIgnoreCase) && !key.Equals("assets", StringComparison.OrdinalIgnoreCase)) p.Hints.Add(Msg.Key("hint_content_unknown_kind", key));
+                    // allow_settings is Soviet Mod Loader's switch for the [custom:] sections of a
+                    // package; RMM reads those sections anyway, so the key is simply not ours to
+                    // complain about (0.5.9).
+                    if (!ContentTargets.Keys.Contains(key, StringComparer.OrdinalIgnoreCase) && !key.Equals("assets", StringComparison.OrdinalIgnoreCase) && !key.Equals("allow_settings", StringComparison.OrdinalIgnoreCase)) p.Hints.Add(Msg.Key("hint_content_unknown_kind", key));
                 LoadAssets(p, manifest.Get("content", "assets", ""));
                 if (p.ContentFragments.Count == 0 && p.AssetFiles.Count == 0) throw new FormatException(Msg.Key("err_inhaltspaket_ohne_inhalt"));
                 foreach (string id in dependencies)
@@ -1086,6 +1089,28 @@ namespace TesmioAutoload
                 return full.StartsWith(root, StringComparison.OrdinalIgnoreCase) ? full.Substring(root.Length) : full;
             }
             catch (Exception) { return path; }
+        }
+        // 0.5.9: SML searches ONE folder for mods - [loader] workshop_root, with "auto" meaning the
+        // Steam Workshop folder of the game library. There is no second root, so a package that is
+        // not from the Workshop has to live there too.
+        public static string WorkshopRoot(string build)
+        {
+            foreach (string name in Names)
+            {
+                try
+                {
+                    string settings = Path.Combine(Path.GetFullPath(build), "plugins", name + ".ini");
+                    if (!File.Exists(settings)) continue;
+                    string value = new LooseIni(SafeFiles.Text(settings)).Get("loader", "workshop_root");
+                    if (String.IsNullOrWhiteSpace(value)) continue;
+                    value = GenericSchema.StripComment(value).Trim();
+                    if (value.Length == 0 || value.Equals("auto", StringComparison.OrdinalIgnoreCase)) break;
+                    return Path.GetFullPath(value);
+                }
+                catch (Exception) { }
+            }
+            try { string game = GameBuildings.GameRoot(build); return game == null ? "" : (GameBuildings.SteamWorkshopFor(game) ?? ""); }
+            catch (Exception) { return ""; }
         }
         public static string Baseline(string build, string plugin, string configName)
         {
@@ -2101,6 +2126,9 @@ namespace TesmioAutoload
                     foreach (string dir in Directory.GetDirectories(root))
                     {
                         if (!File.Exists(Path.Combine(dir, "soviet.mod.ini"))) continue;
+                        // 0.5.9: our own overlay layer is not an entry of its own - it belongs to the
+                        // editors that write it (see SmlOverlay).
+                        if (SmlOverlay.IsOverlay(Path.Combine(dir, "soviet.mod.ini"))) continue;
                         try { var p = Package.Load(dir); result.Add(p.Root); }
                         catch (Exception e) { diagnostics.Add(dir + ": " + e.Message); }
                     }

@@ -201,6 +201,9 @@ namespace TesmioAutoload
                 {
                     string manifest = Path.Combine(child, "soviet.mod.ini");
                     if (!File.Exists(manifest)) continue;
+                    // 0.5.9: the overlay layer Republic Mod Manager writes for package entries under
+                    // Soviet Mod Loader is not an entry of its own - the editors that fill it own it.
+                    if (SmlOverlay.IsOverlay(manifest)) continue;
                     var entry = new CatalogEntry { Root = child, Name = Path.GetFileName(child), Origin = UnderSteamWorkshop(child) ? "steam" : "unknown" };
                     try
                     {

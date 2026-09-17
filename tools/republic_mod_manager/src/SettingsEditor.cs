@@ -29,7 +29,7 @@ namespace TesmioAutoload
             if(!presentation.Tabs.Any(t=>t.Id==state.SelectedTab)) state.SelectedTab=presentation.Tabs.Any(t=>t.Id==presentation.DefaultTab)?presentation.DefaultTab:presentation.Tabs.First().Id;
             foreach(var tab in presentation.Tabs)
             {
-                string id=tab.Id; var button=Theme.Button(tab.Label,()=>Run(()=>SelectTab(id)),false); button.FlatAppearance.BorderSize=0; button.Margin=new Padding(0,0,12,0); button.Tag=id; button.Height=42; button.FlatAppearance.MouseOverBackColor=Theme.TabHover;
+                string id=tab.Id; var button=Theme.TabButton(tab.Label,()=>Run(()=>SelectTab(id))); button.Tag=id;
                 tabStrip.Controls.Add(button);
             }
             SelectTab(state.SelectedTab);
@@ -45,13 +45,40 @@ namespace TesmioAutoload
         {
             if(presentation==null || !presentation.Tabs.Any(t=>t.Id==id)) return;
             state.SelectedTab=id;
-            foreach(Button button in tabStrip.Controls) { bool active=(string)button.Tag==id; button.ForeColor=active?Color.White:Theme.Ink; button.BackColor=active?Theme.SelectionBlue:Color.White; button.FlatAppearance.MouseOverBackColor=active?Theme.SelectionBlue:Theme.TabHover; }
+            foreach(Button button in tabStrip.Controls) { bool active=(string)button.Tag==id; button.ForeColor=active?Color.White:Theme.Ink; button.BackColor=active?Theme.SelectionBlue:Theme.Frame; button.FlatAppearance.MouseOverBackColor=active?Theme.SelectionBlue:Theme.TabHover; }
             tabStrip.PerformLayout(); foreach(Button button in tabStrip.Controls) if((string)button.Tag==id) tabStrip.ScrollControlIntoView(button); tabStrip.Invalidate();
             Theme.DisposeChildren(content); setters.Clear(); origins.Clear(); resetButtons.Clear();
+            // 0.5.9: Soviet Mod Loader has this plugin's job, so nothing here reaches the game. The
+            // warning stands on every tab and stays white; the rest of the page goes grey and dead
+            // below it, and "Trotzdem bearbeiten" opens it for the day SML is switched off.
+            Card pausedCard=null;
+            if(RuntimeStatus.Blocked(session.Package,state.Build))
+            {
+                pausedCard=BeginCard(780);
+                AddNotice(pausedCard,language.Format(pausedUnlocked?"sml_replaced":"sml_replaced_locked",session.Package.Name,language.T("content_kind_"+session.Package.ReplacedBySml)),"warning");
+                if(!pausedUnlocked)
+                {
+                    var layout=(CardLayout)pausedCard.Tag;
+                    var unlock=Theme.Button(language.T("sml_replaced_unlock"),()=>Run(()=>{pausedUnlocked=true;BuildEditor();}),false);
+                    unlock.AccessibleName="sml:unlock";unlock.Margin=new Padding(0,2,8,4);
+                    var flow=new FlowLayoutPanel{Dock=DockStyle.Top,AutoSize=true,WrapContents=true,Margin=new Padding(0,0,0,4),Padding=Padding.Empty};
+                    flow.Controls.Add(unlock);AddRow(layout.Inner,flow);
+                }
+            }
             // The notices card belongs to the first tab only ("Allgemein"); the other tabs start with their groups.
             if(presentation.Tabs.Count==0||id==presentation.Tabs[0].Id) AddNotices();
             if(presentation.Links.Count>0&&(presentation.LinksTab.Length==0?(presentation.Tabs.Count==0||id==presentation.Tabs[0].Id):presentation.LinksTab==id)) AddPresentationLinks();
             foreach(var group in presentation.Groups.Where(g=>g.Tab==id)) AddGroup(group);
+            // 0.5.9: Soviet Mod Loader has this plugin's job, so nothing here reaches the game. The
+            // same picture as in the keyed editors: the warning stays white, the rest goes grey and
+            // dead, and "Trotzdem bearbeiten" opens it up for the day SML is switched off.
+            if(pausedCard!=null&&!pausedUnlocked)
+                foreach(Control card in content.Controls)
+                {
+                    if(ReferenceEquals(card,pausedCard))continue;
+                    var box=card as Card;if(box!=null){box.Dimmed=true;box.BackColor=Theme.Dim;}
+                    LockInputs(card);DimCard(card);
+                }
             ResizeCards(); UpdateStatus(); SaveView();
         }
         Card BeginCard(int minimumWidth,string header="")
@@ -124,11 +151,15 @@ namespace TesmioAutoload
             foreach(var pair in c.Skipped) if(pair.Value.Count>0) AddNotice(notes,language.Format("content_skipped",language.T("content_kind_"+pair.Key.ToLowerInvariant()),String.Join(", ",pair.Value)),"info");
             // 0.4.87: an id that already exists elsewhere blocks the package. Red, with the name
             // of the entry in the way and what to do about it - saving would fail with the same text.
-            foreach(var clash in c.Conflicts(SessionFor))
-            {
-                string plugin; c.Targets.TryGetValue(clash.Key,out plugin);
-                AddNotice(notes,language.Format("content_conflict",c.Package.Name,String.Join(", ",clash.Value),plugin??"",language.T("content_kind_"+clash.Key.ToLowerInvariant())),"error");
-            }
+            // 0.5.9: not while Soviet Mod Loader owns the content. It merges the package itself,
+            // there is no switch to press here, and the entry it "clashes" with is usually the one
+            // SML built from this very package - a red box would only make RMM look broken.
+            if(!SmlOwnsContent(c))
+                foreach(var clash in c.Conflicts(SessionFor))
+                {
+                    string plugin; c.Targets.TryGetValue(clash.Key,out plugin);
+                    AddNotice(notes,language.Format("content_conflict",c.Package.Name,String.Join(", ",clash.Value),plugin??"",language.T("content_kind_"+clash.Key.ToLowerInvariant())),"error");
+                }
             var contents=BeginCard(0,language.T("content_card_contents"));
             foreach(string key in ContentTargets.Keys)
             {
@@ -151,8 +182,8 @@ namespace TesmioAutoload
             // 0.5.3: the package says SML replaces it, and SML really has that capability. Amber,
             // because nothing is broken - the plugin simply waits, and the page says what to do
             // if the player wants this one instead.
-            if(RuntimeStatus.Blocked(session.Package,state.Build))
-                warnings.Add(language.Format("sml_replaced",session.Package.Name,language.T("content_kind_"+session.Package.ReplacedBySml)));
+            // 0.5.9: the "SML has this job" warning is no longer one line among the notices - it now
+            // has its own card above every tab and greys the page out, so it must not stand twice.
             // 0.4.27: found is not enough - a dependency that is present but not switched on
             // gets a yellow box, an active one a quiet line; both name the package.
             foreach(Dependency d in session.Package.Dependencies)

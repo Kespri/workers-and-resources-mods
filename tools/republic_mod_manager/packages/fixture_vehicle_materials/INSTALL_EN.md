@@ -1,4 +1,4 @@
-# Vehicle Materials 1.1.1-beta
+# Vehicle Materials 0.4.0
 
 Choose ONE installation method. Subscribing alone does not activate a native DLL.
 
@@ -22,5 +22,5 @@ Requires Windows x64, WRSR 1.1.1.9, TesmioLoader API 4 and a Resources service
 registering all configured materials (glass and cable by default). Native DLLs
 execute code: use only packages from authors you trust.
 
-Version 1.1.1-beta changes only INI discovery to use the plugin DLL directory.
+Version 0.4.0 changes only INI discovery to use the plugin DLL directory.
 Vehicle material calculations remain unchanged from 1.1.0.

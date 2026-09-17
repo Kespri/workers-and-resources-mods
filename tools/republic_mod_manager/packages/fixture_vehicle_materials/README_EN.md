@@ -358,11 +358,11 @@ skipped.
 
 ## Version
 
-- Plugin version: **1.1.1-beta**
+- Plugin version: **0.4.0**
 - built for TesmioLoader API: **4**
 - supported game version: **WRSR 1.1.1.9**
 
-### New in 1.1.1-beta: Workshop packaging
+### New in 0.4.0: Workshop packaging
 
 The INI is read beside this plugin's DLL, including when SML forwards a different
 loader base directory. A missing adjacent INI never falls back to an unrelated

@@ -359,11 +359,11 @@ korrigiert oder übersprungen.
 
 ## Version
 
-- Plugin-Version: **1.1.1-beta**
+- Plugin-Version: **0.4.0**
 - erstellt für TesmioLoader API: **4**
 - unterstützte Spielversion: **WRSR 1.1.1.9**
 
-### Neu in 1.1.1-beta: Workshop-Paket
+### Neu in 0.4.0: Workshop-Paket
 
 Die INI wird neben der eigenen DLL gelesen, auch wenn SML einen anderen
 Loader-Basisordner übergibt. Fehlt sie dort, wird nicht auf eine fremde lokale

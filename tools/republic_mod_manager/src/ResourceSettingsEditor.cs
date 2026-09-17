@@ -66,8 +66,8 @@ namespace TesmioAutoload
             bool textPackDue=localSpec.TextPackDue(resourceSession.Build);
             foreach(LocalTab entry in localSpec.Tabs)
             {
-                string id=entry.Id;bool active=id==state.SelectedTab;var tab=Theme.Button(localSpec.LocalizedTabLabel(language,entry),()=>Run(()=>{state.SelectedTab=id;BuildLocalResourceEditor();}),false);tab.FlatAppearance.BorderSize=0;tab.Margin=new Padding(0,0,12,0);tab.Tag=id;tab.Height=42;
-                tab.ForeColor=active?Color.White:Theme.Ink;tab.BackColor=active?Theme.SelectionBlue:Color.White;tab.FlatAppearance.MouseOverBackColor=active?Theme.SelectionBlue:Theme.TabHover;
+                string id=entry.Id;bool active=id==state.SelectedTab;var tab=Theme.TabButton(localSpec.LocalizedTabLabel(language,entry),()=>Run(()=>{state.SelectedTab=id;BuildLocalResourceEditor();}));tab.Tag=id;
+                tab.ForeColor=active?Color.White:Theme.Ink;tab.BackColor=active?Theme.SelectionBlue:Theme.Frame;tab.FlatAppearance.MouseOverBackColor=active?Theme.SelectionBlue:Theme.TabHover;
                 if(textPackDue&&!active&&id.Equals(localSpec.TextPack.Tab,StringComparison.OrdinalIgnoreCase)){tab.BackColor=Color.FromArgb(253,235,235);tab.ForeColor=Color.FromArgb(150,28,28);tab.FlatAppearance.MouseOverBackColor=Color.FromArgb(247,214,214);tab.AccessibleName="tab-due:"+id;}
                 tabStrip.Controls.Add(tab);
             }
@@ -77,12 +77,40 @@ namespace TesmioAutoload
                 string due=localSpec.LocalizedTextPackRequired(language);if(due.Length==0)due=language.Format("textpack_required",localSpec.LocalizedTabLabel(language,localSpec.Tabs.First(t=>t.Id.Equals(localSpec.TextPack.Tab,StringComparison.OrdinalIgnoreCase))),language.T("textpack_create"));
                 var card=BeginCard(780);AddNotice(card,due,"error");
             }
+            // 0.5.9: Soviet Mod Loader has taken this plugin's job over - it steps aside at the game
+            // start and NOTHING in here reaches the game. Saying that once in the notice card of the
+            // first tab was not enough: every other tab looked ready to use. Now the box stands on
+            // every tab and the page below it is dead, until you say you want to prepare something
+            // for the day you switch SML off.
+            bool replaced=session!=null&&RuntimeStatus.Blocked(session.Package,state.Build);
+            Control pausedCard=null;
+            if(replaced)
+            {
+                var card=BeginCard(780);pausedCard=card;
+                AddNotice(card,language.Format(pausedUnlocked?"sml_replaced":"sml_replaced_locked",session.Package.Name,language.T("content_kind_"+session.Package.ReplacedBySml)),"warning");
+                if(!pausedUnlocked)
+                {
+                    var layout=(CardLayout)card.Tag;
+                    var unlock=Theme.Button(language.T("sml_replaced_unlock"),()=>Run(()=>{pausedUnlocked=true;BuildLocalResourceEditor();}),false);
+                    unlock.AccessibleName="sml:unlock";unlock.Margin=new Padding(0,2,8,4);
+                    var flow=new FlowLayoutPanel{Dock=DockStyle.Top,AutoSize=true,WrapContents=true,Margin=new Padding(0,0,0,4),Padding=Padding.Empty};
+                    flow.Controls.Add(unlock);AddRow(layout.Inner,flow);
+                }
+            }
             // 0.5.3: this editor writes SML's baseline, not the generated file in plugins\. That
             // changes where every value goes, so it is said on every tab, not tucked into one card.
             if(resourceSession.SmlBaseline!=null)
             {
                 var card=BeginCard(780);
                 AddNotice(card,language.Format("sml_base_notice",Sml.Show(resourceSession.Build,resourceSession.SmlBaseline),"plugins\\"+localSpec.ConfigName),"info");
+            }
+            // 0.5.9: the overlay layer only exists for Soviet Mod Loader. Is it switched off, the
+            // layer sits in the Workshop folder doing nothing - say so instead of letting the
+            // changes vanish silently.
+            else if(SmlOverlay.Covers(localSpec.Plugin)&&SmlOverlay.Idle(resourceSession.Build))
+            {
+                var card=BeginCard(780);
+                AddNotice(card,language.Format("sml_overlay_idle",SmlOverlay.Name,SmlOverlay.Root(resourceSession.Build)),"warning");
             }
             bool isList=localSpec.IsList,isSections=localSpec.IsSections;
             // A package-backed editor shows the package's notices (bridge, local copy) on
@@ -94,6 +122,15 @@ namespace TesmioAutoload
             if(localSpec.TextPack!=null&&localSpec.TextPack.Tab==state.SelectedTab)BuildTextPackCard();   // 0.4.30
             if(localSpec.Wip!=null&&localSpec.Wip.Tab==state.SelectedTab)BuildWipCard();   // 0.5.5
             BuildLocalGlobals();
+            // Everything that was built after the warning is switched off - the switch in the header
+            // and the warning card itself stay alive, they are the way out.
+            if(replaced&&!pausedUnlocked)
+                foreach(Control card in content.Controls)
+                {
+                    if(ReferenceEquals(card,pausedCard))continue;
+                    var box=card as Card;if(box!=null){box.Dimmed=true;box.BackColor=Theme.Dim;}
+                    LockInputs(card);DimCard(card);
+                }
             ResizeCards();SyncActivation();UpdateStatus();RestoreView(view);SaveView();
         }
         // The list card of one item group: the default group ([group:]/[list]/[new]) or an
@@ -101,6 +138,8 @@ namespace TesmioAutoload
         // one list per tab shares the detail panel.
         void BuildLocalListCard(ItemGroup group)
         {
+            // 0.5.8: with style = cards the entries are rows, not a list beside a detail panel.
+            if(localSpec.IsCards){BuildLocalCardList(group);return;}
             bool isList=localSpec.IsList,isSections=localSpec.IsSections;
             var card=BeginCard(780,localSpec.LocalizedGroup(language,group));AddText(card,localSpec.LocalizedGroupDescription(language,group),9,false,Theme.Muted);string groupNotice=localSpec.LocalizedGroupNotice(language,group);if(groupNotice.Length>0)AddNotice(card,groupNotice,false);string saveWarning=localSpec.LocalizedSaveWarning(language,group);
             // 0.5.4: the schema texts name the effective INI in plugins\. Under SML that file is
@@ -124,6 +163,438 @@ namespace TesmioAutoload
             LocalResourceItem selected=items.FirstOrDefault(x=>x.Id.Equals(selectedLocalResource,StringComparison.OrdinalIgnoreCase))??items.FirstOrDefault();if(selected!=null)list.SelectedItem=selected;else BuildLocalResourceEmpty(details,group);
             AddRow(((CardLayout)card.Tag).Inner,split);((CardLayout)card.Tag).Tall=split;
             if(group==null&&localSpec.HidesOriginals)AddHiddenOriginals(((CardLayout)card.Tag).Inner);
+        }
+        // ---- 0.5.8: the card list ([list] style = cards) ----
+        // One row per entry instead of a list beside a detail panel: switch, name, the values
+        // named by subtitle, a state line and the buttons named by actions. The detail panel
+        // moves into the dialog behind "Aendern...". Nothing about the session changes - the
+        // switch and the dialog write into the draft, saving stays where it always was.
+        string cardFilter="";
+        // The "Add" pill in the blue header strip of a card. The strip is painted by the card
+        // itself, so the button has to know the colour it sits on.
+        void AddCardHeaderButton(Card card,string text,Action action)
+        {
+            var button=new VectorButton{Symbol="plus",Caption=text,Pill=true,Behind=Theme.SelectionBlue,BackColor=Color.White,ForeColor=Theme.SelectionBlue,GlyphScale=2.1f,Height=34,AccessibleName="card:add"};
+            using(var font=new Font("Segoe UI",10,FontStyle.Bold))button.Width=30+TextRenderer.MeasureText(text,font,Size.Empty,TextFormatFlags.NoPadding).Width+16;
+            button.Click+=(s,e)=>Run(action);tips.SetToolTip(button,text);
+            card.Controls.Add(button);button.BringToFront();
+            EventHandler place=(s,e)=>button.Location=new Point(Math.Max(0,card.Width-Theme.Shadow-button.Width-18),(56-button.Height)/2);
+            card.Resize+=place;place(null,EventArgs.Empty);
+        }
+        // The values the state provider needs, read out of the entry's fields by key.
+        BuildingRow CardRowOf(LocalResourceItem item,ItemGroup group)
+        {
+            var fields=localSpec.ItemFields(group).ToList();
+            Func<string,LocalDetailField> byKey=key=>fields.FirstOrDefault(x=>x.Key.Equals(key,StringComparison.OrdinalIgnoreCase));
+            Func<string,string> value=key=>{LocalDetailField f=byKey(key);return f==null?"":resourceSession.Value(item.Id,f).Trim();};
+            // No object field in the schema means the folder is simply the section name and there
+            // is nothing to compare - null says "unknown" so the state line stays quiet instead of
+            // claiming a rebuild forever (a hand-written object key is outside the editor anyway).
+            var row=new BuildingRow{Id=localSpec.DisplayId(item.Id),Number=value("id"),Donor=value("donor"),Object=byKey("object")==null?null:value("object")};
+            // No number of its own: the plugin assigned one and keeps it in the INI that
+            // assigned_from names - the same file the grey placeholder in the field reads.
+            if(row.Number.Length==0){LocalDetailField f=byKey("id");if(f!=null&&f.AssignedFrom.Length>0)row.Number=AssignedValue(f,item.Id);}
+            LocalDetailField toggle=localSpec.FieldById(localSpec.CardToggle);
+            if(toggle!=null){string on=resourceSession.Value(item.Id,toggle);row.Enabled=on.Length==0?toggle.Default=="1":on=="1";}
+            return row;
+        }
+        bool CardPrune()
+        {
+            LocalDetailField prune=localSpec.Fields.FirstOrDefault(x=>x.Scope=="global"&&x.Key.Equals("prune",StringComparison.OrdinalIgnoreCase));
+            if(prune==null)return false;
+            string value=resourceSession.GlobalValue(prune);
+            return value.Length==0?prune.Default=="1":value=="1";
+        }
+        string CardFolder(BuildingRow row)
+        {
+            if(row.Number.Length==0)return null;
+            try{string root=WipBuildings.Root(resourceSession.Build);return root==null?null:Path.Combine(root,row.Number);}catch(Exception){return null;}
+        }
+        void BuildLocalCardList(ItemGroup group)
+        {
+            var card=BeginCard(780,localSpec.LocalizedGroup(language,group));
+            string addLabel=localSpec.LocalizedAddLabel(language,group);
+            AddCardHeaderButton(card,addLabel.Length>0?addLabel:language.T("resource_create"),()=>OpenNewCardDialog(group));
+            AddText(card,localSpec.LocalizedGroupDescription(language,group),9,false,Theme.Muted);
+            string groupNotice=localSpec.LocalizedGroupNotice(language,group);if(groupNotice.Length>0)AddNotice(card,groupNotice,false);
+            string saveWarning=localSpec.LocalizedSaveWarning(language,group);
+            if(resourceSession.SmlBaseline!=null)saveWarning=language.Format("save_warning_sml",Sml.Show(resourceSession.Build,resourceSession.SmlBaseline));
+            AddNotice(card,saveWarning.Length>0?saveWarning:language.Format("list_save_warning",localSpec.ConfigName),true);
+            LocalDetailField titleField=localSpec.FieldById(localSpec.CardTitle),toggleField=localSpec.FieldById(localSpec.CardToggle);
+            Func<LocalResourceItem,string> caption=item=>{string t=titleField==null?"":resourceSession.Value(item.Id,titleField).Trim();return t.Length>0?t:localSpec.DisplayId(item.Id);};
+            var all=resourceSession.Items(group).OrderBy(caption,StringComparer.CurrentCultureIgnoreCase).ToList();
+            var layout=(CardLayout)card.Tag;
+            if(all.Count==0){AddText(card,localSpec.LocalizedSelectHelp(language,group),10,false,Theme.Muted);return;}
+            // A search box only once the list is long enough to need one.
+            if(all.Count>=8)
+            {
+                var box=new TextBox{Text=cardFilter,BorderStyle=BorderStyle.None,Font=Fields.Font,AccessibleName="card-search"};
+                var search=Fields.Wrap(box);
+                box.TextChanged+=(s,e)=>{if(refreshing)return;cardFilter=box.Text;};
+                box.Leave+=(s,e)=>{if(!refreshing)Run(()=>BuildLocalResourceEditor());};
+                box.KeyDown+=(s,e)=>{if(e.KeyCode==Keys.Enter){e.SuppressKeyPress=true;Run(()=>BuildLocalResourceEditor());}};
+                search.Width=320;search.Margin=new Padding(0,0,0,10);AddRow(layout.Inner,search);
+            }
+            var items=cardFilter.Trim().Length==0?all:all.Where(x=>caption(x).IndexOf(cardFilter.Trim(),StringComparison.CurrentCultureIgnoreCase)>=0||localSpec.DisplayId(x.Id).IndexOf(cardFilter.Trim(),StringComparison.OrdinalIgnoreCase)>=0).ToList();
+            // Changed lines are invisible to RMM (the generator's hash covers the donor file too),
+            // so this is said once for the whole list instead of being claimed per row.
+            if(localSpec.CardState.Length>0)AddText(card,language.T("cards_pending_hint"),9,false,Theme.Muted);
+            if(items.Count==0){AddText(card,language.T("cards_no_match"),10,false,Theme.Muted);return;}
+            var table=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,ColumnCount=4,Margin=new Padding(0,4,0,8)};
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            bool prune=localSpec.CardState=="buildings_plus"&&CardPrune();
+            foreach(LocalResourceItem entry in items)
+            {
+                LocalResourceItem item=entry;
+                if(table.RowCount>0)
+                {
+                    var line=new Panel{Height=1,BackColor=Theme.Line,Dock=DockStyle.Top,Margin=new Padding(0,6,0,6)};
+                    int r=table.RowCount++;table.RowStyles.Add(new RowStyle(SizeType.AutoSize));table.SetColumnSpan(line,4);table.Controls.Add(line,0,r);
+                }
+                Control switchCell=new Panel{Width=0,Height=0,Margin=Padding.Empty};
+                if(toggleField!=null)
+                {
+                    var cell=new TableLayoutPanel{AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,ColumnCount=1,Margin=new Padding(0,0,14,0),Anchor=AnchorStyles.None};
+                    string on=resourceSession.Value(item.Id,toggleField);
+                    // The switch paints itself at a fixed 60 x 32 - anything smaller cuts the knob off.
+                    var toggle=new ToggleSwitch{Checked=on.Length==0?toggleField.Default=="1":on=="1",Margin=new Padding(0,0,0,2),AccessibleName="card:toggle:"+localSpec.DisplayId(item.Id)};
+                    LocalDetailField captured=toggleField;
+                    toggle.CheckedChanged+=(s,e)=>{if(refreshing)return;Run(()=>{resourceSession.SetField(item.Id,captured,toggle.Checked?"1":"0");BuildLocalResourceEditor();});};
+                    cell.Controls.Add(toggle,0,0);
+                    var caption2=Theme.Label(localSpec.FieldLabel(language,toggleField),8,false);caption2.ForeColor=Theme.Muted;caption2.Margin=Padding.Empty;cell.Controls.Add(caption2,0,1);
+                    switchCell=cell;
+                }
+                var names=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,ColumnCount=2,Margin=Padding.Empty};
+                names.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));names.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+                // The padlock of the list marks an original: one the effective INI already had or
+                // one a content package provides. It can be overwritten, but not deleted.
+                if(!item.Owned)
+                {
+                    var mark=new Panel{Size=new Size(20,18),Margin=new Padding(0,1,4,0),BackColor=Color.White,AccessibleName="card:locked:"+localSpec.DisplayId(item.Id)};
+                    mark.Paint+=(s,e)=>IconCache.DrawBuiltin(e.Graphics,"lock",new Rectangle(1,0,17,17),Theme.Muted);
+                    tips.SetToolTip(mark,language.T("list_original_locked"));names.Controls.Add(mark,0,0);
+                }
+                var title=Theme.Label(caption(item),10,true);title.Margin=new Padding(0,0,0,2);
+                names.Controls.Add(title,1,0);
+                var parts=new List<string>();
+                foreach(string id in localSpec.CardSubtitle)
+                {
+                    LocalDetailField field=localSpec.FieldById(id);if(field==null)continue;
+                    string value=resourceSession.Value(item.Id,field).Trim();
+                    if(value.Length==0&&field.AssignedFrom.Length>0)value=AssignedValue(field,item.Id);
+                    if(value.Length==0&&field.Key.Equals("object",StringComparison.OrdinalIgnoreCase))value=localSpec.DisplayId(item.Id);
+                    if(value.Length==0)continue;
+                    // A lines field would drag the whole row apart: the first entry plus how many follow.
+                    if(field.Type=="lines"){string[] rows=value.Split('\n');value=rows[0].Trim()+(rows.Length>1?" (+"+(rows.Length-1)+")":"");}
+                    parts.Add(field.Key.Equals("donor",StringComparison.OrdinalIgnoreCase)?language.T("card_donor")+": "+value:value);
+                }
+                if(parts.Count>0){var detail=Theme.Label(String.Join("  ·  ",parts),9,false);detail.ForeColor=Theme.Muted;names.Controls.Add(detail,1,1);}
+                BuildingRow row=localSpec.CardState=="buildings_plus"?CardRowOf(item,group):null;
+                BuildingStates.Result state=row==null?null:BuildingStates.Of(resourceSession.Build,row,prune,language);
+                var stateLabel=Theme.Label(state==null?"":state.Text,9,false);
+                stateLabel.ForeColor=state==null?Theme.Muted:state.Tone=="error"?Color.FromArgb(150,28,28):state.Tone=="warn"?Color.FromArgb(139,81,0):state.Tone=="normal"?Theme.Ink:Theme.Muted;
+                stateLabel.Anchor=AnchorStyles.None;stateLabel.Margin=new Padding(12,0,8,0);stateLabel.AccessibleName="card:state:"+localSpec.DisplayId(item.Id);
+                var actions=new FlowLayoutPanel{AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,Margin=new Padding(8,0,0,0),Anchor=AnchorStyles.None,WrapContents=false};
+                if(localSpec.CardAction("edit"))
+                {
+                    var change=Theme.Button(language.T("card_edit"),()=>Run(()=>OpenCardDialog(item,group)),false);
+                    change.AccessibleName="card:edit:"+localSpec.DisplayId(item.Id);change.Margin=new Padding(0,0,8,0);actions.Controls.Add(change);
+                }
+                if(localSpec.CardAction("open"))
+                {
+                    string folder=row==null?null:CardFolder(row);
+                    bool there=folder!=null&&Directory.Exists(folder);
+                    var open=Theme.Button(language.T("path_open"),()=>Run(()=>OpenPath(folder,false)),false);
+                    open.Enabled=there;open.Margin=new Padding(0,0,8,0);open.AccessibleName="card:open:"+localSpec.DisplayId(item.Id);
+                    tips.SetToolTip(open,there?folder:language.T("card_open_pending"));actions.Controls.Add(open);
+                }
+                if(localSpec.CardAction("delete"))
+                {
+                    // An original - one the effective INI already had, or one a content package
+                    // brought in - is not deleted but hidden, exactly as the old list did it.
+                    var remove=new VectorButton{Symbol="trash",Danger=true,BackColor=Theme.Danger,ForeColor=Color.White,GlyphScale=1.15f,Size=new Size(38,34),Margin=Padding.Empty,AccessibleName="card:delete:"+localSpec.DisplayId(item.Id)};
+                    remove.Click+=(s,e)=>Run(()=>{if(item.Owned)RemoveCardItem(item,row,prune);else RemoveLocalListItem(item.Id,false);});
+                    tips.SetToolTip(remove,language.T(item.Owned?"list_remove":"list_hide"));actions.Controls.Add(remove);
+                }
+                int at=table.RowCount++;table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                table.Controls.Add(switchCell,0,at);table.Controls.Add(names,1,at);table.Controls.Add(stateLabel,2,at);table.Controls.Add(actions,3,at);
+            }
+            int last=layout.Inner.RowCount++;layout.Inner.RowStyles.Add(new RowStyle(SizeType.AutoSize));table.Dock=DockStyle.Top;layout.Inner.Controls.Add(table,0,last);
+        }
+        // The bin of a card row. Deleting takes the section out of the INI; the folder under
+        // workshop_wip is the plugin's business - it removes it at the next start when "prune"
+        // is on. The question says which of the two will happen instead of warning in general.
+        void RemoveCardItem(LocalResourceItem item,BuildingRow row,bool prune)
+        {
+            if(localSpec.CardState!="buildings_plus"||row==null){RemoveLocalListItem(item.Id,item.Owned);return;}
+            var lines=new List<string>{language.Format("list_remove_save_warning",localSpec.DisplayId(item.Id))};
+            string folder=CardFolder(row);
+            if(folder!=null&&Directory.Exists(folder))lines.Add(language.Format(prune?"card_remove_folder_pruned":"card_remove_folder_kept",row.Number));
+            if(row.Number.Length>0)lines.Add(language.T("card_remove_number"));
+            lines.Add(language.T("card_remove_saves"));
+            string message=String.Join("\n\n",lines);
+            DialogResult answer=ResourceRemovePrompt!=null?ResourceRemovePrompt(message):Question(message,false);
+            if(answer!=DialogResult.OK)return;
+            var extras=RemovalExtras(item.Id);foreach(RemovalExtra extra in extras)extra.Apply();
+            resourceSession.Remove(item.Id);selectedLocalResource="";BuildLocalResourceEditor();
+        }
+        // The dialog behind "Aendern...". It carries what the detail panel carried, split into
+        // tabs: every item field with card = global on the first one, every other card value on
+        // one of its own (label from [card:<id>]). Values go into the draft, so "Uebernehmen"
+        // is not a save - the footer says that, and the save button below the window does it.
+        internal Func<Form,DialogResult> CardDialogPrompt=null;   // test hook: drives the dialog without a modal loop
+        // The + of a card list opens the very same dialog, only empty: one way for adding and
+        // changing instead of two. Every field of the dialog writes straight into the session, so
+        // the entry has to exist while it is open - it is created under a placeholder name and
+        // renamed to what you typed when you hit Apply, or thrown away again on Cancel.
+        // A section needs at least one value to exist, so the placeholder starts with the schema
+        // defaults; a list whose fields carry none keeps the old small add dialog.
+        void OpenNewCardDialog(ItemGroup group)
+        {
+            if(resourceSession.Items(group).Count>=localSpec.MaximumItemsOf(group))throw new InvalidOperationException(language.Format("list_full",localSpec.MaximumItemsOf(group)));
+            var seed=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
+            foreach(LocalDetailField field in localSpec.ItemFields(group))if(field.Default.Length>0&&field.Default!="{name}")seed[field.Id]=field.Default;
+            if(seed.Count==0){LocalDetailField toggle=localSpec.FieldById(localSpec.CardToggle);if(toggle!=null)seed[toggle.Id]="1";}
+            if(seed.Count==0){OpenLocalSectionDialog(group);return;}
+            string prefix=group==null?"":group.Prefix,name="new_entry";
+            var used=new HashSet<string>(resourceSession.Items().Select(x=>x.Id).Concat(resourceSession.SuppressedIds()),StringComparer.OrdinalIgnoreCase);
+            for(int n=2;used.Contains(prefix+name);n++)name="new_entry_"+n;
+            resourceSession.AddSection(name,seed,group);
+            LocalResourceItem item=resourceSession.Items(group).FirstOrDefault(x=>x.Id.Equals(prefix+name,StringComparison.OrdinalIgnoreCase));
+            if(item==null){resourceSession.Remove(prefix+name);return;}
+            OpenCardDialog(item,group,true);
+        }
+        // Apply of a new entry: take the values off the placeholder, drop it and add the entry
+        // under the name that was typed. A rejected name (empty, taken, reserved) puts the
+        // placeholder back untouched and the dialog stays open with everything still in it.
+        string CommitNewCard(LocalResourceItem item,ItemGroup group,string typed)
+        {
+            var values=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
+            foreach(LocalDetailField field in localSpec.ItemFields(group)){string v=resourceSession.Value(item.Id,field);if(v.Length>0)values[field.Id]=v;}
+            string placeholder=localSpec.DisplayId(item.Id);
+            resourceSession.Remove(item.Id);
+            try{resourceSession.AddSection(typed,values,group);}
+            catch{resourceSession.AddSection(placeholder,values,group);throw;}
+            return (group==null?"":group.Prefix)+CollectionRules.IdFromName(typed);
+        }
+        void OpenCardDialog(LocalResourceItem item,ItemGroup group){OpenCardDialog(item,group,false);}
+        void OpenCardDialog(LocalResourceItem item,ItemGroup group,bool isNew)
+        {
+            var fields=localSpec.ItemFields(group).ToList();
+            var tabs=new List<string>{"global"};
+            foreach(LocalDetailField field in fields)if(!tabs.Any(x=>x.Equals(field.Card,StringComparison.OrdinalIgnoreCase)))tabs.Add(field.Card);
+            string caption=localSpec.DisplayId(item.Id);
+            LocalDetailField titleField=localSpec.FieldById(localSpec.CardTitle);
+            string shown=titleField==null?"":resourceSession.Value(item.Id,titleField).Trim();
+            BuildingRow row=localSpec.CardState=="buildings_plus"&&!isNew?CardRowOf(item,group):null;
+            string newTitle=localSpec.LocalizedCardNewTitle(language);if(newTitle.Length==0)newTitle=language.T("card_dialog_new");
+            var identity=new List<string>{isNew?newTitle:(shown.Length>0?shown:caption)};
+            if(row!=null){if(row.Number.Length>0)identity.Add(row.Number);string obj=(row.Object??"").Trim();identity.Add(obj.Length>0?obj:caption);}
+            // The typed name lives here: select() rebuilds the tab and disposes its controls, so
+            // the box is made fresh each time and only its text is kept.
+            string typedName="";
+            if(!isNew)RememberCardValues(item,group);
+            using(var dialog=new Form{Text=isNew?newTitle:language.Format("card_dialog_title",caption),Font=Font,Size=new Size(1120,780),MinimumSize=new Size(900,620),StartPosition=FormStartPosition.CenterParent,MaximizeBox=true,MinimizeBox=false,ShowInTaskbar=false,Icon=FindForm()==null?null:FindForm().Icon})
+            {
+                Theme.ApplyWindowChrome(dialog);
+                var shell=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=4,Padding=new Padding(20,16,20,14),BackColor=Color.White};
+                shell.RowStyles.Add(new RowStyle(SizeType.AutoSize));shell.RowStyles.Add(new RowStyle(SizeType.Absolute,TabStrip.TabHeight+TabStrip.Inset+2));
+                shell.RowStyles.Add(new RowStyle(SizeType.Percent,100));shell.RowStyles.Add(new RowStyle(SizeType.Absolute,54));
+                var head=Theme.Label(String.Join("  ·  ",identity),15,true);head.Margin=new Padding(0,0,0,10);shell.Controls.Add(head,0,0);
+                var strip=new TabStrip{Dock=DockStyle.Fill};shell.Controls.Add(strip,0,1);
+                var body=new Panel{Dock=DockStyle.Fill,AutoScroll=true,BackColor=Color.White,Padding=new Padding(0,14,0,0)};shell.Controls.Add(body,0,2);
+                var hidden=new ListBox();   // the detail builder refreshes a list; here nobody sees it
+                string current=tabs[0];
+                var buttons=new Dictionary<string,Button>(StringComparer.OrdinalIgnoreCase);
+                Action<string> select=null;
+                select=id=>
+                {
+                    current=id;
+                    foreach(var pair in buttons){bool active=pair.Key.Equals(id,StringComparison.OrdinalIgnoreCase);pair.Value.BackColor=active?Theme.SelectionBlue:Theme.Frame;pair.Value.ForeColor=active?Color.White:Theme.Ink;pair.Value.FlatAppearance.MouseOverBackColor=active?Theme.SelectionBlue:Theme.TabHover;}
+                    // The strip paints the halo of the active tab itself and has to be told, or
+                    // the highlight stays where it was.
+                    strip.Invalidate();
+                    Theme.SetRedraw(body,false);
+                    try
+                    {
+                        LocalCard card=localSpec.AllCards().FirstOrDefault(x=>x.Id.Equals(id,StringComparison.OrdinalIgnoreCase));
+                        bool first=id.Equals("global",StringComparison.OrdinalIgnoreCase);
+                        Control idInput=null;
+                        if(isNew&&first)
+                        {
+                            var box=new TextBox{Text=typedName,Height=Fields.Height,AccessibleName="card-dialog:id"};
+                            box.TextChanged+=(s2,e2)=>typedName=box.Text;idInput=Fields.Wrap(box);
+                        }
+                        if(card!=null&&card.Editor=="donor_lines")BuildDonorEditor(body,item,group,card);
+                        else if(card!=null&&card.Editor=="target_lines")BuildTargetEditor(body,item,group,card);
+                        else BuildLocalSectionDetails(body,hidden,item,f=>f.Card.Equals(id,StringComparison.OrdinalIgnoreCase),false,first,idInput);
+                    }
+                    finally{Theme.SetRedraw(body,true);}
+                };
+                foreach(string id in tabs)
+                {
+                    string captured=id;
+                    string label=id.Equals("global",StringComparison.OrdinalIgnoreCase)?language.T("card_tab_details"):localSpec.LocalizedCardLabel(language,localSpec.AllCards().FirstOrDefault(x=>x.Id.Equals(id,StringComparison.OrdinalIgnoreCase)));
+                    if(label.Length==0)label=id;
+                    var button=Theme.TabButton(label,()=>select(captured));
+                    button.Margin=new Padding(0,0,1,0);button.AccessibleName="card-tab:"+id;
+                    buttons[id]=button;strip.Controls.Add(button);
+                }
+                if(tabs.Count<2)strip.Visible=false;
+                // Test hook: a window that is never shown has no clickable buttons, so the tab
+                // switch is reachable as an action of its own.
+                dialog.Tag=select;
+                var footer=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=2,Margin=new Padding(0,8,0,0)};
+                footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));footer.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+                var note=Theme.Label(language.T("card_dialog_footer"),9,false);note.ForeColor=Theme.Muted;note.Anchor=AnchorStyles.Left;footer.Controls.Add(note,0,0);
+                var row2=new FlowLayoutPanel{AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,FlowDirection=FlowDirection.LeftToRight,WrapContents=false,Margin=Padding.Empty};
+                // AutoSize has to go, or the two end up different heights: the primary button
+                // draws no border and measures one pixel less than the other.
+                var cancel=Theme.Button(language.T("cancel"),()=>{dialog.DialogResult=DialogResult.Cancel;dialog.Close();},false);
+                cancel.AutoSize=false;cancel.Size=new Size(140,Fields.Height);cancel.MinimumSize=Size.Empty;cancel.Margin=new Padding(0,0,8,0);cancel.AccessibleName="card-dialog:cancel";
+                // A new entry is only really created here. A rejected name reports and leaves the
+                // dialog open - the result is set after the section went in, never before.
+                string created="";
+                Action commit=()=>{if(isNew){bool ok=false;Run(()=>{created=CommitNewCard(item,group,typedName);ok=true;});if(!ok)return;}dialog.DialogResult=DialogResult.OK;dialog.Close();};
+                var apply=Theme.Button(language.T("card_apply"),()=>commit(),true);
+                // Test hook: a window that was never shown has no clickable buttons.
+                apply.Tag=commit;
+                apply.AutoSize=false;apply.Size=new Size(140,Fields.Height);apply.MinimumSize=Size.Empty;apply.Margin=Padding.Empty;apply.AccessibleName="card-dialog:apply";
+                row2.Controls.Add(cancel);row2.Controls.Add(apply);footer.Controls.Add(row2,1,0);
+                shell.Controls.Add(footer,0,3);
+                dialog.Controls.Add(shell);
+                // Enter must not close the window - the line editor types into text boxes.
+                dialog.AcceptButton=null;dialog.CancelButton=cancel;
+                select(tabs[0]);
+                DialogResult answer=CardDialogPrompt!=null?CardDialogPrompt(dialog):Theme.Modal(FindForm(),dialog);
+                hidden.Dispose();
+                // Every field writes into the session as it is edited, so cancelling has to put
+                // the entry back the way it was. The session keeps no per-entry undo, so the
+                // dialog remembers the values it started with and restores them.
+                if(isNew)
+                {
+                    // Cancelling a new entry throws the placeholder away; there is nothing to put back.
+                    if(answer==DialogResult.OK)selectedLocalResource=created;
+                    else try{resourceSession.Remove(item.Id);}catch(Exception){}
+                }
+                else if(answer!=DialogResult.OK)RestoreCardValues(item,group);
+            }
+            BuildLocalResourceEditor();
+        }
+        // The lines tab: the donor's building.ini beside your own lines. Everything the editor
+        // changes goes straight into the draft, so the dialog's Cancel can put it back like any
+        // other field.
+        void BuildDonorEditor(Panel body,LocalResourceItem item,ItemGroup group,LocalCard card)
+        {
+            Theme.DisposeChildren(body);donorEditor=null;
+            var fields=localSpec.ItemFields(group).ToList();
+            LocalDetailField lineField=localSpec.FieldById(card.EditorLines),stripField=localSpec.FieldById(card.EditorStrip);
+            if(lineField==null){BuildLocalSectionDetails(body,new ListBox(),item,f=>f.Card.Equals(card.Id,StringComparison.OrdinalIgnoreCase),false,false);return;}
+            LocalDetailField donorField=fields.FirstOrDefault(x=>x.Key.Equals("donor",StringComparison.OrdinalIgnoreCase));
+            LocalDetailField nameField=fields.FirstOrDefault(x=>x.Key.Equals("name",StringComparison.OrdinalIgnoreCase));
+            string donor=donorField==null?"":resourceSession.Value(item.Id,donorField).Trim();
+            // Without a donor there is no file to show beside your lines - say so instead of
+            // drawing an empty editor (0.5.8: the + opens this dialog before a donor is picked).
+            if(donorField!=null&&donor.Length==0)
+            {
+                var wait=new NoticeBox("info"){Dock=DockStyle.Top,AutoSize=true,Padding=new Padding(14,12,14,12),Margin=new Padding(0,6,8,0)};
+                var text=Theme.Label(language.T("donor_pick_first"),10,false);text.Dock=DockStyle.Top;text.BackColor=wait.Tint;text.MaximumSize=new Size(Math.Max(300,body.ClientSize.Width-80),0);
+                wait.Controls.Add(text);body.Controls.Add(wait);return;
+            }
+            List<string> donorLines=null;
+            try{if(donor.Length>0)donorLines=GameBuildings.DonorLines(state.Build,donor);}catch(Exception){}
+            var shell=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=2,Margin=Padding.Empty,BackColor=Color.White};
+            shell.RowStyles.Add(new RowStyle(SizeType.AutoSize));shell.RowStyles.Add(new RowStyle(SizeType.Percent,100));
+            if(donorLines==null)
+            {
+                // Without the donor there is nothing to compare against - but the lines stay
+                // editable: a declaration is written for other machines too.
+                var box=new NoticeBox("error");box.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,36));box.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
+                var icon=new NoticeIcon{Error=true,BackColor=box.Tint};
+                var text=Theme.Label(language.Format("donor_missing",donor.Length>0?donor:"-"),10,false);text.ForeColor=Color.FromArgb(150,28,28);text.BackColor=box.Tint;text.Dock=DockStyle.Top;text.AccessibleName="donor:missing";
+                box.Controls.Add(icon,0,0);box.Controls.Add(text,1,0);shell.Controls.Add(box,0,0);
+            }
+            var editor=new DonorLinesEditor(language,donorLines??new List<string>(),Split(item,lineField),Split(item,stripField),()=>DonorNameLine(item,nameField),Font);
+            editor.Maximum=lineField.MaximumLines>0?lineField.MaximumLines:512;
+            editor.Changed=()=>Run(()=>
+            {
+                resourceSession.SetField(item.Id,lineField,String.Join("\n",editor.Lines));
+                if(stripField!=null)resourceSession.SetField(item.Id,stripField,String.Join("\n",editor.Strip));
+                UpdateStatus();
+            });
+            shell.Controls.Add(editor,0,1);body.Controls.Add(shell);
+            donorEditor=editor;
+        }
+        DonorLinesEditor donorEditor;
+        internal DonorLinesEditor TestDonorEditor{get{return donorEditor;}}
+        // The commands tab of a rule set: the chosen target file beside the commands, and what each
+        // command does to that file. Unlike a donor clone a rule set can have many targets, and a
+        // command that does not fit one of them is rejected for that one alone.
+        void BuildTargetEditor(Panel body,LocalResourceItem item,ItemGroup group,LocalCard card)
+        {
+            Theme.DisposeChildren(body);targetEditor=null;
+            LocalDetailField targetField=localSpec.FieldById(card.EditorTargets);
+            LocalDetailField addField=localSpec.FieldById(card.EditorAdd),replaceField=localSpec.FieldById(card.EditorReplace);
+            LocalDetailField removeField=localSpec.FieldById(card.EditorRemove),insertField=localSpec.FieldById(card.EditorInsert);
+            if(targetField==null||addField==null||replaceField==null||removeField==null||insertField==null)
+            {BuildLocalSectionDetails(body,new ListBox(),item,f=>f.Card.Equals(card.Id,StringComparison.OrdinalIgnoreCase),false,false);return;}
+            var files=Split(item,targetField);
+            if(files.Count==0)
+            {
+                var wait=new NoticeBox("info"){Dock=DockStyle.Top,AutoSize=true,Padding=new Padding(14,12,14,12),Margin=new Padding(0,6,8,0)};
+                var text=Theme.Label(language.T("target_pick_first"),10,false);text.Dock=DockStyle.Top;text.BackColor=wait.Tint;text.MaximumSize=new Size(Math.Max(300,body.ClientSize.Width-80),0);
+                wait.Controls.Add(text);body.Controls.Add(wait);return;
+            }
+            LocalDetailField addLink=localSpec.FieldById(card.EditorAddLink),replaceLink=localSpec.FieldById(card.EditorReplaceLink),removeLink=localSpec.FieldById(card.EditorRemoveLink);
+            string root=resourceSession.Build;string shop=state.WorkshopRoot;
+            var editor=new TargetLinesEditor(language,files,file=>GameBuildings.TargetLines(root,shop,file),
+                Split(item,addField),Split(item,replaceField),Split(item,removeField),Split(item,insertField),
+                Split(item,addLink),Split(item,replaceLink),Split(item,removeLink),Font);
+            editor.Changed=()=>Run(()=>
+            {
+                resourceSession.SetField(item.Id,addField,String.Join("\n",editor.Add));
+                resourceSession.SetField(item.Id,replaceField,String.Join("\n",editor.Replace));
+                resourceSession.SetField(item.Id,removeField,String.Join("\n",editor.Remove));
+                resourceSession.SetField(item.Id,insertField,String.Join("\n",editor.Insert));
+                if(addLink!=null)resourceSession.SetField(item.Id,addLink,String.Join("\n",editor.AddLink));
+                if(replaceLink!=null)resourceSession.SetField(item.Id,replaceLink,String.Join("\n",editor.ReplaceLink));
+                if(removeLink!=null)resourceSession.SetField(item.Id,removeLink,String.Join("\n",editor.RemoveLink));
+                UpdateStatus();
+            });
+            editor.Dock=DockStyle.Fill;body.Controls.Add(editor);
+            targetEditor=editor;
+        }
+        TargetLinesEditor targetEditor;
+        internal TargetLinesEditor TestTargetEditor{get{return targetEditor;}}
+        List<string> Split(LocalResourceItem item,LocalDetailField field)
+        { return field==null?new List<string>():resourceSession.Value(item.Id,field).Replace("\r\n","\n").Split('\n').Where(x=>x.Trim().Length>0).ToList(); }
+        // What the name field will put into the file. A value with dots is a translation key the
+        // plugin resolves through Localization - for the effect view it only matters that a
+        // $NAME line appears at all, because every $NAME* of the donor goes either way.
+        string DonorNameLine(LocalResourceItem item,LocalDetailField field)
+        {
+            if(field==null)return "";
+            string value=resourceSession.Value(item.Id,field).Trim();
+            if(value.Length==0)return "";
+            return value.Contains(".")&&!value.Contains(" ")?"$NAME <"+value+">":"$NAME_STR \""+value+"\"";
+        }
+        readonly Dictionary<string,string> cardBefore=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
+        void RememberCardValues(LocalResourceItem item,ItemGroup group)
+        {
+            cardBefore.Clear();
+            foreach(LocalDetailField field in localSpec.ItemFields(group))cardBefore[field.Id]=resourceSession.Value(item.Id,field);
+        }
+        void RestoreCardValues(LocalResourceItem item,ItemGroup group)
+        {
+            foreach(LocalDetailField field in localSpec.ItemFields(group))
+            {
+                string was;if(!cardBefore.TryGetValue(field.Id,out was))continue;
+                if(resourceSession.Value(item.Id,field)==was)continue;
+                try{resourceSession.SetField(item.Id,field,was);}catch(Exception){}
+            }
         }
         void BuildLocalResourceEmpty(Panel panel){BuildLocalResourceEmpty(panel,null);}
         void BuildLocalResourceEmpty(Panel panel,ItemGroup group)
@@ -174,7 +645,8 @@ namespace TesmioAutoload
             foreach(LocalDetailField field in fields)
             {
                 LocalDetailField captured=field;string value=resourceSession.GlobalValue(field),baselineValue=resourceSession.GlobalBaseline(field);Control input;
-                if(field.Type=="boolean"){var toggle=new ToggleSwitch{Checked=value=="1",AccessibleName="global:"+field.Id};toggle.CheckedChanged+=(s,e)=>{if(refreshing)return;Run(()=>{resourceSession.SetGlobal(captured,toggle.Checked?"1":"0");UpdateStatus();});};input=toggle;}
+                // A switch without a value shows the schema default, the way the plugin reads a missing key (0.4.76 did this for item fields).
+                if(field.Type=="boolean"){var toggle=new ToggleSwitch{Checked=value.Length==0?field.Default=="1":value=="1",AccessibleName="global:"+field.Id};toggle.CheckedChanged+=(s,e)=>{if(refreshing)return;Run(()=>{resourceSession.SetGlobal(captured,toggle.Checked?"1":"0");UpdateStatus();});};input=toggle;}
                 else if(field.Type=="choice"){var combo=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Height=Fields.Height,AccessibleName="global:"+field.Id};Fields.Tall(combo);combo.Items.AddRange(field.Choices);if(value.Length>0&&!combo.Items.Contains(value))combo.Items.Add(value);combo.SelectedItem=value.Length>0?value:null;combo.SelectedIndexChanged+=(s,e)=>{if(combo.Focused)Run(()=>{resourceSession.SetGlobal(captured,Convert.ToString(combo.SelectedItem));UpdateStatus();});};input=combo;}
                 else if(field.Type=="integer"||field.Type=="decimal"){var number=new NumberInput(field.Minimum,field.Maximum,field.Step){AccessibleName="global:"+field.Id};number.Input.Text=value;number.Input.TextChanged+=(s,e)=>{if(!number.Input.Focused)return;try{resourceSession.SetGlobal(captured,number.Input.Text);}catch(Exception){}UpdateStatus();};number.Leave+=(s,e)=>Run(()=>{resourceSession.SetGlobal(captured,number.Input.Text);UpdateStatus();});number.Stepped+=(s,e)=>Run(()=>{resourceSession.SetGlobal(captured,number.Input.Text);UpdateStatus();});input=number;}   // 0.4.39
                 else{var text=new TextBox{Text=value,Height=Fields.Height,AccessibleName="global:"+field.Id};text.TextChanged+=(s,e)=>{if(!text.Focused)return;try{resourceSession.SetGlobal(captured,text.Text);}catch(Exception){}UpdateStatus();};text.Leave+=(s,e)=>Run(()=>{resourceSession.SetGlobal(captured,text.Text);UpdateStatus();});input=Fields.Wrap(text);}
@@ -544,8 +1016,8 @@ namespace TesmioAutoload
         {
             Theme.DisposeChildren(panel);var shell=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,ColumnCount=1,Padding=new Padding(0,0,8,18),Margin=Padding.Empty};shell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));panel.Controls.Add(shell);
             var titleRow=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,ColumnCount=2,Margin=new Padding(0,0,0,12)};titleRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));titleRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,48));var title=Theme.Label(item.Id,15,true);titleRow.Controls.Add(title,0,0);
-            var remove=new VectorButton{Symbol="trash",Danger=true,BackColor=Theme.Danger,ForeColor=Color.White,GlyphScale=1.2f,Size=new Size(38,34),AccessibleName=language.T(item.Owned?"list_remove":"list_hide")};remove.Click+=(s,e)=>Run(()=>RemoveLocalListItem(item.Id,item.Owned));tips.SetToolTip(remove,remove.AccessibleName);titleRow.Controls.Add(remove,1,0);
-            AddRow(shell,titleRow);var origin=Theme.Label(item.Owned?language.T("list_personal"):language.T("list_original_locked"),9,false);origin.ForeColor=item.Owned?Color.FromArgb(26,132,61):Theme.Muted;origin.MaximumSize=new Size(Math.Max(300,panel.ClientSize.Width-40),0);origin.Margin=new Padding(0,0,0,15);AddRow(shell,origin);
+            var remove=new VectorButton{Symbol="trash",Danger=true,BackColor=Theme.Danger,ForeColor=Color.White,GlyphScale=1.2f,Size=new Size(38,34),AccessibleName=language.T(item.Owned?"list_remove":"list_hide")};remove.Click+=(s,e)=>Run(()=>RemoveLocalListItem(item.Id,item.Owned));tips.SetToolTip(remove,remove.AccessibleName);remove.Visible=!ForeignEntry(item.Id);titleRow.Controls.Add(remove,1,0);
+            AddRow(shell,titleRow);var origin=Theme.Label(item.Owned?language.T("list_personal"):OriginText(item.Id,"list_original_locked"),9,false);origin.ForeColor=item.Owned?Color.FromArgb(26,132,61):Theme.Muted;origin.MaximumSize=new Size(Math.Max(300,panel.ClientSize.Width-40),0);origin.Margin=new Padding(0,0,0,15);AddRow(shell,origin);
             var grid=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,ColumnCount=2,Margin=Padding.Empty};FluidColumns(grid,46,800);grid.Tag=Narrow(panel)?"narrow":null;   // 0.4.36
             string idLabel=localSpec.LocalizedItemIdLabel(language),idHelp=localSpec.LocalizedItemIdHelp(language);
             var idValue=new Label{Text=item.Id,AutoSize=false,Height=Fields.Height,Font=Fields.Font,BackColor=Theme.Pale,BorderStyle=BorderStyle.FixedSingle,TextAlign=ContentAlignment.MiddleLeft,Padding=new Padding(5,0,5,0)};AddLocalRow(grid,LocalLabel(idLabel.Length>0?idLabel:language.T("resource_identifier"),idHelp.Length>0?idHelp:language.T("resource_identifier_help")),LocalInput(idValue,item.Owned?language.T("personal"):language.T("standard"),null));
@@ -563,6 +1035,7 @@ namespace TesmioAutoload
                 row=LocalInput(input,describe(current[i]),reset,!item.Owned&&!Same(column,current[i],back));
                 AddLocalRow(grid,LocalLabel(localSpec.ColumnLabel(language,column),localSpec.ColumnDescription(language,column)),row);
             }
+            LockForeign(panel,shell,grid,item.Id);
             AddRow(shell,grid);list.Refresh();
         }
         // The add dialog: a resource from the source plugin's list plus every column,
@@ -792,23 +1265,40 @@ namespace TesmioAutoload
             var tailBox=Fields.Wrap(tail);tailBox.Margin=new Padding(0);tailBox.Width=Math.Max(64,TextRenderer.MeasureText(tail.Text,Fields.Font).Width+24);tailBox.Anchor=AnchorStyles.Top;
             row.Controls.Add(wrapped,0,0);row.Controls.Add(dot,1,0);row.Controls.Add(tailBox,2,0);return row;
         }
-        void BuildLocalSectionDetails(Panel panel,ListBox list,LocalResourceItem item)
+        void BuildLocalSectionDetails(Panel panel,ListBox list,LocalResourceItem item){BuildLocalSectionDetails(panel,list,item,null,true,true);}
+        // 0.5.8: `only` limits the fields to one dialog tab, `header` draws the title row with the
+        // bin and `idRow` the locked identifier - the card list has the first two in the row, and
+        // the identifier belongs on the dialog's first tab only.
+        void BuildLocalSectionDetails(Panel panel,ListBox list,LocalResourceItem item,Func<LocalDetailField,bool> only,bool header,bool idRow){BuildLocalSectionDetails(panel,list,item,only,header,idRow,null);}
+        // 0.5.8: idInput replaces the locked identifier with a box you can type in - that is how the
+        // + opens this dialog for an entry that does not exist yet. The name is applied at the end,
+        // because a section cannot be renamed once it is in the file.
+        void BuildLocalSectionDetails(Panel panel,ListBox list,LocalResourceItem item,Func<LocalDetailField,bool> only,bool header,bool idRow,Control idInput)
         {
             Theme.DisposeChildren(panel);var shell=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,ColumnCount=1,Padding=new Padding(0,0,8,18),Margin=Padding.Empty};shell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));panel.Controls.Add(shell);
-            var titleRow=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,ColumnCount=2,Margin=new Padding(0,0,0,12)};titleRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));titleRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,48));var title=Theme.Label(localSpec.DisplayId(item.Id),15,true);titleRow.Controls.Add(title,0,0);
-            var remove=new VectorButton{Symbol="trash",Danger=true,BackColor=Theme.Danger,ForeColor=Color.White,GlyphScale=1.2f,Size=new Size(38,34),AccessibleName=language.T(item.Owned?"list_remove":"list_hide")};remove.Click+=(s,e)=>Run(()=>RemoveLocalListItem(item.Id,item.Owned));tips.SetToolTip(remove,remove.AccessibleName);titleRow.Controls.Add(remove,1,0);
-            AddRow(shell,titleRow);var origin=Theme.Label(item.Owned?language.T("list_personal"):language.T("list_original_locked"),9,false);origin.ForeColor=item.Owned?Color.FromArgb(26,132,61):Theme.Muted;origin.MaximumSize=new Size(Math.Max(300,panel.ClientSize.Width-40),0);origin.Margin=new Padding(0,0,0,15);AddRow(shell,origin);
+            if(header)
+            {
+                var titleRow=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,ColumnCount=2,Margin=new Padding(0,0,0,12)};titleRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));titleRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,48));var title=Theme.Label(localSpec.DisplayId(item.Id),15,true);titleRow.Controls.Add(title,0,0);
+                var remove=new VectorButton{Symbol="trash",Danger=true,BackColor=Theme.Danger,ForeColor=Color.White,GlyphScale=1.2f,Size=new Size(38,34),AccessibleName=language.T(item.Owned?"list_remove":"list_hide")};remove.Click+=(s,e)=>Run(()=>RemoveLocalListItem(item.Id,item.Owned));tips.SetToolTip(remove,remove.AccessibleName);remove.Visible=!ForeignEntry(item.Id);titleRow.Controls.Add(remove,1,0);
+                AddRow(shell,titleRow);var origin=Theme.Label(item.Owned?language.T("list_personal"):OriginText(item.Id,"list_original_locked"),9,false);origin.ForeColor=item.Owned?Color.FromArgb(26,132,61):Theme.Muted;origin.MaximumSize=new Size(Math.Max(300,panel.ClientSize.Width-40),0);origin.Margin=new Padding(0,0,0,15);AddRow(shell,origin);
+            }
             var grid=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,ColumnCount=2,Margin=Padding.Empty};FluidColumns(grid,46,800);grid.Tag=Narrow(panel)?"narrow":null;   // 0.4.36
             ItemGroup group=localSpec.GroupOfId(item.Id);   // 0.4.29
             string idLabel=localSpec.LocalizedItemIdLabel(language,group),idHelp=localSpec.LocalizedItemIdHelp(language,group);
             var idValue=new Label{Text=localSpec.DisplayId(item.Id),AutoSize=false,Height=Fields.Height,Font=Fields.Font,BackColor=Theme.Pale,BorderStyle=BorderStyle.FixedSingle,TextAlign=ContentAlignment.MiddleLeft,Padding=new Padding(5,0,5,0)};
             // Field order (0.4.35): fields with position = above_id first, then the id row, then the
             // remaining fields and the [picture:] rows merged by order.
-            var fields=localSpec.ItemFields(group).ToList();
+            var fields=localSpec.ItemFields(group).Where(x=>only==null||only(x)).ToList();
             foreach(LocalDetailField field in fields.Where(x=>x.AboveId))AddItemFieldRow(grid,item,field);
-            AddLocalRow(grid,LocalLabel(idLabel.Length>0?idLabel:language.T("resource_identifier"),idHelp.Length>0?idHelp:language.T("resource_identifier_help")),LocalInput(idValue,item.Owned?language.T("personal"):language.T("standard"),null));
-            var sequence=fields.Where(x=>!x.AboveId).Select(f=>new{Order=f.Order,Field=f,Picture=(LocalPictureRow)null,Block=(LocalBlockRow)null}).Concat(localSpec.PicturesFor(group).Select(p=>new{Order=p.Order,Field=(LocalDetailField)null,Picture=p,Block=(LocalBlockRow)null})).Concat(localSpec.BlocksFor(group).Select(b=>new{Order=b.Order,Field=(LocalDetailField)null,Picture=(LocalPictureRow)null,Block=b})).OrderBy(x=>x.Order).ToList();
+            if(idRow&&idInput!=null)
+            {
+                string nameLabel=localSpec.LocalizedNameLabel(language,group),hint=localSpec.LocalizedNewHint(language,group);
+                AddLocalRow(grid,LocalLabel(nameLabel.Length>0?nameLabel:(idLabel.Length>0?idLabel:language.T("resource_identifier")),idHelp),LocalInput(idInput,hint,null));
+            }
+            else if(idRow)AddLocalRow(grid,LocalLabel(idLabel.Length>0?idLabel:language.T("resource_identifier"),idHelp.Length>0?idHelp:language.T("resource_identifier_help")),LocalInput(idValue,item.Owned?language.T("personal"):language.T("standard"),null));
+            var sequence=fields.Where(x=>!x.AboveId).Select(f=>new{Order=f.Order,Field=f,Picture=(LocalPictureRow)null,Block=(LocalBlockRow)null}).Concat((only==null||idRow?localSpec.PicturesFor(group):Enumerable.Empty<LocalPictureRow>()).Select(p=>new{Order=p.Order,Field=(LocalDetailField)null,Picture=p,Block=(LocalBlockRow)null})).Concat((only==null||idRow?localSpec.BlocksFor(group):Enumerable.Empty<LocalBlockRow>()).Select(b=>new{Order=b.Order,Field=(LocalDetailField)null,Picture=(LocalPictureRow)null,Block=b})).OrderBy(x=>x.Order).ToList();
             foreach(var entry in sequence){if(entry.Field!=null)AddItemFieldRow(grid,item,entry.Field);else if(entry.Picture!=null)AddPictureRow(grid,entry.Picture,localSpec.DisplayId(item.Id));else AddBlockRow(grid,entry.Block,localSpec.DisplayId(item.Id));}
+            LockForeign(panel,shell,grid,item.Id);
             AddRow(shell,grid);list.Refresh();
         }
         // The add dialog: resource from the source plugin's list, the section name and
@@ -1087,13 +1577,13 @@ namespace TesmioAutoload
             if(focusName!=null){Control target=FindByAccessibleName(panel,focusName);if(target!=null&&target.CanFocus)target.Focus();}
             UpdateStatus();
         }
-        bool refreshingListItem;ListBox detailsList;
+        bool refreshingListItem;ListBox detailsList;bool pausedUnlocked;
         void BuildLocalResourceDetails(Panel panel,ListBox list,LocalResourceItem item)
         {
             Theme.DisposeChildren(panel);var shell=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,ColumnCount=1,Padding=new Padding(0,0,8,18),Margin=Padding.Empty};shell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));panel.Controls.Add(shell);
             var titleRow=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,ColumnCount=2,Margin=new Padding(0,0,0,12)};titleRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));titleRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,item.Owned?48:0));var title=Theme.Label(item.Display.Length==0?item.Id:item.Display,15,true);titleRow.Controls.Add(title,0,0);
             if(item.Owned){var remove=new VectorButton{Symbol="trash",Danger=true,BackColor=Theme.Danger,ForeColor=Color.White,GlyphScale=1.2f,Size=new Size(38,34),AccessibleName=language.T("remove_resource")};remove.Click+=(s,e)=>Run(()=>RemoveLocalResource(item.Id));titleRow.Controls.Add(remove,1,0);}
-            AddRow(shell,titleRow);var origin=Theme.Label(item.Owned?language.T("resource_personal"):language.T("resource_original_locked"),9,false);origin.ForeColor=item.Owned?Color.FromArgb(26,132,61):Theme.Muted;origin.Margin=new Padding(0,0,0,15);AddRow(shell,origin);
+            AddRow(shell,titleRow);var origin=Theme.Label(item.Owned?language.T("resource_personal"):OriginText(item.Id,"resource_original_locked"),9,false);origin.ForeColor=item.Owned?Color.FromArgb(26,132,61):Theme.Muted;origin.Margin=new Padding(0,0,0,15);AddRow(shell,origin);
             var grid=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,ColumnCount=2,Margin=Padding.Empty};FluidColumns(grid,46,800);grid.Tag=Narrow(panel)?"narrow":null;   // 0.4.36
             var idValue=new Label{Text=item.Id,AutoSize=false,Height=Fields.Height,Font=Fields.Font,BackColor=Theme.Pale,BorderStyle=BorderStyle.FixedSingle,TextAlign=ContentAlignment.MiddleLeft,Padding=new Padding(5,0,5,0)};AddLocalRow(grid,LocalLabel(language.T("resource_identifier"),language.T("resource_identifier_help")),LocalInput(idValue,item.Owned?language.T("personal"):language.T("standard"),null));
             var template=TemplatePicker(item.Template);template.SelectedIndexChanged+=(s,e)=>{if(!template.Focused||template.Value.Length==0||template.Value.Equals(item.Template,StringComparison.OrdinalIgnoreCase))return;string chosen=template.Value;Later(template,()=>Run(()=>{resourceSession.SetList(item.Id,chosen,item.Display);RefreshLocalDetails(item.Id);}));};AddLocalRow(grid,LocalLabel(language.T("resource_template"),language.T("resource_template_help")),LocalInput(template,item.Owned?language.T("personal"):language.T("resource_inherited"),item.Owned?null:(Action)(()=>{var baseValue=ResourceListValue.Parse(resourceSession.OriginalListValue(item.Id));resourceSession.SetList(item.Id,baseValue.Template,baseValue.Display);BuildLocalResourceEditor();})));
@@ -1112,7 +1602,52 @@ namespace TesmioAutoload
                 else{var text=new TextBox{Text=value,Height=Fields.Height};text.TextChanged+=(s,e)=>{if(!text.Focused)return;try{resourceSession.SetField(item.Id,field,text.Text);}catch(Exception){}UpdateStatus();};text.Leave+=(s,e)=>Run(()=>{resourceSession.SetField(item.Id,field,text.Text);UpdateStatus();});input=Fields.Wrap(text);}
                 string source=baselineValue.Length>0?language.T("resource_original_value")+": "+baselineValue:value.Length>0?language.T("personal"):language.T("resource_no_entry");Action reset=()=>{resourceSession.SetField(item.Id,field,"");BuildLocalResourceEditor();};AddLocalRow(grid,LocalLabel(label,help),LocalInput(input,source,reset));
             }
+            LockForeign(panel,shell,grid,item.Id);
             AddRow(shell,grid);list.Refresh();
+        }
+        // 0.5.9: an entry that a mod package brings in under Soviet Mod Loader. It is in the game,
+        // so it belongs in the list - but this editor writes the baseline, and SML merges the
+        // packages on top of that afterwards. Typing here would change nothing, so the values are
+        // shown and nothing more, with a line that says where the entry comes from.
+        bool LockedEntry(string id){return resourceSession!=null&&resourceSession.Locked(id);}
+        bool ForeignEntry(string id){return resourceSession!=null&&resourceSession.Foreigner(id);}
+        // The usual "an original stays, you may override it" line is wrong for a package entry -
+        // it says nothing instead, and LockForeign puts the real story there.
+        string OriginText(string id,string key){return ForeignEntry(id)?"":language.T(key);}
+        void LockForeign(Panel panel,TableLayoutPanel shell,TableLayoutPanel grid,string id)
+        {
+            if(!ForeignEntry(id))return;
+            string owner=resourceSession.Foreign[id];bool locked=resourceSession.Locked(id);
+            string text=locked
+                ?(owner.Length>0?language.Format("sml_foreign_entry",owner):language.T("sml_foreign_entry_plain"))
+                :(owner.Length>0?language.Format("sml_foreign_overlay",owner,SmlOverlay.Name):language.Format("sml_foreign_overlay_plain",SmlOverlay.Name));
+            var note=Theme.Label(text,9,true);
+            note.ForeColor=Color.FromArgb(139,81,0);note.Margin=new Padding(0,0,0,12);
+            note.MaximumSize=new Size(Math.Max(300,panel.ClientSize.Width-30),0);AddRow(shell,note);
+            if(locked)LockInputs(grid);
+        }
+        // 0.5.9: a paused page is greyed out as far as WinForms allows - a real translucent layer
+        // over live controls does not exist there, so the cards, their panels and their text take
+        // the grey themselves. The notice boxes keep their colour: they carry the message.
+        static void DimCard(Control root)
+        {
+            foreach(Control child in root.Controls)
+            {
+                if(child is NoticeBox)continue;
+                var label=child as Label;
+                if(label!=null)label.ForeColor=Theme.DimInk;
+                else if((child is Panel||child is TableLayoutPanel||child is FlowLayoutPanel)&&child.BackColor==Color.White)child.BackColor=Theme.Dim;
+                DimCard(child);
+            }
+        }
+        static void LockInputs(Control root)
+        {
+            foreach(Control child in root.Controls)
+            {
+                if(child is TextBox){var box=(TextBox)child;box.ReadOnly=true;box.BackColor=Theme.Pale;}
+                else if(child is ComboBox||child is CheckBox||child is ToggleSwitch||child is Button||child is VectorButton||child is NumberInput||child is LinesBox)child.Enabled=false;
+                LockInputs(child);
+            }
         }
         void OpenLocalResourceDialog()
         {

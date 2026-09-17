@@ -66,7 +66,7 @@ namespace TesmioAutoload
         {
             state = initial.Copy(); stateStore = store; persistUi = saveUi; language = new Language(state.Language); Theme.CopyMenuLabel=()=>language.T("copy_text");
             mods.Cache=icons; icons.Warning=message=>Report(language.T("icon_warning")+" "+message); icons.LoaderExe=()=>Path.Combine(state.Build,"tesmiolauncher.exe");
-            Text = "Republic Mod Manager 0.5.7-beta  ·  "+language.T("app_dependency"); Font = new Font("Segoe UI",10); ForeColor = Theme.Ink; BackColor = Color.White;Theme.ApplyWindowChrome(this);
+            Text = "Republic Mod Manager 0.5.9  ·  "+language.T("app_dependency"); Font = new Font("Segoe UI",10); ForeColor = Theme.Ink; BackColor = Color.White;Theme.ApplyWindowChrome(this);
             AutoScaleDimensions = new SizeF(96,96); AutoScaleMode = AutoScaleMode.Dpi; Size = new Size(1600,1000); MinimumSize = new Size(1560,760); StartPosition = FormStartPosition.CenterScreen;   // 0.4.36: minimum 1560 - the section editors' detail panel needs it; RestoreWindowSize caps it to the screen
             Load += (s,e) => RestoreWindowSize();
             using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Tesmio.icon")) using (var icon = new Icon(stream)) Icon = (Icon)icon.Clone();
@@ -126,7 +126,7 @@ namespace TesmioAutoload
             statusFlow.Dock=DockStyle.Fill; statusFlow.WrapContents=false; statusFlow.Margin=Padding.Empty; statusFlow.Padding=new Padding(0,8,0,0);
             statusBar.Controls.Add(statusFlow); statusBar.Controls.Add(statusRight); page.Controls.Add(statusBar,0,2);
             content.Dock=DockStyle.Fill; content.FlowDirection=FlowDirection.TopDown; content.WrapContents=false; content.AutoScroll=true; content.Margin=Padding.Empty; content.Padding=new Padding(0,12,0,0); content.SizeChanged+=(s,e)=>ResizeCards(); content.ClientSizeChanged+=(s,e)=>ResizeCards(); page.Controls.Add(content,0,3);
-            var footer = new TableLayoutPanel { Dock=DockStyle.Fill, ColumnCount=2, RowCount=1, BackColor=Theme.Chrome, Padding=new Padding(22,17,18,10), Margin=Padding.Empty };
+            var footer = new TableLayoutPanel { Dock=DockStyle.Fill, ColumnCount=2, RowCount=1, BackColor=Theme.Frame, Padding=new Padding(22,17,18,10), Margin=Padding.Empty };
             footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100)); footer.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); shell.Controls.Add(footer,0,1);
             var statuses=new FlowLayoutPanel { Dock=DockStyle.Fill, FlowDirection=FlowDirection.TopDown, WrapContents=false }; statuses.Controls.Add(status); statuses.Controls.Add(statusDetail); statusDetail.MaximumSize=new Size(440,0); footer.Controls.Add(statuses,0,0);
             var buttons = new FlowLayoutPanel { AutoSize=true, FlowDirection=FlowDirection.LeftToRight, WrapContents=false, Anchor=AnchorStyles.Right|AnchorStyles.Top };

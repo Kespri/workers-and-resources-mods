@@ -56,6 +56,32 @@ namespace TesmioAutoload
             }
             return null;
         }
+        // A target file of a Vanilla Buildings rule set: a path relative to media_soviet, to the
+        // Steam Workshop folder or to the package folder. One implementation, used by the reference
+        // check and by the line editor, so both agree on what "the file is there" means.
+        public static string TargetFile(string build, string workshopRoot, string target)
+        {
+            string game = GameRoot(build);
+            if (game == null || String.IsNullOrWhiteSpace(target)) return null;
+            target = target.Trim().Replace('/', '\\');
+            if (target.Contains("..") || target.Contains(":") || target.StartsWith("\\")) return null;
+            var roots = new List<string> { Path.Combine(game, "media_soviet") };
+            string steam = SteamWorkshopFor(game); if (steam != null) roots.Add(steam);
+            if (!String.IsNullOrEmpty(workshopRoot)) roots.Add(workshopRoot);
+            foreach (string root in roots)
+            {
+                try { string path = Path.Combine(root, target); if (File.Exists(path)) return path; }
+                catch (Exception) { }
+            }
+            return null;
+        }
+        public static List<string> TargetLines(string build, string workshopRoot, string target)
+        {
+            string path = TargetFile(build, workshopRoot, target);
+            if (path == null) return null;
+            try { return SafeFiles.Text(path).Replace("\r\n", "\n").Split('\n').ToList(); }
+            catch (Exception) { return null; }
+        }
         public static List<string> DonorLines(string build, string donor)
         {
             var result = new List<string>(); string path = DonorFile(build, donor);

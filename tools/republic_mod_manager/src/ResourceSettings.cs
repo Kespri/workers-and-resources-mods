@@ -189,7 +189,10 @@ namespace TesmioAutoload
         public string Label = "", LabelKey = "", Description = "", DescriptionKey = "", Empty = "", EmptyKey = "";
     }
     public sealed class LocalTab { public string Id, Label, LabelKey; public int Order; }
-    public sealed class LocalCard { public string Id, Tab, Label="", LabelKey="", Description="", DescriptionKey="", Notice="", NoticeKey="", NoticeStyle="warning"; public int Order; }
+    // 0.5.8: `editor = donor_lines` turns a card of the change dialog into the line editor -
+    // the donor's building.ini beside your own lines, with what each of them removes. `lines`
+    // and `strip` name the two fields it writes.
+    public sealed class LocalCard { public string Id, Tab, Label="", LabelKey="", Description="", DescriptionKey="", Notice="", NoticeKey="", NoticeStyle="warning", Editor="", EditorLines="", EditorStrip="", EditorAdd="", EditorReplace="", EditorRemove="", EditorInsert="", EditorTargets="", EditorAddLink="", EditorReplaceLink="", EditorRemoveLink=""; public int Order; }
     // Language: when set (de, en, ...) the link is shown only while that UI language is active.
     public sealed class LocalLink { public string Id, File, Label="", LabelKey="", Language=""; public int Order; }
     // [folder:<id>] / [file:<id>] (0.4.28): rows of a card that show a folder or a file of the
@@ -246,6 +249,15 @@ namespace TesmioAutoload
         public bool ItemIdSuggestions=true;
         public string AddItemIdHelp="",AddItemIdHelpKey="";   // [list] add_id_help: help under the identifier in the add dialog only (0.4.22)
         public string ItemIdPicker="";   // "game_texts": a "Choose text..." button opens the game-caption picker (0.4.21)
+        // 0.5.8, [list] style = cards: the entries are not a list beside a detail panel but one
+        // row per entry - switch, name, the values named by subtitle, a state line and the
+        // buttons named by actions. Everything else about the editor stays as it is, so an
+        // editor can move over on its own.
+        public string CardStyle="",CardTitle="",CardToggle="",CardState="",CardNewTitle="",CardNewTitleKey="";
+        public string[] CardSubtitle=new string[0],CardActions=new string[0];
+        public bool IsCards{get{return CardStyle=="cards";}}
+        public LocalDetailField FieldById(string id){return id==null||id.Length==0?null:Fields.FirstOrDefault(x=>x.Id.Equals(id,StringComparison.OrdinalIgnoreCase));}
+        public bool CardAction(string name){return CardActions.Any(x=>x.Equals(name,StringComparison.OrdinalIgnoreCase));}
         public string GlobalLabel="",GlobalLabelKey="",GlobalDescription="",GlobalDescriptionKey="";
         public bool HasGlobals{get{return Fields.Any(x=>x.Scope=="global");}}
         // Further cards for plugin-wide fields ([card:<id>], a field names its card) and
@@ -391,7 +403,8 @@ namespace TesmioAutoload
             foreach(string tab in new[]{s.GroupTab,s.GlobalTab,s.DefaultTab})if(!s.Tabs.Any(x=>x.Id.Equals(tab,StringComparison.OrdinalIgnoreCase)))throw new FormatException(Msg.Key("err_unbekannter_reiter", tab));
             foreach(string section in ini.Sections.Where(x=>x.StartsWith("card:",StringComparison.OrdinalIgnoreCase)))
             {
-                var c=new LocalCard{Id=section.Substring(5),Tab=ini.Get(section,"tab",s.GlobalTab),Label=ini.Get(section,"label",section.Substring(5)),LabelKey=ini.Get(section,"label_key",""),Description=ini.Get(section,"description",""),DescriptionKey=ini.Get(section,"description_key",""),Notice=ini.Get(section,"notice",""),NoticeKey=ini.Get(section,"notice_key",""),NoticeStyle=ini.Get(section,"notice_style","warning"),Order=Order(ini,section)};
+                var c=new LocalCard{Id=section.Substring(5),Tab=ini.Get(section,"tab",s.GlobalTab),Label=ini.Get(section,"label",section.Substring(5)),LabelKey=ini.Get(section,"label_key",""),Description=ini.Get(section,"description",""),DescriptionKey=ini.Get(section,"description_key",""),Notice=ini.Get(section,"notice",""),NoticeKey=ini.Get(section,"notice_key",""),NoticeStyle=ini.Get(section,"notice_style","warning"),Editor=ini.Get(section,"editor","").Trim().ToLowerInvariant(),EditorLines=ini.Get(section,"lines","").Trim(),EditorStrip=ini.Get(section,"strip","").Trim(),EditorAdd=ini.Get(section,"add","").Trim(),EditorReplace=ini.Get(section,"replace","").Trim(),EditorRemove=ini.Get(section,"remove","").Trim(),EditorInsert=ini.Get(section,"insert","").Trim(),EditorTargets=ini.Get(section,"targets","").Trim(),EditorAddLink=ini.Get(section,"add_connection","").Trim(),EditorReplaceLink=ini.Get(section,"replace_connection","").Trim(),EditorRemoveLink=ini.Get(section,"remove_connection","").Trim(),Order=Order(ini,section)};
+                if(c.Editor.Length>0&&c.Editor!="donor_lines"&&c.Editor!="target_lines")throw new FormatException(Msg.Key("err_unbekannter_karteneditor", c.Editor));
                 if(!Token(c.Id)||c.Id.Equals("global",StringComparison.OrdinalIgnoreCase)||s.Cards.Any(x=>x.Id.Equals(c.Id,StringComparison.OrdinalIgnoreCase))||!s.Tabs.Any(x=>x.Id.Equals(c.Tab,StringComparison.OrdinalIgnoreCase)))throw new FormatException(Msg.Key("err_ungueltige_karte", section));
                 s.Cards.Add(c);
             }
@@ -545,6 +558,26 @@ namespace TesmioAutoload
                 if(!s.Tabs.Any(x=>x.Id.Equals(w.Tab,StringComparison.OrdinalIgnoreCase))||(w.Range!="sml"&&w.Range!="own"&&w.Range!="all"))throw new FormatException(Msg.Key("err_ungueltige_wip_liste", w.Tab));
                 s.Wip=w;
             }
+            // [list] style = cards (0.5.8). Read after the fields, because title, subtitle and
+            // toggle name field ids and a typo there has to be rejected, not drawn as an empty row.
+            s.CardStyle=ini.Get("list","style","").Trim().ToLowerInvariant();
+            if(s.CardStyle.Length>0)
+            {
+                if(s.CardStyle!="cards")throw new FormatException(Msg.Key("err_ungueltiger_listenstil", s.CardStyle));
+                if(!s.IsSections)throw new FormatException(Msg.Key("err_ungueltiger_listenstil", s.CardStyle));
+                s.CardTitle=ini.Get("list","title","").Trim();s.CardToggle=ini.Get("list","toggle","").Trim();s.CardState=ini.Get("list","state","").Trim().ToLowerInvariant();
+                s.CardSubtitle=ini.Get("list","subtitle","").Split('|').Select(x=>x.Trim()).Where(x=>x.Length>0).ToArray();
+                // 0.5.8: the + opens the same dialog empty, so it needs a heading of its own.
+                s.CardNewTitle=ini.Get("list","new_title","");s.CardNewTitleKey=ini.Get("list","new_title_key","");
+                s.CardActions=ini.Get("list","actions","edit").Split('|').Select(x=>x.Trim().ToLowerInvariant()).Where(x=>x.Length>0).ToArray();
+                foreach(string id in new[]{s.CardTitle,s.CardToggle}.Concat(s.CardSubtitle).Where(x=>x.Length>0))
+                    if(s.FieldById(id)==null)throw new FormatException(Msg.Key("err_unbekanntes_kartenfeld", id));
+                if(s.CardToggle.Length>0&&s.FieldById(s.CardToggle).Type!="boolean")throw new FormatException(Msg.Key("err_unbekanntes_kartenfeld", s.CardToggle));
+                // state names a built-in provider, the way picker does. One so far.
+                if(s.CardState.Length>0&&s.CardState!="buildings_plus")throw new FormatException(Msg.Key("err_unbekannter_kartenzustand", s.CardState));
+                foreach(string action in s.CardActions)
+                    if(action!="edit"&&action!="open"&&action!="delete")throw new FormatException(Msg.Key("err_unbekannte_kartenaktion", action));
+            }
             s.Fields.Sort((a,b)=>a.Order!=b.Order?a.Order.CompareTo(b.Order):String.CompareOrdinal(a.Id,b.Id));return s;
         }
         Ini Translation(string code)
@@ -578,6 +611,7 @@ namespace TesmioAutoload
         public string LocalizedListLabel(Language language){return Text(language,ListLabelKey,ListLabel);}
         public string LocalizedListNote(Language language){return Text(language,ListNoteKey,ListNote).Replace("\\n","\n");}
         public string LocalizedAddLabel(Language language){return Text(language,AddLabelKey,AddLabel);}
+        public string LocalizedCardNewTitle(Language language){return Text(language,CardNewTitleKey,CardNewTitle);}
         public string LocalizedSelectHelp(Language language){return Text(language,SelectHelpKey,SelectHelp).Replace("\\n","\n");}
         public string LocalizedItemIdLabel(Language language){return Text(language,ItemIdLabelKey,ItemIdLabel);}
         public string LocalizedItemIdHelp(Language language){return Text(language,ItemIdHelpKey,ItemIdHelp).Replace("\\n","\n");}
@@ -734,6 +768,88 @@ namespace TesmioAutoload
         public override string ToString(){return (Display.Length==0?Id:Display)+"  ["+Id+"]";}
     }
 
+    // 0.5.9: the one place from which a package entry can be changed while Soviet Mod Loader is in
+    // charge. SML merges the mods over its baseline PER KEY and the last mod wins (it sorts by
+    // priority, then added_utc, then id), so a small mod of our own with a high priority is the
+    // only lever - the baseline is the weakest layer and could never win. The overlay carries
+    // nothing but the keys the player changed, and `allow_settings = 1` lets it deliver the
+    // [custom:] sections that SML drops from an ordinary package.
+    // Only resources and needs: those two merge per key. deposits and buildings are replaced as
+    // whole sections and their catalog number hangs on <mod id>::<section>, so an overlay would
+    // hand the building a NEW number and SML would stop the game over the orphaned folder.
+    public static class SmlOverlay
+    {
+        public const string Folder="resources_plus",Id="tesmio.resources_plus",Name="Resources Plus";
+        public static readonly string[] Domains={ "resources","needs" };
+        public static bool Covers(string plugin){return Domains.Any(x=>x.Equals(plugin,StringComparison.OrdinalIgnoreCase));}
+        public static string Root(string build){string shop=Sml.WorkshopRoot(build);return shop.Length==0?"":Path.Combine(shop,Folder);}
+        public static string Manifest(string build){string root=Root(build);return root.Length==0?"":Path.Combine(root,"soviet.mod.ini");}
+        public static string Fragment(string build,string domain){string root=Root(build);return root.Length==0?"":Path.Combine(root,"tesmio",domain+".ini");}
+        // Only the domains that really have a fragment are declared: a [content] line without its
+        // file is refused by the package reader (err_inhaltsdatei_fehlt), and the layer would show
+        // up as a broken package instead of quietly doing its job.
+        public static string ManifestText(IEnumerable<string> domains)
+        {
+            var lines=new List<string>(new[]
+            {
+                "; Written by Republic Mod Manager. This little mod carries the entries you changed",
+                "; on a package resource or need: Soviet Mod Loader merges the mods over its baseline",
+                "; per key, and priority 1000 makes this one the last - so your line wins. Delete the",
+                "; folder and every entry falls back to the package that brought it.",
+                "[mod]",
+                "id = "+Id,
+                "name = "+Name,
+                "version = 1.0",
+                "enabled = 1",
+                "priority = 1000",
+                "tesmio_api_min = 4",
+                "tesmio_api_max = 4",
+                "",
+                "; allow_settings lets the [custom:] sections through - an ordinary package cannot",
+                "; deliver them, SML refuses them there.",
+                "[content]"
+            });
+            foreach(string domain in domains)lines.Add(domain+" = tesmio\\"+domain+".ini");
+            lines.AddRange(new[]
+            {
+                "allow_settings = 1",
+                "",
+                "; Republic Mod Manager keeps this folder; it is not an entry of its own in the list.",
+                "[configuration]",
+                "rmm_overlay = 1",
+                ""
+            });
+            return String.Join("\r\n",lines);
+        }
+        // Is this folder our own overlay? The catalog leaves it out of the plugin list.
+        public static bool IsOverlay(string manifestPath)
+        {
+            try{return File.Exists(manifestPath)&&new LooseIni(SafeFiles.Text(manifestPath)).Get("configuration","rmm_overlay")=="1";}
+            catch(Exception){return false;}
+        }
+        // A layer that exists while Soviet Mod Loader is switched off does nothing at all -
+        // the loader that reads it is not running (0.5.9).
+        public static bool Idle(string build)
+        {
+            try{string manifest=Manifest(build);return manifest.Length>0&&IsOverlay(manifest)&&!Sml.Active(build);}
+            catch(Exception){return false;}
+        }
+        // The last fragment takes the manifest with it; what stays is an empty folder in the
+        // Workshop directory. Remove it - but only when it really holds no file any more.
+        public static void DropEmpty(string build)
+        {
+            try
+            {
+                string root=Root(build);
+                if(root.Length==0||!Directory.Exists(root))return;
+                if(File.Exists(Path.Combine(root,"soviet.mod.ini")))return;
+                if(Directory.GetFiles(root,"*",SearchOption.AllDirectories).Length>0)return;
+                Directory.Delete(root,true);
+            }
+            catch(Exception){}
+        }
+    }
+
     public sealed class LocalResourceSession
     {
         public readonly LocalEditorSpec Spec;public readonly string Build,LocalIni,LocalDll,UserIni,UpstreamFile,Receipt;
@@ -742,12 +858,96 @@ namespace TesmioAutoload
         public readonly string SmlBaseline;
         public readonly Dictionary<string,string> Before=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);public readonly List<string> Notes=new List<string>();
         public readonly List<string> DisappearedExternal=new List<string>();
-        public ResourceOverrideStore Overrides;string upstreamText,initialOverrides;readonly string localAtOpen;bool refreshUpstream;
+        public ResourceOverrideStore Overrides;string upstreamText,ownText="",initialOverrides;readonly string localAtOpen;bool refreshUpstream;
         // 0.4.80: baseText is the pristine original (package INI or the upstream copy); upstreamText is
         // baseText plus the fragments of every provided content package, which the editor shows as
         // originals. Only baseText is ever stored as the upstream copy.
         string baseText="";public readonly List<ContentContribution> Content=new List<ContentContribution>();
-        void ComposeUpstream(){Content.Clear();upstreamText=ContentLayer.Merge(Spec,baseText,ContentLayer.Fragments(Build,Spec.Plugin),Content);}
+        // 0.5.9: what the mod packages add on top of the baseline while Soviet Mod Loader is in
+        // charge. SML merges them AFTER the baseline, so they are in the game but nothing written
+        // here could ever change them - the editor lists them like an original and locks them.
+        // Id -> the package that brings it ("" when no package folder claims it).
+        public readonly Dictionary<string,string> Foreign=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
+        // Where a change to such an entry goes: not into the baseline, which SML merges first and
+        // the package overwrites afterwards, but into our own overlay mod - see SmlOverlay. Without
+        // a Workshop folder or outside resources and needs there is no lever, and the entry is
+        // shown read only instead.
+        public readonly string OverlayFile="",OverlayManifest="";
+        public bool OverlayReady{get{return OverlayFile.Length>0;}}
+        public bool Foreigner(string id){return Foreign.ContainsKey(id);}
+        public bool Locked(string id){return Foreign.ContainsKey(id)&&!OverlayReady;}
+        void NotLocked(string id)
+        {string owner;if(!Locked(id)||!Foreign.TryGetValue(id,out owner))return;throw new FormatException(Msg.Key("err_paket_eintrag_nur_lesend", id, owner.Length>0?owner:Spec.Plugin));}
+        // Hiding is different: a merge can replace a key, never take it back out. Whatever the
+        // overlay could do, an entry a package declares cannot be un-declared.
+        void NotForeign(string id)
+        {string owner;if(!Foreign.TryGetValue(id,out owner))return;throw new FormatException(Msg.Key("err_paket_eintrag_nicht_ausblendbar", id, owner.Length>0?owner:Spec.Plugin));}
+        void ComposeUpstream(){Content.Clear();Foreign.Clear();ownText=ContentLayer.Merge(Spec,baseText,ContentLayer.Fragments(Build,Spec.Plugin),Content);upstreamText=SmlBaseline!=null?MergeSml(ownText):ownText;}
+        // The generated plugins\<config>.ini is the truth about what the game will see, so it and
+        // nothing else decides which entries show up. The mod folders are only asked for the name
+        // to put under the entry; an id that no folder claims still belongs in the list.
+        string MergeSml(string text)
+        {
+            string generated;
+            try{string path=SafeFiles.Child(Build,"plugins\\"+Spec.ConfigName);if(!File.Exists(path))return text;generated=SafeFiles.Text(path);}catch(Exception){return text;}
+            var known=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                var it=new LooseIni(generated);
+                if(Spec.IsSections)foreach(string section in it.SectionNames()){string id=section.Trim();if(id.Length>0&&!Spec.IsReserved(id))known.Add(id);}
+                else foreach(var pair in it.Entries(Spec.ListSection))known.Add(pair.Key);
+            }
+            catch(Exception){return text;}
+            // The packages first, so an entry shows the value the PACKAGE declares and not the one
+            // our overlay already wrote over it; whatever is left comes out of the generated file.
+            string key=ContentTargets.KeyForPlugin(Spec.Plugin);
+            var fragments=SmlPackages().Select(p=>new ContentFragment{PackageId=p.Key,PackageName=p.Key,Key=key,Text=p.Value}).ToList();
+            fragments.Add(new ContentFragment{PackageId="soviet_mod_loader",PackageName="",Key=key,Text=generated});
+            var found=new List<ContentContribution>();string merged;
+            try{merged=ContentLayer.Merge(Spec,text,fragments,found);}catch(Exception){return text;}
+            LooseIni doc;try{doc=new LooseIni(merged);}catch(Exception){return text;}
+            foreach(ContentContribution c in found)foreach(string id in c.Added)
+            {
+                // A package the loader did not merge (switched off, a dependency missing) is not in
+                // the game, so it is not in the list either.
+                if(!known.Contains(id)){DropId(doc,id);continue;}
+                Foreign[id]=c.PackageName;
+            }
+            return doc.Render();
+        }
+        // Which package brings which id. The generated file no longer says where a line came from,
+        // so the mod folders are read once - the same single root SML itself searches.
+        // The fragments of the mod packages, in folder order, without our own overlay - that one
+        // carries the player's changes and must never be mistaken for what a package declares.
+        List<KeyValuePair<string,string>> SmlPackages()
+        {
+            var packages=new List<KeyValuePair<string,string>>();
+            string key=ContentTargets.KeyForPlugin(Spec.Plugin);if(key.Length==0)return packages;
+            string root;try{root=Sml.WorkshopRoot(Build);}catch(Exception){return packages;}
+            if(root.Length==0||!Directory.Exists(root))return packages;
+            foreach(string dir in Directory.GetDirectories(root).OrderBy(x=>x,StringComparer.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    string manifest=Path.Combine(dir,"soviet.mod.ini");if(!File.Exists(manifest))continue;
+                    if(SmlOverlay.IsOverlay(manifest))continue;
+                    var mod=new LooseIni(SafeFiles.Text(manifest));
+                    string relative=mod.Get("content",key);if(String.IsNullOrWhiteSpace(relative))continue;
+                    string fragment=SafeFiles.Child(dir,GenericSchema.StripComment(relative).Trim());if(!File.Exists(fragment))continue;
+                    string name=(mod.Get("mod","name")??mod.Get("mod","id")??Path.GetFileName(dir)).Trim();
+                    packages.Add(new KeyValuePair<string,string>(name,SafeFiles.Text(fragment)));
+                }
+                catch(Exception){}
+            }
+            return packages;
+        }
+        // Everything the generated file carries and the baseline does not, taken out of the doc again.
+        void DropId(LooseIni doc,string id)
+        {
+            if(Spec.IsSections){doc.RemoveSection(SectionOf(id));return;}
+            doc.Remove(Spec.ListSection,id);doc.RemoveSection(Spec.ItemSectionPrefix+id);
+            foreach(string section in doc.SectionNames().ToList())if(!section.Equals(Spec.ListSection,StringComparison.OrdinalIgnoreCase))doc.Remove(section,id);
+        }
         readonly Dictionary<string,byte[]> dependentWrites=new Dictionary<string,byte[]>(StringComparer.OrdinalIgnoreCase);
         // Package-backed editor (a keyed schema shipped in a Workshop package): the
         // baseline is the package's own INI, so a Steam update is the new original at
@@ -764,6 +964,9 @@ namespace TesmioAutoload
             // there instead and everything the player enters survives.
             SmlBaseline=package==null?Sml.Baseline(Build,spec.Plugin,spec.ConfigName):null;
             LocalIni=SmlBaseline??SafeFiles.Child(Build,"plugins\\"+Spec.ConfigName);LocalDll=SafeFiles.Child(Build,"plugins\\"+Spec.Plugin+".dll");UserIni=SafeFiles.Child(Build,"user_config\\"+Spec.Plugin+".editor.ini");UpstreamFile=SafeFiles.Child(Build,"user_config\\.autoload\\"+Spec.Plugin+".upstream.ini");Receipt=SafeFiles.Child(Build,"user_config\\.autoload\\"+Spec.Plugin+".editor.receipt.ini");LoaderIni=SafeFiles.Child(Build,"tesmioloader.ini");
+            // 0.5.9: the overlay that overrules a package entry - only where SML merges per key, and
+            // only when its one Workshop folder really exists; otherwise the entry stays read only.
+            if(SmlBaseline!=null&&SmlOverlay.Covers(Spec.Plugin)){string shop=Sml.WorkshopRoot(Build);if(shop.Length>0&&Directory.Exists(shop)){OverlayFile=SmlOverlay.Fragment(Build,Spec.Plugin);OverlayManifest=SmlOverlay.Manifest(Build);}}
             ExternalLoader=package!=null;
             if(package==null&&SmlBaseline==null&&(!File.Exists(LocalDll)||!File.Exists(LocalIni)))throw new IOException(Msg.Key("err_benoetigte_lokale_dateien_fehlen", Spec.Plugin, Spec.ConfigName));
             if(package!=null&&(package.DefaultsBytes==null||!package.Target.Equals(Spec.Plugin,StringComparison.OrdinalIgnoreCase)||!package.ConfigName.Equals(Spec.ConfigName,StringComparison.OrdinalIgnoreCase)))throw new FormatException(Msg.Key("err_editor_schema_passt_nicht"));
@@ -772,6 +975,7 @@ namespace TesmioAutoload
             // Under SML neither the DLL nor the loader entry is ours: the DLL does not exist and
             // SML rewrites tesmioloader.ini itself, which must not turn into "file changed meanwhile".
             foreach(string path in package==null&&SmlBaseline==null?new[]{LocalIni,LocalDll,UserIni,UpstreamFile,Receipt,LoaderIni}:new[]{LocalIni,UserIni,UpstreamFile,Receipt})Before[path]=SafeFiles.HashFile(path);
+            if(OverlayFile.Length>0){Before[OverlayFile]=SafeFiles.HashFile(OverlayFile);Before[OverlayManifest]=SafeFiles.HashFile(OverlayManifest);}
             LoaderEnabled=ReadLoaderSwitch();
             localAtOpen=File.Exists(LocalIni)?SafeFiles.Text(LocalIni):"";string localHash=Before[LocalIni];string recorded="";if(File.Exists(Receipt))try{recorded=new Ini(SafeFiles.Text(Receipt)).Get("state","effective_hash","");}catch{}
             Overrides=File.Exists(UserIni)?ResourceOverrideStore.Parse(SafeFiles.Text(UserIni)):new ResourceOverrideStore();
@@ -835,7 +1039,7 @@ namespace TesmioAutoload
         // ---- keyed_list lines ----
         public void SetListRaw(string id,string raw)
         {
-            if(!Spec.IsList)throw new InvalidOperationException(Msg.Key("err_nur_fuer_listeneditoren"));raw=Spec.NormalizeTuple(raw);var source=UpstreamItems();bool owned=!source.ContainsKey(id);var item=Ensure(id,owned);
+            if(!Spec.IsList)throw new InvalidOperationException(Msg.Key("err_nur_fuer_listeneditoren"));NotLocked(id);raw=Spec.NormalizeTuple(raw);var source=UpstreamItems();bool owned=!source.ContainsKey(id);var item=Ensure(id,owned);
             if(!owned&&raw.Equals(Spec.NormalizeTuple(source[id]),StringComparison.Ordinal)){item.ListValue="";if(item.Fields.Count==0&&!item.Suppressed)Overrides.Items.Remove(id);}else item.ListValue=raw;
         }
         public void AddRaw(string id,string raw)
@@ -881,7 +1085,7 @@ namespace TesmioAutoload
         // Hide an original line from the effective file; it stays in the upstream copy.
         public void Suppress(string id)
         {
-            if(!Spec.HidesOriginals)throw new InvalidOperationException(Msg.Key("err_nur_fuer_listen_und"));var source=UpstreamItems();if(!source.ContainsKey(id))throw new FormatException(Msg.Key("err_kein_original_eintrag", id));
+            if(!Spec.HidesOriginals)throw new InvalidOperationException(Msg.Key("err_nur_fuer_listen_und"));NotForeign(id);var source=UpstreamItems();if(!source.ContainsKey(id))throw new FormatException(Msg.Key("err_kein_original_eintrag", id));
             var item=Ensure(id,false);item.Suppressed=true;item.ListValue="";item.Fields.Clear();Validate();
         }
         public void Unsuppress(string id){ResourceItemOverride item;if(Overrides.Items.TryGetValue(id,out item)&&item.Suppressed){item.Suppressed=false;if(item.ListValue.Length==0&&item.Fields.Count==0)Overrides.Items.Remove(id);}Validate();}
@@ -900,10 +1104,10 @@ namespace TesmioAutoload
         {ResourceItemOverride item;string value;if(Overrides.Items.TryGetValue(id,out item)&&item.Fields.TryGetValue(field.Id,out value))return value;return BaselineValue(id,field);}
         public void SetList(string id,string template,string display)
         {
-            template=(template??"").Trim();display=(display??"").Trim();if(!CollectionRules.SafeItem(template)||display.Any(Char.IsControl)||display.Length>128)throw new FormatException(Msg.Key("err_vorlage_oder_anzeigename_ist"));var source=UpstreamItems();bool owned=!source.ContainsKey(id);var item=Ensure(id,owned);var old=ResourceListValue.Parse(owned?item.ListValue:source[id]);old.Template=template;old.Display=display;string raw=old.Render();if(!owned&&raw==source[id]){item.ListValue="";if(item.Fields.Count==0)Overrides.Items.Remove(id);}else item.ListValue=raw;
+            NotLocked(id);template=(template??"").Trim();display=(display??"").Trim();if(!CollectionRules.SafeItem(template)||display.Any(Char.IsControl)||display.Length>128)throw new FormatException(Msg.Key("err_vorlage_oder_anzeigename_ist"));var source=UpstreamItems();bool owned=!source.ContainsKey(id);var item=Ensure(id,owned);var old=ResourceListValue.Parse(owned?item.ListValue:source[id]);old.Template=template;old.Display=display;string raw=old.Render();if(!owned&&raw==source[id]){item.ListValue="";if(item.Fields.Count==0)Overrides.Items.Remove(id);}else item.ListValue=raw;
         }
         public void SetField(string id,LocalDetailField field,string value)
-        {value=field.Normalize(value);var source=UpstreamItems();bool owned=!source.ContainsKey(id);ResourceItemOverride item=Ensure(id,owned);string original=BaselineValue(id,field);if(value.Length==0||!owned&&value==original)item.Fields.Remove(field.Id);else item.Fields[field.Id]=value;if(!item.Owned&&item.ListValue.Length==0&&item.Fields.Count==0)Overrides.Items.Remove(id);}
+        {NotLocked(id);value=field.Normalize(value);var source=UpstreamItems();bool owned=!source.ContainsKey(id);ResourceItemOverride item=Ensure(id,owned);string original=BaselineValue(id,field);if(value.Length==0||!owned&&value==original)item.Fields.Remove(field.Id);else item.Fields[field.Id]=value;if(!item.Owned&&item.ListValue.Length==0&&item.Fields.Count==0)Overrides.Items.Remove(id);}
         public void Add(string id,string template,string display,string transport)
         {var previous=Overrides.Clone();try{id=(id??"").Trim().ToLowerInvariant();if(!CollectionRules.SafeItem(id))throw new FormatException(Msg.Key("err_ungueltige_ressourcenkennung", id));if(Items().Any(x=>x.Id.Equals(id,StringComparison.OrdinalIgnoreCase)))throw new FormatException(Msg.Key("err_ressource_ist_bereits_vorhanden", id));if(Items().Count>=Spec.MaximumItems)throw new FormatException(Msg.Key("err_hoechstens_ressourcen_sind_erlaubt", Spec.MaximumItems));var item=Ensure(id,true);item.ListValue=new ResourceListValue{Template=(template??"").Trim(),Display=(display??"").Trim()}.Render();if(!CollectionRules.SafeItem(ResourceListValue.Parse(item.ListValue).Template))throw new FormatException(Msg.Key("err_ungueltige_vorbildressource"));LocalDetailField field=Spec.Fields.FirstOrDefault(x=>x.Scope=="custom"&&x.Key.Equals("transport",StringComparison.OrdinalIgnoreCase));if(field!=null&&!String.IsNullOrWhiteSpace(transport))item.Fields[field.Id]=field.Normalize(transport);Validate();}catch{Overrides=previous;throw;}}
         public void Remove(string id){ResourceItemOverride item;if(!Overrides.Items.TryGetValue(id,out item)||!item.Owned)throw new FormatException(Msg.Key("err_originalressource_kann_nicht_geloescht", id));Overrides.Items.Remove(id);Validate();}
@@ -942,8 +1146,11 @@ namespace TesmioAutoload
         }
         public string Effective()
         {
-            var doc=new LooseIni(upstreamText);var source=UpstreamItems();foreach(var item in Overrides.Items.Values.OrderBy(x=>x.Id,StringComparer.OrdinalIgnoreCase))
+            var doc=new LooseIni(ownText);var source=UpstreamItems();foreach(var item in Overrides.Items.Values.OrderBy(x=>x.Id,StringComparer.OrdinalIgnoreCase))
             {
+                // What a package brings never lands in the baseline - a change to it goes into the
+                // overlay, which SML merges after the package. See Overlay().
+                if(Foreign.ContainsKey(item.Id))continue;
                 if(Spec.IsSections)
                 {
                     // A hidden original loses its whole section; a personal one gets a fresh
@@ -960,6 +1167,30 @@ namespace TesmioAutoload
             foreach(var g in Overrides.Globals){LocalDetailField field=Spec.Fields.First(x=>x.Id.Equals(g.Key,StringComparison.OrdinalIgnoreCase));doc.Set(field.Section,field.Key,g.Value);}
             return doc.Render();
         }
+        // 0.5.9: the overlay fragment - nothing but the entries a package brought and the player
+        // changed anyway. SML merges it last (priority 1000), key by key, so exactly these lines
+        // win over the package and everything else stays the package's business. Empty means the
+        // file is deleted at the next save.
+        public string Overlay()
+        {
+            if(!OverlayReady)return "";
+            var doc=new LooseIni("");bool any=false;
+            foreach(var item in Overrides.Items.Values.OrderBy(x=>x.Id,StringComparer.OrdinalIgnoreCase))
+            {
+                if(!Foreign.ContainsKey(item.Id))continue;
+                // The list line is one key: it always goes out whole, even when only the name changed.
+                string line=item.ListValue.Length>0?item.ListValue:ListValueOf(item.Id);
+                if(item.ListValue.Length>0||item.Fields.Count>0){doc.Set(Spec.ListSection,item.Id,line);any=true;}
+                foreach(var pair in item.Fields)
+                {
+                    LocalDetailField field=Spec.Fields.FirstOrDefault(x=>x.Id.Equals(pair.Key,StringComparison.OrdinalIgnoreCase));if(field==null)continue;
+                    if(field.Scope=="custom")doc.Set(Spec.ItemSectionPrefix+item.Id,field.Key,pair.Value);else doc.Set(field.Section,item.Id,pair.Value);
+                    any=true;
+                }
+            }
+            return any?doc.Render():"";
+        }
+        string ListValueOf(string id){var source=UpstreamItems();string value;return source.TryGetValue(id,out value)?value:"";}
         public void Validate()
         {
             var source=UpstreamItems();foreach(var change in Overrides.Items.Values){if(change.Owned){if(source.ContainsKey(change.Id)||change.ListValue.Length==0&&!Spec.IsSections||Spec.IsSections&&Spec.IsReserved(change.Id))throw new FormatException(Msg.Key("err_persoenlicher_eintrag_kollidiert_mit", change.Id));}else if(!source.ContainsKey(change.Id))throw new FormatException(Msg.Key("err_original_eintrag_nicht_mehr", change.Id));if(change.Suppressed&&!Spec.HidesOriginals)throw new FormatException(Msg.Key("err_ausblenden_gibt_es_nur", change.Id));if(change.ListValue.Length>0){if(Spec.IsSections)throw new FormatException(Msg.Key("err_abschnittseintraege_haben_keine_listenzeile", change.Id));if(Spec.IsList)Spec.NormalizeTuple(change.ListValue);else{var list=ResourceListValue.Parse(change.ListValue);if(!CollectionRules.SafeItem(list.Template)||list.Display.Length>128||list.Display.Any(Char.IsControl))throw new FormatException(Msg.Key("err_ungueltiger_listeneintrag", change.Id));}}foreach(var pair in change.Fields){LocalDetailField field=Spec.Fields.FirstOrDefault(x=>x.Id.Equals(pair.Key,StringComparison.OrdinalIgnoreCase));if(field==null||field.Scope=="global")throw new FormatException(Msg.Key("err_unbekanntes_detailfeld", pair.Key));field.Normalize(pair.Value);}}
@@ -1052,10 +1283,32 @@ namespace TesmioAutoload
         }
         public void AssertUnchanged(){Spec.AssertUnchanged();foreach(var pair in Before){SafeFiles.NoLinks(pair.Key);if(SafeFiles.HashFile(pair.Key)!=pair.Value)throw new IOException(Msg.Key("err_datei_inzwischen_geaendert_neu_2", pair.Key));}}
         // See Session.RehashShared (0.4.71): tesmioloader.ini may just have been written by another entry's save.
-        public void RehashShared(){if(Before.ContainsKey(LoaderIni))Before[LoaderIni]=SafeFiles.HashFile(LoaderIni);}
+        // The overlay is shared too: the resources editor and the needs editor write into the same
+        // little mod, so after one of them has saved the other one's hashes are stale.
+        public void RehashShared()
+        {
+            if(Before.ContainsKey(LoaderIni))Before[LoaderIni]=SafeFiles.HashFile(LoaderIni);
+            if(OverlayFile.Length>0){Before[OverlayFile]=SafeFiles.HashFile(OverlayFile);Before[OverlayManifest]=SafeFiles.HashFile(OverlayManifest);}
+        }
+        // What the overlay has to write, if anything: the fragment of this domain, and the manifest
+        // as long as any domain still has one. Both go away with the last entry.
+        void OverlayWrites(Dictionary<string,byte[]> writes)
+        {
+            if(!OverlayReady)return;
+            string text=Overlay();
+            writes[OverlayFile]=text.Length>0?SafeFiles.Utf8.GetBytes(text):null;
+            var carried=new List<string>();
+            foreach(string domain in SmlOverlay.Domains)
+            {
+                if(domain.Equals(Spec.Plugin,StringComparison.OrdinalIgnoreCase)){if(text.Length>0)carried.Add(domain);continue;}
+                string path=SmlOverlay.Fragment(Build,domain);
+                try{if(path.Length>0&&File.Exists(path)&&SafeFiles.Text(path).Trim().Length>0)carried.Add(domain);}catch(Exception){}
+            }
+            writes[OverlayManifest]=carried.Count>0?SafeFiles.Utf8.GetBytes(SmlOverlay.ManifestText(carried)):null;
+        }
         public string Commit(Action guard)
         {
-            string mutexName="Local\\TesmioAutoload_"+SafeFiles.Hash(SafeFiles.Utf8.GetBytes(Build.ToUpperInvariant()));using(var mutex=new Mutex(false,mutexName)){bool held=false;try{try{held=mutex.WaitOne(0);}catch(AbandonedMutexException){held=true;}if(!held)throw new IOException(Msg.Key("err_ein_anderes_autoload_fenster"));guard();AssertUnchanged();ValidateAll();string effective=Effective(),personal=Overrides.Render();var writes=new Dictionary<string,byte[]>(dependentWrites,StringComparer.OrdinalIgnoreCase);writes[UserIni]=SafeFiles.Utf8.GetBytes(personal);if(!ExternalLoader&&LoaderChanged)writes[LoaderIni]=RenderLoaderIni();if(refreshUpstream||!File.Exists(UpstreamFile))writes[UpstreamFile]=SafeFiles.Utf8.GetBytes(baseText);writes[LocalIni]=SafeFiles.Utf8.GetBytes(effective);writes[Receipt]=SafeFiles.Utf8.GetBytes("[state]\r\nid = "+Spec.Id+"\r\neffective_file = "+Sml.Show(Build,LocalIni)+"\r\neffective_hash = "+SafeFiles.Hash(SafeFiles.Utf8.GetBytes(effective))+"\r\nupstream_hash = "+SafeFiles.Hash(SafeFiles.Utf8.GetBytes(upstreamText))+"\r\nschema_hash = "+Spec.SchemaHash+"\r\n");string backup=Transaction.Apply(Build,Spec.Id,writes,Before,guard);foreach(string path in Before.Keys.ToList())Before[path]=SafeFiles.HashFile(path);initialOverrides=personal;dependentWrites.Clear();refreshUpstream=false;Generation++;return backup;}finally{if(held)mutex.ReleaseMutex();}}
+            string mutexName="Local\\TesmioAutoload_"+SafeFiles.Hash(SafeFiles.Utf8.GetBytes(Build.ToUpperInvariant()));using(var mutex=new Mutex(false,mutexName)){bool held=false;try{try{held=mutex.WaitOne(0);}catch(AbandonedMutexException){held=true;}if(!held)throw new IOException(Msg.Key("err_ein_anderes_autoload_fenster"));guard();AssertUnchanged();ValidateAll();string effective=Effective(),personal=Overrides.Render();var writes=new Dictionary<string,byte[]>(dependentWrites,StringComparer.OrdinalIgnoreCase);writes[UserIni]=SafeFiles.Utf8.GetBytes(personal);if(!ExternalLoader&&LoaderChanged)writes[LoaderIni]=RenderLoaderIni();if(refreshUpstream||!File.Exists(UpstreamFile))writes[UpstreamFile]=SafeFiles.Utf8.GetBytes(baseText);writes[LocalIni]=SafeFiles.Utf8.GetBytes(effective);OverlayWrites(writes);writes[Receipt]=SafeFiles.Utf8.GetBytes("[state]\r\nid = "+Spec.Id+"\r\neffective_file = "+Sml.Show(Build,LocalIni)+"\r\neffective_hash = "+SafeFiles.Hash(SafeFiles.Utf8.GetBytes(effective))+"\r\nupstream_hash = "+SafeFiles.Hash(SafeFiles.Utf8.GetBytes(ownText))+"\r\nschema_hash = "+Spec.SchemaHash+"\r\n"+(OverlayReady?"overlay_file = "+OverlayFile+"\r\noverlay_manifest = "+OverlayManifest+"\r\n":""));string backup=Transaction.Apply(Build,Spec.Id,writes,Before,guard);if(OverlayReady)SmlOverlay.DropEmpty(Build);foreach(string path in Before.Keys.ToList())Before[path]=SafeFiles.HashFile(path);initialOverrides=personal;dependentWrites.Clear();refreshUpstream=false;Generation++;return backup;}finally{if(held)mutex.ReleaseMutex();}}
         }
     }
 
@@ -1071,6 +1324,6 @@ namespace TesmioAutoload
     public static class LocalResourceGuard
     {
         public static void Check(LocalResourceSession session)
-        {SafeFiles.NoLinks(session.Build);foreach(var process in Process.GetProcesses())using(process){string name;try{name=process.ProcessName;}catch(InvalidOperationException){continue;}if(name.StartsWith("SOVIET",StringComparison.OrdinalIgnoreCase)||name.Equals("tesmiolauncher",StringComparison.OrdinalIgnoreCase))throw new IOException(Msg.Key("err_zuerst_spiel_und_tesmiolauncher", name));}foreach(string file in session.ExternalLoader?new[]{"tesmioloader.dll","tesmiolauncher.exe"}:new[]{"tesmioloader.dll","tesmiolauncher.exe","plugins\\"+session.Spec.Plugin+".dll"})if(!File.Exists(SafeFiles.Child(session.Build,file)))throw new IOException(Msg.Key("err_benoetigte_lokale_datei_fehlt", file));string cfg=SafeFiles.Child(session.Build,"tesmioloader.ini");Ini settings=File.Exists(cfg)?new Ini(SafeFiles.Text(cfg)):new Ini("");if(settings.Get("tesmioloader","plugins","1")=="0")throw new IOException(Msg.Key("err_plugins_sind_im_vorhandenen"));}
+        {SafeFiles.NoLinks(session.Build);foreach(var process in Process.GetProcesses())using(process){string name;try{name=process.ProcessName;}catch(InvalidOperationException){continue;}if(name.StartsWith("SOVIET",StringComparison.OrdinalIgnoreCase)||name.Equals("tesmiolauncher",StringComparison.OrdinalIgnoreCase))throw new IOException(Msg.Key("err_zuerst_spiel_und_tesmiolauncher", name));}foreach(string file in session.ExternalLoader||session.SmlBaseline!=null?new[]{"tesmioloader.dll","tesmiolauncher.exe"}:new[]{"tesmioloader.dll","tesmiolauncher.exe","plugins\\"+session.Spec.Plugin+".dll"})if(!File.Exists(SafeFiles.Child(session.Build,file)))throw new IOException(Msg.Key("err_benoetigte_lokale_datei_fehlt", file));string cfg=SafeFiles.Child(session.Build,"tesmioloader.ini");Ini settings=File.Exists(cfg)?new Ini(SafeFiles.Text(cfg)):new Ini("");if(settings.Get("tesmioloader","plugins","1")=="0")throw new IOException(Msg.Key("err_plugins_sind_im_vorhandenen"));}
     }
 }

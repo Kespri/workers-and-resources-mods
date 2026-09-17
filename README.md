@@ -24,7 +24,7 @@ GNU GPL v3 requires; there are no ready-made DLLs here.
 | [Depletion](plugins/depletion) | 1.1.2 | Deposits that run out, shown in the mine window |
 | [Localization](plugins/localization) | 0.4.0 | Translation service: text packs become extended language files |
 | [Rail Physics Fix](plugins/rail_physics_fix) | 1.3.5 | Train physics: traction, braking, grades, curve and station limits, consumption |
-| [Research Expansion](plugins/research_expansion) | 0.4.1 | New research and changes to the research tree |
+| [Research Expansion](plugins/research_expansion) | 0.4.2 | New research and changes to the research tree |
 | [Resources Button Fix](plugins/resources_button_fix) | 0.4.0 | Compact tool grids in the terrain editor |
 | [Technical Service Storage](plugins/technical_service_storage) | 0.3.3 | Grit storages, material priorities and snowplow tanks |
 | [UI Layout Fixes](plugins/ui_layout_fixes) | 0.3.0 | Row spacing in the customs house, text wrapping in info windows |
@@ -46,7 +46,7 @@ carries one local change: `TsmOpenLog` writes the plugin detail logs into `tesmi
 
 | Tool | Version | What it does |
 |---|---|---|
-| [Republic Mod Manager](tools/republic_mod_manager) | 0.5.7 | Windows program: settings, switching and loading of the plugins; its Workshop item brings the installer and the Workshop Bridge |
+| [Republic Mod Manager](tools/republic_mod_manager) | 0.5.9 | Windows program: settings, switching and loading of the plugins; its Workshop item brings the installer and the Workshop Bridge |
 
 ## Installing
 

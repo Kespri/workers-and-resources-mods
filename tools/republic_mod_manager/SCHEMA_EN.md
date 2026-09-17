@@ -75,7 +75,8 @@ other.plugin = >=1.2.0
 - `replaced_by_sml = deposits`: your plugin does the same job as one of the four capabilities Soviet Mod Loader has built in (`resources`, `deposits`, `needs`, `buildings`) and steps aside at game start while SML runs. RMM then shows the entry with an amber dot instead of grey and writes into the "Notices" card who is in charge. Any other value rejects the package. Your plugin has to step aside itself — the key only describes what it does.
 - `local_copy = 1`: the "Notes" card offers "Files local only" for packages that run through the Workshop Bridge. RMM copies DLL, INI and the `[assets] dir` folder to `plugins\` (the folder under its own name, `plugins\my_plugin\...`). The asset folder may not contain `.dll` or `.exe` files, at most 512 files of 64 MB each, no reparse points.
 - `[dependencies]`: `mod.id = <condition>` with `>=`, `>`, `=`, `<=`, `<`, a bare version (minimum) or `*`. Resolved against the packages in the Workshop folder; a classic plugin `plugins\<name>.dll` also counts when `<name>` is the last part of the id (version unchecked). A hook package in the bridge list counts as satisfied. Unmet dependencies block provisioning.
-- `[content]` without `[hooks] dll` is a pure content package: listed, never provisioned, applied only by the Soviet Mod Loader.
+- `[content]` without `[hooks] dll` is a pure content package: Soviet Mod Loader merges it at game start itself, and without it RMM provides it through the switch "Provide in the game" into the editors of the target plugins (chapter 11).
+- `[content] allow_settings = 1` is a switch of the Soviet Mod Loader: without it he takes only `[list]`, `[base_price]` and `[price]` from a package (for needs only `[list]`) and drops every `[custom:…]` section with a conflict note. With it they count - but then he also lets the plugin's own settings section through, so nothing but `[list]` and `[custom:…]` belongs in the fragment file. RMM reads those sections anyway and never complains about the key.
 
 ---
 
@@ -388,6 +389,58 @@ notice_style = info                    ; blue instead of yellow
 order = 20
 ```
 
+**A card list instead of a list beside a detail panel.** With `style = cards` in `[list]` every entry becomes a row of its own, and the fields move into a dialog behind "Change...":
+
+```ini
+[list]
+style = cards
+title = bp_name                 ; the field used as the heading of the row
+subtitle = bp_id|bp_object|bp_donor   ; the grey line below it
+toggle = bp_enabled             ; switch on the left, has to be type = boolean
+state = buildings_plus          ; built-in state provider, otherwise no state column
+actions = edit|open|delete      ; Change... / Open / bin
+```
+
+`title`, `subtitle` and `toggle` name field ids; an unknown one makes the schema fail to load. A search box appears from eight entries on, and the rows are sorted by their heading. An original (from the effective INI or from a content package) carries a padlock and is hidden rather than deleted.
+
+In the dialog every field with `card = global` sits on the first tab; each further `card` value becomes a tab of its own, labelled from `[card:<id>]`. Such a card can carry the line editor instead of fields:
+
+```ini
+[card:lines]
+tab = buildings
+label_key = bp.card.lines
+editor = donor_lines            ; the donor's file on the left, your lines on the right
+lines = bp_line                 ; the field with the building.ini lines
+strip = bp_strip                ; the field with the tokens to drop
+```
+
+The editor shows the donor's `building.ini` on the left (switchable to the result), strikes through what your declaration removes, and names below each of your lines which donor lines it kills - with a button that copies them back as lines of your own. In the result view every `$STORAGE` line carries the number `$RESOURCE_VISUALIZATION` would use, and water or sewage in front of a shown storage is reported. The result view is read only. Two of your lines that set the same thing are reported, and adding a second one asks first.
+
+The second line editor works on real target files instead of a donor:
+
+```ini
+[card:commands]
+tab = buildings
+label_key = vb.card.commands
+editor = target_lines           ; the target file on the left, the commands on the right
+targets = target                ; the field with the target files
+add = add                       ; the four line commands
+replace = replace
+remove = remove
+insert = insert
+add_connection = add_connection ; the three connection commands, same card
+replace_connection = replace_connection
+remove_connection = remove_connection
+```
+
+At the top you pick the target file - a rule set can have many, and every command is checked against each one separately. On the left are the lines of the unchanged file; clicking one makes it the anchor, and the buttons **Append, Replace, Before, After, Remove** turn it into the finished command. The commands are on the right; one that does not fit this file is red and says why below (not found, several matches, a `$COST_` line, already there …). A target file that is not on this machine switches the buttons off.
+
+Connections are blocks, not lines. Click any point line on the left and the editor takes the whole connection (the token line plus one or two point lines, or the single-line form `$TOKEN x y z`), and the buttons write the matching connection command by themselves instead of `add`/`replace`/`remove`. Points are compared as numbers, exactly as the plugin does, so `5` and `5.0` are the same point; a `*_ALLOWPASS` token is refused by the plugin and the editor says so right away. Before and After do not exist for connections - they always go behind the last one.
+
+The check box **Check against every target file** runs the selected command against every target file of the rule set and says in how many it fits. That matters more than it sounds: one command that misses in a single target file invalidates the **whole rule set** for that file - the plugin then writes "No rule for this target was applied" to the log, and none of your changes arrive. If a command only fits some of them, the editor names the first file it misses; that command belongs in a rule set of its own.
+
+The editor has two views. **Original** is the unchanged target file, where you click your anchors. **Result** shows, read only, the file the game will read once the commands have run, and marks every line a command adds (`+`) or replaces (`>`); clicking one names the command that wrote it. While a command is red the result is the unchanged original - which is exactly what happens in the game as well.
+
 Several lists in one `keyed_sections` schema: a `[group:<id>]` with its own `section_prefix` is an additional list; its texts come from `[list:<id>]` and `[new:<id>]`, its fields carry `group = <id>`. The default list is the first `[group:]` without a prefix. Identifiers of additional lists are full section names (`research:quartz`), shown without the prefix.
 
 ### 6.3 Columns (`keyed_list`)
@@ -540,7 +593,20 @@ The tab reads `media_soviet\workshop_wip` and shows name (from `$ITEM_NAME`, oth
 
 Reported without asking: a folder with `$OWNER_ID 0` (the button fills the Steam id in, and **only** that number) and a folder no package declares any more (Soviet Mod Loader closes the game at startup over it). The stamp is never touched.
 
-"Change..." lets the player edit the generated `building.ini`. What is stored are **changes**, not the file: per building `user_config\.autoload\wip\` holds a receipt `<id>.receipt.ini` with `replace = old line | new line`, `remove = line` and `add = line`, plus `<id>.baseline.ini`, the generator's output verbatim. When the generator writes anew (the hash in `tesmioloader.stamp` changes), its fresh output becomes the new baseline and the changes are applied again - whatever the package improved is kept. An anchor that matches no line, or more than one, is reported and left out. A schema needs nothing beyond `[wip_buildings]` for this.
+"Change..." lets the player edit the generated `building.ini`. What is stored are **changes**, not the file: per building `user_config\.autoload\wip\` holds a receipt `<id>.receipt.ini` with `replace = old line | new line`, `remove = line` and `add = line`, plus `<id>.baseline.ini`, the generator's output verbatim.
+
+An anchor may span **several lines**. A token and the lines below it without a token of their own are one block, and only that makes a line addressable: `rotation 0.0` often occurs three times in a generated file, the block it belongs to exactly once. Clicking any line of a block selects the whole block. As soon as one change is a block, RMM writes the receipt as sections so their order survives (both forms are read):
+
+```ini
+[op:4]
+kind = replace
+old = $RESOURCE_VISUALIZATION 3
+old = rotation 0.0
+new = $RESOURCE_VISUALIZATION 3
+new = rotation 90.0
+```
+
+When the generator writes anew (the hash in `tesmioloader.stamp` changes), its fresh output becomes the new baseline and the changes are applied again - whatever the package improved is kept. An anchor that matches no line, or more than one, is reported and left out. A schema needs nothing beyond `[wip_buildings]` for this.
 
 ---
 

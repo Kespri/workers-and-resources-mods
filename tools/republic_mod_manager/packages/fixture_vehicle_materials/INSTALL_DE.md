@@ -1,4 +1,4 @@
-# Vehicle Materials 1.1.1-beta
+# Vehicle Materials 0.4.0
 
 Dieses Paket ist fuer drei alternative Installationswege vorbereitet. Immer nur
 einen Weg benutzen; dieselbe Plugin-DLL darf nicht zweimal geladen werden.
@@ -39,5 +39,5 @@ Windows x64, WRSR 1.1.1.9, TesmioLoader API 4 und ein Resources-Dienst mit den
 konfigurierten Materialien (standardmaessig glass und cable).
 Native DLLs koennen Code ausfuehren: nur Pakete vertrauenswuerdiger Autoren nutzen.
 
-Die Version 1.1.1-beta aendert ausschliesslich die INI-Pfadsuche. Die Berechnung
+Die Version 0.4.0 aendert ausschliesslich die INI-Pfadsuche. Die Berechnung
 der Fahrzeugmaterialien ist gegenueber 1.1.0 unveraendert.

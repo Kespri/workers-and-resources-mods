@@ -24,7 +24,7 @@ Quelltext, wie es die GNU GPL v3 verlangt; fertige DLLs liegen hier nicht.
 | [Depletion](plugins/depletion) | 1.1.2 | Vorkommen, die zur Neige gehen, mit Anzeige im Minenfenster |
 | [Localization](plugins/localization) | 0.4.0 | Ãœbersetzungsdienst: Textpakete werden zu erweiterten Sprachdateien |
 | [Rail Physics Fix](plugins/rail_physics_fix) | 1.3.5 | Zugphysik: Antrieb, Bremsen, Steigungen, Kurven- und Bahnhofslimits, Verbrauch |
-| [Research Expansion](plugins/research_expansion) | 0.4.1 | Neue Forschungen und Ã„nderungen am Forschungsbaum |
+| [Research Expansion](plugins/research_expansion) | 0.4.2 | Neue Forschungen und Ã„nderungen am Forschungsbaum |
 | [Resources Button Fix](plugins/resources_button_fix) | 0.4.0 | Kompakte Werkzeugraster im GelÃ¤ndeeditor |
 | [Technical Service Storage](plugins/technical_service_storage) | 0.3.3 | Streugutlager, MaterialprioritÃ¤ten und Schneepflugtanks |
 | [UI Layout Fixes](plugins/ui_layout_fixes) | 0.3.0 | Zeilenabstand im Zollhaus, Textumbruch in Info-Fenstern |
@@ -47,7 +47,7 @@ der Plugins nach `tesmioloader\build\logs\`.
 
 | Werkzeug | Version | Was es macht |
 |---|---|---|
-| [Republic Mod Manager](tools/republic_mod_manager) | 0.5.7 | Windows-Programm: Einstellungen, Ein- und Ausschalten und Laden der Plugins; sein Workshop-Objekt bringt den Installer und die Workshop Bridge mit |
+| [Republic Mod Manager](tools/republic_mod_manager) | 0.5.9 | Windows-Programm: Einstellungen, Ein- und Ausschalten und Laden der Plugins; sein Workshop-Objekt bringt den Installer und die Workshop Bridge mit |
 
 ## Installation
 

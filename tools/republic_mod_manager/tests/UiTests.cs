@@ -138,6 +138,122 @@ static class UiTests
                 WipBuildings.TestOwner="76561198017498697";
                 form.TestSearch("Buildings Plus");form.SelectIndex(0);Application.DoEvents();
                 Check(form.HasLocalResourceEditor&&form.TabCount==3,"Buildings Plus opens with General, Buildings and the SML buildings tab");
+
+                // 0.5.8: the Buildings tab is a card list - one row per building with its own
+                // switch, a state line and the buttons; the fields moved into the dialog.
+                form.SelectTab("buildings");Application.DoEvents();
+                var cardEdit=Children(form).OfType<Button>().FirstOrDefault(x=>(x.AccessibleName??"")=="card:edit:example");
+                var cardState=Children(form).OfType<Label>().FirstOrDefault(x=>(x.AccessibleName??"")=="card:state:example");
+                Check(cardEdit!=null&&cardState!=null&&Children(form).OfType<ToggleSwitch>().Any(x=>(x.AccessibleName??"")=="card:toggle:example")&&Children(form).OfType<VectorButton>().Any(x=>(x.AccessibleName??"")=="card:delete:example"),"the buildings tab lists a row per building with switch, state and buttons");
+                Check(cardState.Text=="Spender nicht gefunden","a donor that is not on this machine is named in the row, long before the game says anything");
+                Write(Path.Combine(root,"media_soviet","buildings_types","shop_clothes.ini"),"$NAME_STR \"Clothes shop\"\r\n$WORKERS_NEEDED 20\r\n");
+                form.SelectTab("general");Application.DoEvents();form.SelectTab("buildings");Application.DoEvents();
+                cardState=Children(form).OfType<Label>().First(x=>(x.AccessibleName??"")=="card:state:example");
+                Check(cardState.Text.StartsWith("Wird beim n"),"with the donor in place the row says the folder is written at the next start");
+                // The details tab carries the fields, the lines tab the editor: the donor's
+                // building.ini beside your own lines, with what each of yours removes.
+                int dialogTabs=0;bool editorThere=false,added=false,keepOffered=false,namedGone=false,takenOnce=false,resultReadOnly=false,noDuplicate=false,overwritten=false,keptBoth=false,cancelled=false,resultLocked=false;
+                form.CardDialogPrompt=dialog=>
+                {
+                    dialogTabs=Children(dialog).OfType<Button>().Count(x=>(x.AccessibleName??"").StartsWith("card-tab:"));
+                    var select=dialog.Tag as Action<string>;
+                    if(select==null)return DialogResult.Cancel;
+                    select("lines");Application.DoEvents();
+                    var editor=form.TestDonorEditor;editorThere=editor!=null;
+                    if(editor==null)return DialogResult.Cancel;
+                    editor.TestType("$WORKERS_NEEDED 150");editor.TestAdd();Application.DoEvents();
+                    added=editor.Lines.Contains("$WORKERS_NEEDED 150");
+                    editor.TestSelectMine(0);Application.DoEvents();
+                    keepOffered=editor.TestHasKeep;
+                    // A picture of the dialog: it is never shown in the test, so it has to be
+                    // laid out by hand before it can be drawn.
+                    dialog.StartPosition=FormStartPosition.Manual;dialog.Location=new Point(-20000,-20000);dialog.Size=new Size(1120,780);
+                    dialog.Show();Application.DoEvents();dialog.PerformLayout();Application.DoEvents();
+                    using(var image=new Bitmap(dialog.Width,dialog.Height)){dialog.DrawToBitmap(image,new Rectangle(0,0,dialog.Width,dialog.Height));image.Save(Path.Combine(root,"ui-donor-editor.png"));}
+                    dialog.Hide();
+                    // The name field alone removes the donor's name line, without a line of its own.
+                    namedGone=editor.TestDropped("$NAME_STR \"Clothes shop\"");
+                    // 0.5.8: taking a donor line that one of your lines already replaces overwrites
+                    // that line instead of piling up a second and a third copy of the same token.
+                    editor.TestSelectDonor(1);Application.DoEvents();
+                    editor.TestTake();Application.DoEvents();
+                    takenOnce=editor.Lines.Count()==1&&editor.Lines.Contains("$WORKERS_NEEDED 20");
+                    // And the result view is read-only: it shows what will be written, nothing is taken there.
+                    editor.TestView(true);Application.DoEvents();
+                    editor.TestSelectDonor(0);Application.DoEvents();
+                    int before=editor.Lines.Count();editor.TestTake();Application.DoEvents();
+                    resultReadOnly=editor.Lines.Count()==before;
+                    editor.TestView(false);Application.DoEvents();
+                    int dupBefore=editor.Lines.Count();editor.TestType("$WORKERS_NEEDED 20");editor.TestAdd();Application.DoEvents();
+                    noDuplicate=editor.Lines.Count()==dupBefore;
+                    // 0.5.8: the same setting with another value is not a second line - the editor
+                    // asks whether to overwrite, because only one of the two counts in the game.
+                    editor.DoublePrompt = t => DialogResult.Yes;
+                    editor.TestType("$WORKERS_NEEDED 8");editor.TestAdd();Application.DoEvents();
+                    overwritten=editor.Lines.Count()==1&&editor.Lines.Contains("$WORKERS_NEEDED 8");
+                    editor.DoublePrompt = t => DialogResult.No;
+                    editor.TestType("$WORKERS_NEEDED 15");editor.TestAdd();Application.DoEvents();
+                    keptBoth=editor.Lines.Count()==2&&editor.TestWarnings.Any(x=>x.Contains("donor_warn_double"));
+                    editor.DoublePrompt = t => DialogResult.Cancel;
+                    editor.TestType("$WORKERS_NEEDED 99");editor.TestAdd();Application.DoEvents();
+                    cancelled=editor.Lines.Count()==2;
+                    editor.DoublePrompt = null;
+                    // The result view switches every editing button off, so none of them can report
+                    // a reason that does not apply there.
+                    editor.TestView(true);Application.DoEvents();
+                    resultLocked=!editor.TestEditable;
+                    dialog.Show();Application.DoEvents();dialog.PerformLayout();Application.DoEvents();
+                    using(var view=new Bitmap(dialog.Width,dialog.Height)){dialog.DrawToBitmap(view,new Rectangle(0,0,dialog.Width,dialog.Height));view.Save(Path.Combine(root,"ui-donor-result.png"));}
+                    dialog.Hide();
+                    editor.TestView(false);Application.DoEvents();
+                    resultLocked=resultLocked&&editor.TestEditable;
+                    return DialogResult.Cancel;
+                };
+                cardEdit.PerformClick();Application.DoEvents();form.CardDialogPrompt=null;
+                Check(dialogTabs==2&&editorThere,"the change dialog has a details and a lines tab, and the second one is the line editor ["+dialogTabs+" tabs, editor "+editorThere+"]");
+                Check(added&&keepOffered,"a line of yours is added and the editor offers to keep what it removes from the donor");
+                Check(namedGone,"the name field alone removes the donor's own name line");
+                Check(takenOnce,"taking a donor line twice overwrites your line instead of adding the same token again");
+                Check(resultReadOnly,"the result view takes nothing: it only shows what will be written");
+                Check(noDuplicate,"Add with a block that is already in the list picks the existing one instead of a copy");
+                Check(overwritten,"the same setting with another value overwrites when you say so");
+                Check(keptBoth,"a second line is allowed when you insist, and then it is reported");
+                Check(cancelled,"Cancel in that question adds nothing");
+                Check(resultLocked,"the result view switches the editing buttons off and the donor view switches them back on");
+
+
+                // 0.5.8: the + opens the very same dialog, only empty - one way for adding and
+                // changing instead of two. The entry exists as a placeholder while the dialog is
+                // open and gets its name when Apply is pressed.
+                bool idBoxThere=false,waitsForDonor=false;
+                var addButton=Children(form).OfType<VectorButton>().FirstOrDefault(x=>(x.AccessibleName??"")=="card:add");
+                Check(addButton!=null,"the card list carries the + in its header");
+                form.CardDialogPrompt=dialog=>
+                {
+                    var select=dialog.Tag as Action<string>;
+                    idBoxThere=Children(dialog).OfType<TextBox>().Any(x=>(x.AccessibleName??"")=="card-dialog:id");
+                    select("lines");Application.DoEvents();
+                    waitsForDonor=form.TestDonorEditor==null;
+                    select("global");Application.DoEvents();
+                    var box=Children(dialog).OfType<TextBox>().FirstOrDefault(x=>(x.AccessibleName??"")=="card-dialog:id");
+                    if(box!=null)box.Text="Salt Mine";
+                    dialog.StartPosition=FormStartPosition.Manual;dialog.Location=new Point(-20000,-20000);dialog.Size=new Size(1120,780);
+                    dialog.Show();Application.DoEvents();dialog.PerformLayout();Application.DoEvents();
+                    using(var shot=new Bitmap(dialog.Width,dialog.Height)){dialog.DrawToBitmap(shot,new Rectangle(0,0,dialog.Width,dialog.Height));shot.Save(Path.Combine(root,"ui-card-add.png"));}
+                    dialog.Hide();
+                    var ok=Children(dialog).OfType<Button>().First(x=>(x.AccessibleName??"")=="card-dialog:apply");
+                    ((Action)ok.Tag)();
+                    return dialog.DialogResult;
+                };
+                addButton.PerformTestClick();Application.DoEvents();form.CardDialogPrompt=null;
+                Check(idBoxThere,"a new entry asks for its name in the dialog instead of in a second window");
+                Check(waitsForDonor,"the lines tab waits for a donor instead of showing an empty editor");
+                Check(Children(form).OfType<Button>().Any(x=>(x.AccessibleName??"")=="card:edit:salt_mine"),"Apply creates the section under the name that was typed");
+                Check(!Children(form).OfType<Button>().Any(x=>(x.AccessibleName??"")=="card:edit:new_entry"),"the placeholder the dialog worked on is gone");
+                addButton=Children(form).OfType<VectorButton>().First(x=>(x.AccessibleName??"")=="card:add");
+                form.CardDialogPrompt=dialog=>DialogResult.Cancel;
+                addButton.PerformTestClick();Application.DoEvents();form.CardDialogPrompt=null;
+                Check(!Children(form).OfType<Button>().Any(x=>(x.AccessibleName??"")=="card:edit:new_entry"),"Cancel leaves no half-made entry behind");
                 form.SelectTab("sml");Application.DoEvents();
                 Check(Children(form).OfType<Card>().Single().HeaderText.StartsWith("Von Soviet Mod Loader")&&Children(form).OfType<Label>().Any(x=>x.Text.Contains("9188000001")&&x.Text.Contains("SaltMine")),"the SML tab lists the generated folder with id, object and origin");
                 Check(Children(form).OfType<Label>().Any(x=>x.Text=="Salt Mine")&&Children(form).OfType<Label>().Any(x=>x.Text.Contains("kein Paket mehr")),"the name comes from the folder, and a folder no package declares is reported as stale");
@@ -274,6 +390,65 @@ static class UiTests
                     Check(dimmed&&behind==1,"a dark backdrop covers the owner while the dialog is open");
                     Check(owner.OwnedForms.Length==0,"the backdrop is gone when the dialog closes");
                     owner.Close();
+                }
+            }
+            // 0.5.8: the commands editor of a Vanilla Buildings rule set. Driven on its own, with a
+            // target file handed in - the wiring into the dialog is the same as for the donor editor.
+            {
+                var file=new List<string>{"$NAME_STR \"Shop\"","$WORKERS_NEEDED 20","$STORAGE RESOURCE_TRANSPORT_COVERED 40","end"};
+                using(var editor=new TargetLinesEditor(new Language("de"),new[]{@"buildings_types\shop.ini",@"2496571917\x\building.ini"},
+                    f=>f.StartsWith("buildings_types")?file:null,new string[0],new string[0],new string[0],new string[0],new Font("Segoe UI",10)))
+                {
+                    Check(editor.TestEditable,"an existing target file leaves the buttons on");
+                    editor.TestSelectLine(1);editor.TestType("$WORKERS_NEEDED 30");editor.TestReplace();
+                    Check(editor.Replace.Count()==1&&editor.Replace.First()=="$WORKERS_NEEDED 20 | $WORKERS_NEEDED 30","picking the line and typing the new one writes the replace command");
+                    editor.TestSelectLine(1);editor.TestType("$LIFESPAN 4000");editor.TestInsert(true);
+                    Check(editor.Insert.First()=="1 | $WORKERS_NEEDED 20 | $LIFESPAN 4000","insert carries the position, the picked anchor and the new line");
+                    editor.TestType("$CITIZEN_ABLE_SERVE 6");editor.TestAdd();
+                    Check(editor.Add.First()=="$CITIZEN_ABLE_SERVE 6"&&!editor.TestProblems.Any(),"an appended line that is not in the file yet fits");
+                    editor.TestType("$WORKERS_NEEDED 20");editor.TestAdd();
+                    Check(editor.TestProblems.Any(x=>x=="target_problem_exists"),"appending a line the file already has is reported");
+                    editor.TestSelectCommand(1);editor.TestDrop();
+                    Check(!editor.Add.Contains("$WORKERS_NEEDED 20"),"a command can be thrown out again");
+                    // The second view: the file the game will read, and nothing to change there.
+                    editor.TestView(true);
+                    Check(!editor.TestEditable,"the result view switches every button off");
+                    Check(editor.TestResult.Contains("$WORKERS_NEEDED 30")&&!editor.TestResult.Contains("$WORKERS_NEEDED 20"),"the result carries the replaced line instead of the old one");
+                    Check(editor.TestResult.Contains("$LIFESPAN 4000")&&editor.TestResult.Contains("$CITIZEN_ABLE_SERVE 6"),"the inserted and the appended line stand in the result");
+                    Check(editor.TestResultCommand(editor.TestResult.ToList().IndexOf("$LIFESPAN 4000"))>=0,"a produced line says which command made it");
+                    editor.TestView(false);
+                    Check(editor.TestEditable,"back in the original view the buttons work again");
+                    // A picture of it: the control has to sit in a window that was shown once.
+                    using(var frame=new Form{StartPosition=FormStartPosition.Manual,Location=new Point(-20000,-20000),Size=new Size(1080,660),Font=new Font("Segoe UI",10),BackColor=Color.White})
+                    {
+                        editor.TestSelectCommand(0);frame.Controls.Add(editor);
+                        frame.Show();Application.DoEvents();frame.PerformLayout();Application.DoEvents();
+                        using(var shot=new Bitmap(frame.Width,frame.Height)){frame.DrawToBitmap(shot,new Rectangle(0,0,frame.Width,frame.Height));shot.Save(Path.Combine(root,"ui-target-editor.png"));}
+                        editor.TestView(true);Application.DoEvents();
+                        using(var shot=new Bitmap(frame.Width,frame.Height)){frame.DrawToBitmap(shot,new Rectangle(0,0,frame.Width,frame.Height));shot.Save(Path.Combine(root,"ui-target-result.png"));}
+                        editor.TestView(false);Application.DoEvents();
+                        frame.Hide();frame.Controls.Remove(editor);
+                    }
+                    editor.TestTarget(1);
+                    Check(!editor.TestEditable,"a target file that is not on this machine switches the buttons off");
+                }
+                // 0.5.8: connections in the same editor, taken as a block; and the box that checks
+                // every target instead of the chosen one.
+                var linked=new List<string>{"$NAME_STR \"Shop\"","$CONNECTION_ROAD","-19.12 0.36 -27.02","-19.12 0.36 -30.02","$WORKERS_NEEDED 20","end"};
+                var second=new List<string>{"$NAME_STR \"Other\"","$WORKERS_NEEDED 25","end"};
+                using(var editor=new TargetLinesEditor(new Language("de"),new[]{"a.ini","b.ini"},
+                    f=>f=="a.ini"?linked:second,new string[0],new string[0],new string[0],new string[0],new string[0],new string[0],new string[0],new Font("Segoe UI",10)))
+                {
+                    editor.TestSelectLine(2);
+                    Check(editor.TestTyped.Contains("$CONNECTION_ROAD")&&editor.TestTyped.Contains("-19.12 0.36 -30.02"),"clicking a point line puts the whole connection block into the box");
+                    editor.TestRemove();
+                    Check(editor.RemoveLink.Count()==1&&editor.RemoveLink.First().StartsWith("$CONNECTION_ROAD | -19.12"),"Remove on a connection writes remove_connection with its points");
+                    editor.TestType("$CONNECTION_PEDESTRIAN\n1 0 1\n2 0 2");editor.TestAdd();
+                    Check(editor.AddLink.First()=="$CONNECTION_PEDESTRIAN | 1 0 1 | 2 0 2","a typed connection block becomes add_connection");
+                    Check(!editor.TestProblems.Any(),"both connection commands fit this file");
+                    // The rule set's second target has none of it: the box says so.
+                    editor.TestEverywhere(true);
+                    Check(editor.TestSpread("remove_connection",0)==1,"with the box ticked the command is counted against every target");
                 }
             }
             // 0.23.0: profiles and restore points window, driven through its test hooks.
@@ -439,6 +614,26 @@ static class UiTests
                 string provideAnswer=form.CliSave(()=>{});
                 Check(provideAnswer.StartsWith("PASS")&&form.ContentProvided&&File.Exists(switchPng),"--save then provides the content package ["+provideAnswer+"]");
                 Check(form.CliActivate(false)==null&&form.CliSave(()=>{}).StartsWith("PASS")&&!form.ContentProvided&&!File.Exists(switchPng),"--activate off followed by --save takes it away again");
+            }
+            // 0.5.9: a package whose ids the game already has is refused - red, with what to do.
+            // But under Soviet Mod Loader there is no switch to press here at all, and the entry in
+            // the way is usually the one SML built from this very package. The red box then only
+            // makes RMM look broken, so it stays away.
+            Write(resourceIni,SafeFiles.Text(resourceIni).Replace("[resources]","raw_salt = rawgravel, Raw Salt\r\n\r\n[resources]"));
+            using(var form=new MainForm(new UiState{Build=loader,WorkshopRoot=collection,SelectedSource=contentPkg,Language="de"},null,false))
+            {
+                HiddenShow(form);
+                Check(Children(form).OfType<NoticeBox>().Any(x=>x.Tone=="error"),"without SML a clashing id is reported in red");
+            }
+            File.WriteAllBytes(Path.Combine(plugins,"soviet_mod_loader.dll"),new byte[]{7,7,7});
+            Write(Path.Combine(plugins,"soviet_mod_loader.ini"),"[loader]\nenabled = 1\n");
+            Write(Path.Combine(loader,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\nsoviet_mod_loader=1\nresources=0\n");
+            File.Delete(resourceDll);
+            using(var form=new MainForm(new UiState{Build=loader,WorkshopRoot=collection,SelectedSource=contentPkg,Language="de"},null,false))
+            {
+                HiddenShow(form);
+                Check(!Children(form).OfType<NoticeBox>().Any(x=>x.Tone=="error"),"with SML in charge the same clash raises no red box");
+                Check(!form.SwitchVisible&&Children(form).OfType<Label>().Any(x=>x.Text.Contains("Soviet Mod Loader")),"the page says who is in charge instead");
             }
             Console.WriteLine("RESULT "+passed+" UI assertions passed. "+root);return 0;
         }

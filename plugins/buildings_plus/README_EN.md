@@ -32,7 +32,7 @@ Adds new buildings to *Workers & Resources: Soviet Republic* 1.1.1.9 without mod
 
 ### In three steps
 1. **Choose one installation method** (see below) and enable the plugin.
-2. **Declare buildings:** in Republic Mod Manager add a section with +, enter the donor (the Workshop id may stay empty), then name and lines on the right. By hand: one section in `buildings_plus.ini`, like the shipped example `[example_pharmacy]` (disabled).
+2. **Declare buildings:** in Republic Mod Manager press "Add" on the Buildings tab and fill in object name, donor, name in the game and the lines (the Workshop id may stay empty). By hand: one section in `buildings_plus.ini`, like the shipped example `[example_pharmacy]` (disabled).
 3. **Restart the game completely.** The building appears in the build menu under its `name`; the log shows one line per section with folder and donor.
 
 ---
@@ -101,10 +101,13 @@ runs the same under SML and under Republic Mod Manager.
 
 ## 🧰 Republic Mod Manager
 
-The package ships an editor schema in the `config` folder. Republic Mod Manager shows Buildings Plus in two tabs, German and English:
+The package ships an editor schema in the `config` folder. Republic Mod Manager shows Buildings Plus in three tabs, German and English:
 
-- **General:** notes, guides and the switches Fill in the owner id, Clean up (prune), Always rewrite (always) and Detailed log
-- **Buildings:** the sections on the left, the selected building on the right with its switch, Workshop id, donor, object name, name, description, life, the building.ini lines and the donor lines to remove. The plus button asks for donor and Workshop id; the id may stay empty.
+- **General:** notes, guides, the card "Generated folders" with the switches Fill in the owner id and Clean up folders (prune), plus the card "Troubleshooting" with Always rewrite (always) and Detailed log
+- **Buildings:** one row per building with its switch, name, number, donor, state and the buttons Change, Open and Delete. "Add" and "Change…" open the very same window with two tabs: **Details** (object name, Workshop id, donor, name in the game, description, life) and **Lines** (the donor's building.ini beside your own lines, showing which donor lines each of yours removes)
+- **SML buildings:** what Soviet Mod Loader generated into `media_soviet\workshop_wip` itself, with the button that fills in a missing owner id
+
+Republic Mod Manager does not offer the `object` key - there the object name is always the section name. Written by hand, `object` still counts.
 
 Personal buildings live in `user_config\buildings_plus.editor.ini`, the effective file is `plugins\buildings_plus.ini`; the INI in the package stays untouched.
 

@@ -1,4 +1,4 @@
-# 🔬 Research Expansion 0.4.1
+# 🔬 Research Expansion 0.4.2
 
 **TesmioLoader plugin for new research and changes to the research tree**
 
@@ -48,6 +48,9 @@ Adds your own research entries to *Workers & Resources: Soviet Republic* 1.1.1.9
 - ✅ Own icons per research with a fallback icon
 - ✅ Every error rejects the whole extension and leaves Vanilla research active; the log names file, rule and line
 - ✅ Original files stay untouched; the generated file lives in the loader's VFS
+
+### 🆕 New in 0.4.2
+- Log wording only: the startup line now names the version of the running plugin instead of a fixed number.
 
 ### 🆕 New in 0.4.1
 - Log wording only: the message about the unused keys `icon_folder` and `noimage_name` is clearer.
@@ -123,7 +126,7 @@ Choose **one** of the four methods. The same DLL must never be loaded twice. Loc
 
 ## 🧰 Republic Mod Manager
 
-The package ships an editor schema in the `config` folder. Republic Mod Manager (0.33.0 and later) shows Research Expansion in two tabs, German and English:
+The package ships an editor schema in the `config` folder. Republic Mod Manager shows Research Expansion in two tabs, German and English:
 
 - **General:** notes, "Files local only", the button for this guide and the plugin settings (apply extension, research icons, diagnostic log)
 - **Vanilla edits:** the edited research on the left, the selected one on the right with its switch and one multi-line field each for replace, remove, add, insert and move; the plus button adds an edit for a Vanilla research id
@@ -140,7 +143,7 @@ The DLL reads in this order:
 - **First:** `tesmioloader\build\plugins\research_expansion.ini` if it exists (classic installation, "Files local only", or the effective INI written by Republic Mod Manager)
 - **Otherwise:** the INI beside the DLL, in the package `hooks\research_expansion.ini` (Soviet Mod Loader, Workshop Bridge)
 
-⚠️ **Comments only on their own lines with `;`.** UTF-8 without BOM, at most 8 MiB. Directive names are case-sensitive. `[general]` allows only `enabled` and `debug` (`icon_folder` and `noimage_name` from 1.5 are ignored). Changes take effect after a complete restart.
+⚠️ **Comments only on their own lines with `;`.** UTF-8 without BOM, at most 8 MiB. Directive names are case-sensitive. `[general]` allows only `enabled` and `debug` (`icon_folder` and `noimage_name` are ignored). Changes take effect after a complete restart.
 
 ### Section `[general]`
 
@@ -276,6 +279,7 @@ Research is part of the savegame: a new research a savegame already knows should
 Localization is mandatory. Other plugins that replace `research.ini` are not merged.
 
 ### Version compatibility
+- **0.4.2:** log wording only; logic and INI unchanged
 - **0.4.1:** log wording only; logic and INI unchanged
 - **0.4.0:** first published version
 
@@ -373,5 +377,5 @@ A: For new research blocks, yes. Edits of Vanilla research and the plugin settin
 
 ---
 
-**Last update:** Research Expansion 0.4.1  
+**Last update:** Research Expansion 0.4.2  
 **For:** WRSR 1.1.1.9 | TesmioLoader API 4

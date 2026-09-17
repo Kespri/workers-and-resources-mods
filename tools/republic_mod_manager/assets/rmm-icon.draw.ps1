@@ -39,7 +39,7 @@ $font = New-Object System.Drawing.Font("Segoe UI", 12); $tb = New-Object System.
 $sg.DrawImage($big, 24, 24, 400, 400)
 $x = 470
 foreach ($sz in 128,64,48,32,24,16) { $img = DrawB $sz; $sg.DrawImage($img, $x, 24 + (128-$sz)); $sg.DrawString("$sz",$font,$tb,$x,160); $x += $sz + 24; $img.Dispose() }
-$sg.FillRectangle((New-Object System.Drawing.SolidBrush($white)), 470, 200, 500, 32); $t16 = DrawB 16; $sg.DrawImage($t16, 478, 208); $sg.DrawString("Republic Mod Manager 0.17.0-beta  -  fuer TesmioLoader b0.3.6",$font,$tb,500,206)
+$sg.FillRectangle((New-Object System.Drawing.SolidBrush($white)), 470, 200, 500, 32); $t16 = DrawB 16; $sg.DrawImage($t16, 478, 208); $sg.DrawString("Republic Mod Manager 0.5.9  -  fuer TesmioLoader b0.3.6",$font,$tb,500,206)
 $sg.FillRectangle((New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(32,32,32))), 470, 250, 500, 48); $t24 = DrawB 24; $sg.DrawImage($t24, 486, 262); $sg.DrawString("Taskleiste",$font,$tw,520,264)
 $sg.FillRectangle((New-Object System.Drawing.SolidBrush($navy)), 470, 320, 500, 100); $t40 = DrawB 40; $sg.DrawImage($t40, 490, 350)
 $f2 = New-Object System.Drawing.Font("Segoe UI", 15, [System.Drawing.FontStyle]::Bold); $sg.DrawString("Republic Mod Manager",$f2,$tw,540,344); $sg.DrawString("Plugins fuer TesmioLoader",$font,$tw,540,374)

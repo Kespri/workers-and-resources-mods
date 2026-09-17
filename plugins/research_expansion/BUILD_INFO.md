@@ -7,6 +7,12 @@ plugin. Output: a generated `research.ini` plus one `<id>.png` per new research 
 (`<loader>\vfs\media_soviet\research`). User documentation: README_DE.md / README_EN.md.
 History newest first.
 
+## 0.4.2 (2026-09-17)
+
+- Log wording only: the startup line builds its version marker from `PLUGIN_VERSION`, so it always
+  names the running build instead of a fixed number. Version comments inside the source and the
+  shipped INI are gone as well. No logic change.
+
 ## 0.4.1 (2026-09-11)
 
 - 2026-09-11, version unchanged: the detail log `tesmioloader.research_expansion.log` is written to `<loader>\logs\`

@@ -164,7 +164,7 @@ static bool ParseConfigText(const std::string& input)
     g_configComplete = true;
     return true;
 }
-// Folder of this DLL (0.3.1), used only when plugins\technical_service_storage.ini
+// Folder of this DLL, used only when plugins\technical_service_storage.ini
 // is missing: a Workshop package loaded by Soviet Mod Loader or the Workshop
 // Bridge carries its INI beside the DLL.
 static std::string ConfigOwnDirectory()

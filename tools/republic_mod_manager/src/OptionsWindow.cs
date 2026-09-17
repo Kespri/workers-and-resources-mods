@@ -250,6 +250,7 @@ namespace TesmioAutoload
             if (plan.Restored.Count > 0) Entry(table, language.T("options_reset_caption_restored"), language.Format("options_reset_restored", Join(plan.Restored)));
             if (plan.Edited.Count > 0) Entry(table, language.T("options_reset_caption_edited"), language.Format("options_reset_edited", Join(plan.Edited)));
             if (plan.Buildings.Count > 0) Entry(table, language.T("options_reset_caption_buildings"), language.Format("options_reset_buildings", Join(plan.Buildings)));
+            if (plan.Overlays.Count > 0) Entry(table, language.T("options_reset_caption_overlay"), language.Format("options_reset_overlay", SmlOverlay.Name, Join(plan.Overlays)));
             stack.RowStyles.Add(new RowStyle(SizeType.AutoSize)); stack.Controls.Add(table);
 
             // A rule, then what stays: it must not read like part of the list above.

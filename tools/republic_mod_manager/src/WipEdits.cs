@@ -19,7 +19,15 @@ namespace TesmioAutoload
     public sealed class WipOperation
     {
         public string Kind = "replace";   // replace | remove | add
+        // 0.5.8: both may span several lines. A token and the lines below it without a token of
+        // their own are one block, and a block is what makes an anchor unique: `rotation 0.0`
+        // occurs three times in a generated building.ini, the block it belongs to only once.
         public string Anchor = "", Value = "";
+        public List<string> AnchorLines { get { return Cut(Anchor); } }
+        public List<string> ValueLines { get { return Cut(Value); } }
+        public bool Block { get { return AnchorLines.Count > 1 || ValueLines.Count > 1; } }
+        public static List<string> Cut(string text)
+        { return (text ?? "").Replace("\r\n", "\n").Split('\n').Where(x => x.Trim().Length > 0).ToList(); }
         // 0.5.6: for the eye only. The game's building.ini aligns its values with runs of spaces,
         // and a replacement shows the line twice - squeezed into one row that is unreadable. The
         // stored Anchor and Value keep every space: the anchor has to match the generated line
@@ -28,11 +36,19 @@ namespace TesmioAutoload
         {
             return String.IsNullOrEmpty(line) ? "" : Regex.Replace(line.Trim(), "[ \t]{2,}", " ");
         }
+        // A block is shown by its first line plus how many more there are - the list is one row
+        // per change, and the whole block would make it unreadable.
+        static string Short(string text)
+        {
+            var lines = Cut(text);
+            if (lines.Count == 0) return "";
+            return Squeeze(lines[0]) + (lines.Count > 1 ? "  (+" + (lines.Count - 1) + ")" : "");
+        }
         public override string ToString()
         {
-            return Kind == "add" ? "+ " + Squeeze(Value)
-                 : Kind == "remove" ? "- " + Squeeze(Anchor)
-                 : "~ " + Squeeze(Anchor) + "  ->  " + Squeeze(Value);
+            return Kind == "add" ? "+ " + Short(Value)
+                 : Kind == "remove" ? "- " + Short(Anchor)
+                 : "~ " + Short(Anchor) + "  ->  " + Short(Value);
         }
     }
 
@@ -92,6 +108,8 @@ namespace TesmioAutoload
                 edit.Section = ini.Get("wip", "section") ?? "";
                 edit.StampHash = ini.Get("wip", "stamp_hash") ?? "";
                 edit.ResultHash = ini.Get("wip", "result_hash") ?? "";
+                // The short form, one line per change. Receipts written before 0.5.8 have only
+                // this, and a receipt with nothing but single lines is still written this way.
                 foreach (string value in ini.GetAll("operations", "replace"))
                 {
                     int bar = value.IndexOf('|');
@@ -101,6 +119,15 @@ namespace TesmioAutoload
                     if (value.Trim().Length > 0) edit.Operations.Add(new WipOperation { Kind = "remove", Anchor = value.Trim() });
                 foreach (string value in ini.GetAll("operations", "add"))
                     if (value.Trim().Length > 0) edit.Operations.Add(new WipOperation { Kind = "add", Value = value.Trim() });
+                // 0.5.8: one section per change, for blocks - a block is several lines and "|"
+                // is no use as a separator once a line may contain anything.
+                foreach (string section in ini.SectionNames().Where(x => x.StartsWith("op:", StringComparison.OrdinalIgnoreCase)).OrderBy(Order))
+                {
+                    string kind = (ini.Get(section, "kind") ?? "replace").Trim().ToLowerInvariant();
+                    if (kind != "replace" && kind != "remove" && kind != "add") continue;
+                    var op = new WipOperation { Kind = kind, Anchor = String.Join("\n", ini.GetAll(section, "old")), Value = String.Join("\n", ini.GetAll(section, "new")) };
+                    if (kind == "add" ? op.ValueLines.Count > 0 : op.AnchorLines.Count > 0) edit.Operations.Add(op);
+                }
                 string baseline = BaselineFile(build, id);
                 if (File.Exists(baseline)) edit.Baseline = SafeFiles.Text(baseline);
                 edit.Exists = true;
@@ -123,17 +150,38 @@ namespace TesmioAutoload
             if (edit.Section.Length > 0) text.Append("section = " + edit.Section + "\r\n");
             text.Append("stamp_hash = " + edit.StampHash + "\r\n");
             text.Append("result_hash = " + edit.ResultHash + "\r\n\r\n");
-            text.Append("[operations]\r\n");
-            foreach (WipOperation op in edit.Operations)
+            // As long as every change is a single line the short form is kept - it reads better,
+            // and a receipt written before 0.5.8 stays exactly as it was. As soon as one change
+            // is a block, all of them are written as sections, so their order survives.
+            if (edit.Operations.Any(x => x.Block))
             {
-                if (op.Kind == "replace") text.Append("replace = " + op.Anchor + " | " + op.Value + "\r\n");
-                else if (op.Kind == "remove") text.Append("remove = " + op.Anchor + "\r\n");
-                else text.Append("add = " + op.Value + "\r\n");
+                int n = 0;
+                foreach (WipOperation op in edit.Operations)
+                {
+                    text.Append("[op:" + (++n) + "]\r\n");
+                    text.Append("kind = " + op.Kind + "\r\n");
+                    if (op.Kind != "add") foreach (string line in op.AnchorLines) text.Append("old = " + line + "\r\n");
+                    if (op.Kind != "remove") foreach (string line in op.ValueLines) text.Append("new = " + line + "\r\n");
+                    text.Append("\r\n");
+                }
+            }
+            else
+            {
+                text.Append("[operations]\r\n");
+                foreach (WipOperation op in edit.Operations)
+                {
+                    if (op.Kind == "replace") text.Append("replace = " + op.Anchor + " | " + op.Value + "\r\n");
+                    else if (op.Kind == "remove") text.Append("remove = " + op.Anchor + "\r\n");
+                    else text.Append("add = " + op.Value + "\r\n");
+                }
             }
             WriteAtomic(Receipt(build, edit.Id), text.ToString());
             WriteAtomic(BaselineFile(build, edit.Id), edit.Baseline);
         }
 
+        // [op:3] -> 3, so the sections come back in the order they were written.
+        static int Order(string section)
+        { int n; return Int32.TryParse(section.Substring(3).Trim(), out n) ? n : 0; }
         public static void Forget(string build, string id)
         {
             foreach (string path in new[] { Receipt(build, id), BaselineFile(build, id) })
@@ -149,16 +197,50 @@ namespace TesmioAutoload
             problems = new List<string>();
             foreach (WipOperation op in operations)
             {
-                if (op.Kind == "add") { lines.Add(op.Value); continue; }
+                if (op.Kind == "add") { lines.AddRange(op.ValueLines); continue; }
+                var want = op.AnchorLines;
+                if (want.Count == 0) { problems.Add(op.Anchor); continue; }
+                // The anchor is a run of lines now. One line is the old case and behaves as it did;
+                // a block is what makes a line like `rotation 0.0` addressable at all.
                 var hits = new List<int>();
-                for (int i = 0; i < lines.Count; i++) if (lines[i].Trim() == op.Anchor.Trim()) hits.Add(i);
-                if (hits.Count != 1) { problems.Add(op.Anchor); continue; }
-                if (op.Kind == "remove") lines.RemoveAt(hits[0]);
-                else lines[hits[0]] = op.Value;
+                for (int i = 0; i + want.Count <= lines.Count; i++)
+                {
+                    bool same = true;
+                    for (int n = 0; n < want.Count && same; n++) same = lines[i + n].Trim() == want[n].Trim();
+                    if (same) hits.Add(i);
+                }
+                if (hits.Count != 1) { problems.Add(op.Anchor.Replace("\n", " / ")); continue; }
+                lines.RemoveRange(hits[0], want.Count);
+                if (op.Kind != "remove") lines.InsertRange(hits[0], op.ValueLines);
             }
             return lines;
         }
 
+        // A token and the lines below it without one of their own are a block - the same grouping
+        // the generators use. Selecting any line of a block addresses the whole block, which is
+        // what makes a line like `rotation 0.0` unique: it occurs three times, its block once.
+        public static int BlockStart(IList<string> lines, int at)
+        {
+            while (at > 0 && DonorPlan.FirstToken(lines[at]).Length == 0 && lines[at].Trim().Length > 0) at--;
+            return at;
+        }
+        public static int BlockEnd(IList<string> lines, int start)
+        {
+            int end = start;
+            while (end + 1 < lines.Count && DonorPlan.FirstToken(lines[end + 1]).Length == 0)
+            {
+                string bare = (lines[end + 1] ?? "").Trim();
+                if (bare.Length == 0 || bare[0] == '-' || bare[0] == ';') break;
+                end++;
+            }
+            return end;
+        }
+        public static string BlockAt(IList<string> lines, int at)
+        {
+            if (lines == null || at < 0 || at >= lines.Count) return "";
+            int start = BlockStart(lines, at), end = BlockEnd(lines, start);
+            return String.Join("\r\n", Enumerable.Range(start, end - start + 1).Select(i => lines[i]));
+        }
         public static List<string> Split(string text)
         {
             return (text ?? "").Replace("\r\n", "\n").TrimEnd('\n').Split('\n').ToList();

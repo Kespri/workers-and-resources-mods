@@ -32,10 +32,10 @@ typedef struct TsmLocalizationApi
 #include <limits.h>
 #include <ctype.h>
 
-#define PLUGIN_VERSION "0.4.1"
+#define PLUGIN_VERSION "0.4.2"
 // The namespace of the plugin's own Localization text pack (localization.ini of
 // plugins\localization\research_expansion); [research:] sections complete short
-// name / desc values with it (1.8).
+// name / desc values with it.
 #define TEXT_NAMESPACE "research_expansion"
 
 static const size_t MAX_INI_BYTES = 8u * 1024u * 1024u;   // 8 MB
@@ -152,7 +152,7 @@ struct Modification
     bool enabledSeen = false;
     size_t sourceLine = 0;
     std::vector<EditOperation> operations;
-    std::string cost;       // 1.9: cost = <points>, applied as a replace of the $COST line
+    std::string cost;       // cost = <points>, applied as a replace of the $COST line
     size_t costLine = 0;
 };
 
@@ -174,7 +174,7 @@ struct NewBlock
     size_t validationLine = 0;
 };
 
-// 1.7: [research:<id>] sections are the INI form of a new research block, written
+// [research:<id>] sections are the INI form of a new research block, written
 // by Republic Mod Manager. They are expanded into NewBlock lines after the free
 // blocks have been parsed and then validated by the very same rules.
 struct ResearchRequire
@@ -217,7 +217,7 @@ struct IconPlan
     std::string source;
     std::string destination;
     bool fallback = false;
-    bool keep = false;       // 1.6: a valid icon is already in the VFS research folder
+    bool keep = false;       // a valid icon that is already in the VFS research folder
 };
 
 static std::vector<NewBlock>       g_newBlocks;
@@ -863,7 +863,7 @@ static bool ParseEditOperation(Modification& mod, const std::string& key,
         mod.enabled = value == "1";
         return true;
     }
-    // 1.9: cost = <points> replaces the block's single $COST line; the Republic Mod
+    // cost = <points> replaces the block's single $COST line; the Republic Mod
     // Manager offers it as a plain number instead of a replace command.
     if (key == "cost")
     {
@@ -965,7 +965,7 @@ static bool ParseResearchKey(ResearchSection& rs, const std::string& key,
     {
         size_t& seen = key == "name" ? rs.nameLine : rs.descLine;
         if (seen) return EditError(rs.id, lineNo, key.c_str(), "research-duplicate-key", key + " may occur once");
-        // 1.8: a bare word is completed to <namespace>.<word>.name / .desc by
+        // a bare word is completed to <namespace>.<word>.name / .desc by
         // ExpandResearchSections; a value with dots is a complete key.
         if (value.empty() || value.find_first_of(" \t|") != std::string::npos)
             return EditError(rs.id, lineNo, key.c_str(), "research-text-key", "Expected a Localization key (namespace.key) or a bare word");
@@ -1049,7 +1049,7 @@ static bool ExpandResearchSections(std::vector<NewBlock>& blocks)
         if (rs.costLine) { nb.lines.push_back("$COST " + rs.cost); nb.sourceLines.push_back(rs.costLine); }
         for (size_t i = 0; i < rs.unlocks.size(); ++i) { nb.lines.push_back(rs.unlocks[i].first); nb.sourceLines.push_back(rs.unlocks[i].second); }
         for (size_t i = 0; i < rs.raws.size(); ++i) { nb.lines.push_back(rs.raws[i].first); nb.sourceLines.push_back(rs.raws[i].second); }
-        // 1.8: name / desc default to the research id and are completed with the
+        // name / desc default to the research id and are completed with the
         // plugin's text-pack namespace, so "quartz_smasher" (or nothing) becomes
         // research_expansion.quartz_smasher.name; a key with dots is used as it is.
         std::string nameKey = rs.nameLine ? rs.nameKey : rs.id;
@@ -1134,7 +1134,7 @@ static bool ValidateGeneralConfigLayout(const std::string& pluginIni,
             }
             if (section.rfind("research:", 0) == 0)
             {
-                // 1.7: the INI form of a new research block; the id keeps its spelling.
+                // the INI form of a new research block; the id keeps its spelling.
                 std::string id = TrimA(text.substr(1, text.size() - 2));
                 id = TrimA(id.substr(id.find(':') + 1));
                 if (!IsValidResearchId(id) || !researchIds.insert(CanonicalId(id)).second)
@@ -1273,7 +1273,7 @@ static bool ReadGeneralString(const char* key, const char* fallback,
 
 static bool ReadGeneralConfig()
 {
-    // 1.6: icon_folder and noimage_name are no longer used - the icons live in
+    // icon_folder and noimage_name are no longer used - the icons live in
     // the VFS research folder and noimage.png is looked up beside the DLL and in
     // plugins\research_expansion (see PlanIcons). Old INIs may still carry the
     // keys; a value other than the old default is reported once and ignored.
@@ -1760,7 +1760,7 @@ static bool ValidateLocalizationAndPlanIcons(std::vector<IconPlan>& plans)
         nb.descId = descId;
     }
 
-    // 1.6: the VFS research folder is the icon store. An icon that is already
+    // The VFS research folder is the icon store. An icon that is already
     // there is kept (it has to be a valid 128 x 128 PNG); a missing one is
     // seeded from <id>.png in research_expansion\icons beside the DLL, else
     // created from noimage.png. noimage.png is looked for beside the DLL (the
@@ -2117,7 +2117,7 @@ static bool ApplyVanillaModifications()
         InsertionTails afterTails;
         if (!mod.cost.empty())
         {
-            // 1.9: the cost key becomes a replace of the block's single $COST line.
+            // the cost key becomes a replace of the block's single $COST line.
             size_t hits = 0; std::string current;
             for (const std::string& line : block.lines)
             {
@@ -2489,7 +2489,7 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
         }
         g_pluginDir = JoinPath(g_baseDir, "plugins");
 
-        // 1.5: <loader>\plugins\research_expansion.ini when it exists (the classic
+        // <loader>\plugins\research_expansion.ini when it exists (the classic
         // install, or the effective INI Republic Mod Manager writes), otherwise the
         // INI beside the DLL - the Workshop package under Soviet Mod Loader or the
         // Workshop Bridge. The icon folder follows the same rule (see icons).
@@ -2542,7 +2542,7 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
             return 1;
         }
 
-        Info("Configuration: enabled=1 debug=%d max_research=%d required_icon=%Iux%Iu; icons live in the VFS research folder (1.6)",
+        Info("Configuration: enabled=1 debug=%d max_research=%d required_icon=%Iux%Iu; icons live in the VFS research folder (" PLUGIN_VERSION ")",
             g_debug, MAX_NEW_RESEARCH, REQUIRED_ICON_SIDE, REQUIRED_ICON_SIDE);
         Debug("Paths: game='%s' plugin='%s' vfs='%s'",
             g_gameDir.c_str(), g_pluginDir.c_str(), g_vfsDir.c_str());

@@ -75,7 +75,8 @@ other.plugin = >=1.2.0
 - `replaced_by_sml = deposits`: Dein Plugin macht dasselbe wie eine der vier Fähigkeiten, die Soviet Mod Loader eingebaut mitbringt (`resources`, `deposits`, `needs`, `buildings`), und tritt beim Spielstart zur Seite, solange SML läuft. RMM zeigt den Eintrag dann mit orangem Punkt statt grau und schreibt in die Karte „Hinweise“, wer gerade zuständig ist. Ein anderer Wert als die vier weist das Paket ab. Dein Plugin muss selbst zur Seite treten — der Schlüssel beschreibt nur, was es tut.
 - `local_copy = 1`: Die Karte „Hinweise“ bietet bei Paketen unter der Workshop Bridge den Schalter „Dateien nur lokal“ an. RMM kopiert DLL, INI und den Ordner aus `[assets] dir` nach `plugins\` (den Ordner unter seinem eigenen Namen, `plugins\my_plugin\...`). Im Assets-Ordner sind keine `.dll`- oder `.exe`-Dateien erlaubt, höchstens 512 Dateien zu je 64 MB, keine Reparse-Punkte.
 - `[dependencies]`: `mod.id = <Bedingung>` mit `>=`, `>`, `=`, `<=`, `<`, einer bloßen Version (mindestens) oder `*`. Wird gegen die Pakete im Workshop-Ordner aufgelöst; ein klassisch installiertes Plugin `plugins\<name>.dll` zählt auch, wenn `<name>` der letzte Teil der Kennung ist (Version ungeprüft). Ein Hook-Paket in der Bridge-Liste gilt als erfüllt. Nicht erfüllte Abhängigkeiten verhindern die Bereitstellung.
-- `[content]` ohne `[hooks] dll` ist ein reines Inhaltspaket: wird gelistet, nie bereitgestellt, nur der Soviet Mod Loader wendet es an.
+- `[content]` ohne `[hooks] dll` ist ein reines Inhaltspaket: Soviet Mod Loader führt es beim Spielstart selbst zusammen, ohne ihn stellt RMM es über den Schalter „Im Spiel bereitstellen“ in die Editoren der Zielplugins (Kapitel 11).
+- `[content] allow_settings = 1` ist ein Schalter des Soviet Mod Loaders: ohne ihn nimmt er aus einem Paket nur `[list]`, `[base_price]` und `[price]` (bei Bedürfnissen nur `[list]`) und verwirft jeden `[custom:…]`-Abschnitt mit einer Konfliktnotiz. Mit ihm gelten sie — dafür lässt er dann auch den Einstellungsabschnitt des Plugins durch, in die Fragmentdatei gehören also nur `[list]` und `[custom:…]`. RMM liest die Abschnitte ohnehin und beschwert sich über den Schlüssel nicht.
 
 ---
 
@@ -388,6 +389,58 @@ notice_style = info                    ; blau statt gelb
 order = 20
 ```
 
+**Kartenliste statt Liste und Detailbereich.** Mit `style = cards` in `[list]` wird aus der Liste eine Zeile je Eintrag, und die Felder wandern in einen Dialog hinter „Ändern…":
+
+```ini
+[list]
+style = cards
+title = bp_name                 ; Feld für die Überschrift der Zeile
+subtitle = bp_id|bp_object|bp_donor   ; die graue Zeile darunter
+toggle = bp_enabled             ; Schalter links, muss type = boolean sein
+state = buildings_plus          ; eingebauter Zustandsgeber, sonst keine Zustandsspalte
+actions = edit|open|delete      ; Ändern… / Öffnen / Papierkorb
+```
+
+`title`, `subtitle` und `toggle` nennen Feld-Kennungen; ist eine davon unbekannt, wird das Schema abgewiesen. Ein Suchfeld erscheint ab acht Einträgen, sortiert wird nach der Überschrift. Ein Original (aus der wirksamen INI oder aus einem Inhaltspaket) trägt ein Schloss und wird ausgeblendet statt gelöscht.
+
+Im Dialog liegt jedes Feld mit `card = global` auf dem ersten Reiter; jeder weitere `card`-Wert wird ein eigener Reiter, beschriftet aus `[card:<id>]`. Eine solche Karte kann statt Feldern den Zeilen-Editor tragen:
+
+```ini
+[card:lines]
+tab = buildings
+label_key = bp.card.lines
+editor = donor_lines            ; Spenderdatei links, deine Zeilen rechts
+lines = bp_line                 ; das Feld mit den building.ini-Zeilen
+strip = bp_strip                ; das Feld mit den zu entfernenden Token
+```
+
+Der Editor zeigt links die `building.ini` des Spenders (umschaltbar auf das Ergebnis), streicht durch, was deine Deklaration wegwirft, und nennt unter jeder deiner Zeilen, welche Spenderzeilen sie umbringt — mit einem Knopf, der sie als eigene Zeilen zurückholt. In der Ergebnisansicht trägt jede `$STORAGE`-Zeile ihre Nummer für `$RESOURCE_VISUALIZATION`, und ein Wasser- oder Abwasserlager vor einem angezeigten Lager wird gemeldet. Die Ergebnisansicht ist nur lesend. Zwei deiner Zeilen, die dieselbe Einstellung setzen, werden gemeldet und beim Hinzufügen abgefragt.
+
+Der zweite Zeilen-Editor arbeitet auf echten Zieldateien statt auf einem Spender:
+
+```ini
+[card:commands]
+tab = buildings
+label_key = vb.card.commands
+editor = target_lines           ; Zieldatei links, die Befehle rechts
+targets = target                ; das Feld mit den Zieldateien
+add = add                       ; die vier Zeilenbefehle
+replace = replace
+remove = remove
+insert = insert
+add_connection = add_connection ; die drei Anschlussbefehle, gleiche Karte
+replace_connection = replace_connection
+remove_connection = remove_connection
+```
+
+Oben wählst du die Zieldatei — ein Regelsatz kann viele haben, und jeder Befehl wird gegen jede einzeln geprüft. Links stehen die Zeilen der unveränderten Datei, angeklickt werden sie zum Anker; die Knöpfe **Anhängen, Ersetzen, Davor, Danach, Entfernen** schreiben daraus den fertigen Befehl. Rechts stehen die Befehle, ein Befehl, der in dieser Datei nicht greift, steht rot, und darunter steht warum (nicht gefunden, mehrfach vorhanden, `$COST_`-Zeile, bereits vorhanden …). Eine Zieldatei, die es auf diesem Rechner nicht gibt, schaltet die Knöpfe ab.
+
+Anschlüsse sind Blöcke, keine Zeilen. Klickst du links auf eine Punktzeile, nimmt der Editor den ganzen Anschluss (Token-Zeile plus eine oder zwei Punktzeilen, oder die einzeilige Form `$TOKEN x y z`), und die Knöpfe schreiben von selbst den passenden Anschlussbefehl statt `add`/`replace`/`remove`. Die Punkte werden wie im Plugin als Zahlen verglichen, `5` und `5.0` sind also derselbe Punkt; ein `*_ALLOWPASS`-Token lehnt das Plugin ab, und der Editor sagt es dir sofort. Davor und Danach gibt es für Anschlüsse nicht — sie landen immer hinter dem letzten.
+
+Das Kontrollkästchen **Gegen alle Zieldateien prüfen** rechnet den gewählten Befehl gegen jede Zieldatei des Regelsatzes und sagt, in wie vielen er greift. Das ist wichtiger, als es klingt: Ein Befehl, der in einer einzigen Zieldatei nicht passt, macht dort den **ganzen Regelsatz** ungültig — das Plugin schreibt in diesem Fall "No rule for this target was applied" ins Protokoll, und keine deiner Änderungen kommt an. Passt ein Befehl nur in einen Teil, nennt der Editor die erste Datei, in der er danebengeht; dann gehört er in einen eigenen Regelsatz.
+
+Der Editor hat zwei Ansichten. **Original** ist die unveränderte Zieldatei, in der du deine Anker anklickst. **Ergebnis** zeigt schreibgeschützt die Datei, die das Spiel nach den Befehlen lesen wird, und markiert jede Zeile, die ein Befehl anlegt (`+`) oder ersetzt (`>`); ein Klick darauf nennt den Befehl, der sie geschrieben hat. Solange ein Befehl rot ist, steht dort das unveränderte Original — genau das passiert dann auch im Spiel.
+
 Mehrere Listen in einem `keyed_sections`-Schema: Ein `[group:<id>]` mit eigenem `section_prefix` ist eine Zusatzliste; ihre Texte kommen aus `[list:<id>]` und `[new:<id>]`, ihre Felder tragen `group = <id>`. Die Standardliste ist das erste `[group:]` ohne Präfix. Kennungen der Zusatzlisten sind volle Abschnittsnamen (`research:quartz`), angezeigt ohne Präfix.
 
 ### 6.3 Spalten (`keyed_list`)
@@ -540,7 +593,18 @@ Der Reiter liest `media_soviet\workshop_wip` und zeigt je Ordner Name (aus `$ITE
 
 Gemeldet wird von selbst: ein Ordner mit `$OWNER_ID 0` (der Knopf trägt die Steam-ID nach, und **nur** diese Zahl) und ein Ordner, den kein Paket mehr erklärt (Soviet Mod Loader beendet deswegen das Spiel beim Start). Der Stempel wird nie angefasst.
 
-Über „Ändern…" bearbeitet der Spieler die erzeugte `building.ini`. Gespeichert werden **Änderungen**, nicht die Datei: je Gebäude liegen in `user_config\.autoload\wip\` ein Beleg `<id>.receipt.ini` mit `replace = alte Zeile | neue Zeile`, `remove = Zeile` und `add = Zeile` sowie `<id>.baseline.ini`, die wörtliche Fassung des Generators. Schreibt der Generator neu (der Hash im `tesmioloader.stamp` ändert sich), wird dessen frische Ausgabe die neue Grundlage und die Änderungen werden erneut angewandt — was das Paket verbessert hat, bleibt dabei erhalten. Ein Anker, der keine oder mehr als eine Zeile trifft, wird gemeldet und ausgelassen. Ein Schema braucht dafür nichts weiter als `[wip_buildings]`.
+Über „Ändern…" bearbeitet der Spieler die erzeugte `building.ini`. Gespeichert werden **Änderungen**, nicht die Datei: je Gebäude liegen in `user_config\.autoload\wip\` ein Beleg `<id>.receipt.ini` mit `replace = alte Zeile | neue Zeile`, `remove = Zeile` und `add = Zeile` sowie `<id>.baseline.ini`, die wörtliche Fassung des Generators.
+
+Ein Anker darf **mehrere Zeilen** umfassen. Ein Token und die Zeilen darunter ohne eigenes Token sind ein Block, und erst der macht eine Zeile eindeutig: `rotation 0.0` steht in einer erzeugten Datei oft dreimal, der Block, zu dem sie gehört, genau einmal. Ein Klick auf eine beliebige Zeile wählt den ganzen Block. Sobald eine Änderung ein Block ist, schreibt RMM den Beleg als Abschnitte, damit die Reihenfolge erhalten bleibt (beide Formen werden gelesen):
+
+```ini
+[op:4]
+kind = replace
+old = $RESOURCE_VISUALIZATION 3
+old = rotation 0.0
+new = $RESOURCE_VISUALIZATION 3
+new = rotation 90.0
+``` Schreibt der Generator neu (der Hash im `tesmioloader.stamp` ändert sich), wird dessen frische Ausgabe die neue Grundlage und die Änderungen werden erneut angewandt — was das Paket verbessert hat, bleibt dabei erhalten. Ein Anker, der keine oder mehr als eine Zeile trifft, wird gemeldet und ausgelassen. Ein Schema braucht dafür nichts weiter als `[wip_buildings]`.
 
 ---
 

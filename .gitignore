@@ -50,4 +50,7 @@ runs/
 *.pdb
 *.ilk
 *.exe
-!plugins/*/verification/*.log
+
+# --- Republic Mod Manager: Build-Ausgabe und erzeugtes Symbol ---
+bin/
+*.ico

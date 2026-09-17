@@ -62,13 +62,17 @@ namespace TesmioAutoload
             var editRow = new TableLayoutPanel { ColumnCount = 5, Margin = new Padding(0, 10, 0, 0) };
             editRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             for (int i = 0; i < 4; i++) editRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            // 0.5.8: multi-line, because a block goes in here whole - a token with its data lines.
             text.Font = new Font("Consolas", 10f); text.AccessibleName = "wip-new";
-            Control host = Fields.Wrap(text); host.Dock = DockStyle.Fill; host.Margin = new Padding(0, 0, 8, 0);
-            editRow.Controls.Add(host, 0, 0);
-            editRow.Controls.Add(Button("wip_edit_replace", "wip-replace", Replace), 1, 0);
-            editRow.Controls.Add(Button("wip_edit_add", "wip-add", Add), 2, 0);
-            editRow.Controls.Add(Button("wip_edit_remove", "wip-remove", Remove), 3, 0);
-            row(editRow, new RowStyle(SizeType.Absolute, Fields.Height + 10));
+            text.Multiline = true; text.ScrollBars = ScrollBars.Vertical; text.BorderStyle = BorderStyle.FixedSingle;
+            text.Dock = DockStyle.Fill; text.Margin = new Padding(0, 0, 8, 0);
+            editRow.Controls.Add(text, 0, 0);
+            var commands = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = false, Margin = Padding.Empty, Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            commands.Controls.Add(Button("wip_edit_replace", "wip-replace", Replace));
+            commands.Controls.Add(Button("wip_edit_add", "wip-add", Add));
+            commands.Controls.Add(Button("wip_edit_remove", "wip-remove", Remove));
+            editRow.Controls.Add(commands, 1, 0);
+            row(editRow, new RowStyle(SizeType.Absolute, 104));
 
             var buttons = new TableLayoutPanel { ColumnCount = 2, Margin = new Padding(0, 10, 0, 0) };
             buttons.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); buttons.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -120,7 +124,7 @@ namespace TesmioAutoload
             foreach (string line in baseline)
             {
                 if (needle.Length > 0 && line.IndexOf(needle, StringComparison.CurrentCultureIgnoreCase) < 0) continue;
-                bool touched = edit.Operations.Any(o => o.Kind != "add" && o.Anchor.Trim() == line.Trim());
+                bool touched = edit.Operations.Any(o => o.Kind != "add" && o.AnchorLines.Any(x => x.Trim() == line.Trim()));
                 lines.Items.Add((touched ? "* " : "  ") + line);
             }
             lines.EndUpdate(); Extent(lines);
@@ -131,17 +135,23 @@ namespace TesmioAutoload
             foreach (WipOperation op in edit.Operations) changes.Items.Add(op.ToString());
             changes.EndUpdate(); Extent(changes); FillLines();
         }
+        // 0.5.8: what is picked is the whole block the selected line belongs to. With a filter in
+        // the search box the list is a subset, so the line is looked up in the baseline again.
         string Selected()
         {
             string picked = lines.SelectedItem as string;
-            return picked == null ? null : picked.Length > 2 ? picked.Substring(2) : "";
+            if (picked == null) return null;
+            string line = picked.Length > 2 ? picked.Substring(2) : "";
+            int at = baseline.FindIndex(x => x == line);
+            return at < 0 ? line : WipEdits.BlockAt(baseline, at);
         }
         void Say(string key) { MessageWindow.Show(this, language, Text, language.T(key), MessageWindow.Kind.Info, DialogResult.OK); }
+        // A "|" is no longer forbidden: a receipt that contains one is written as sections, where
+        // the separator plays no part.
         bool NewText(out string value)
         {
             value = text.Text.Trim();
             if (value.Length == 0) { Say("wip_edit_need_new"); return false; }
-            if (value.Contains("|")) { Say("wip_edit_bar"); return false; }
             return true;
         }
         void Replace()
@@ -150,7 +160,6 @@ namespace TesmioAutoload
             if (anchor == null) { Say("wip_edit_need_line"); return; }
             if (!NewText(out value)) return;
             if (value.Trim() == anchor.Trim()) { Say("wip_edit_same"); return; }
-            if (anchor.Contains("|")) { Say("wip_edit_bar"); return; }
             Forget(anchor);
             edit.Operations.Add(new WipOperation { Kind = "replace", Anchor = anchor.Trim(), Value = value });
             FillChanges();
@@ -159,7 +168,7 @@ namespace TesmioAutoload
         {
             string anchor = Selected();
             if (anchor == null) { Say("wip_edit_need_line"); return; }
-            if (anchor.Trim().Length == 0 || anchor.Contains("|")) { Say("wip_edit_bar"); return; }
+            if (anchor.Trim().Length == 0) { Say("wip_edit_need_line"); return; }
             Forget(anchor);
             edit.Operations.Add(new WipOperation { Kind = "remove", Anchor = anchor.Trim() });
             FillChanges();
@@ -174,7 +183,8 @@ namespace TesmioAutoload
         // One anchor, one change: a second command on the same line would never match.
         void Forget(string anchor)
         {
-            edit.Operations.RemoveAll(o => o.Kind != "add" && o.Anchor.Trim() == anchor.Trim());
+            var block = WipOperation.Cut(anchor).Select(x => x.Trim()).ToList();
+            edit.Operations.RemoveAll(o => o.Kind != "add" && o.AnchorLines.Select(x => x.Trim()).Any(block.Contains));
         }
         void Drop()
         {

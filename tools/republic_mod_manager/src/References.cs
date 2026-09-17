@@ -109,16 +109,7 @@ namespace TesmioAutoload
         bool BuildingFile(string target)
         {
             if (game == null) return true;
-            if (target.Contains("..") || target.Contains(":") || target.StartsWith("\\") || target.StartsWith("/")) return false;
-            var roots = new List<string> { Path.Combine(game, "media_soviet") };
-            string steam = GameBuildings.SteamWorkshopFor(game); if (steam != null) roots.Add(steam);
-            if (workshopRoot.Length > 0) roots.Add(workshopRoot);
-            foreach (string root in roots)
-            {
-                try { if (File.Exists(Path.Combine(root, target))) return true; }
-                catch (Exception) { }
-            }
-            return false;
+            return GameBuildings.TargetFile(build, workshopRoot, target) != null;
         }
 
         // The ids a field value refers to, by the field's reference_format:

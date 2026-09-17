@@ -51,8 +51,10 @@ namespace TesmioAutoload
             // plugins\ DLLs only and claimed the ten packages would not load at all.
             if(Sml.Active(build))
             {
+                // 0.5.9: SML sorts by [mod] priority first and only then by the folder - a package
+                // that declares one would otherwise stand in the wrong place here.
                 var packages=known.Where(e=>!e.Installed&&!e.LocalEditor&&e.Supported&&e.Problem.Length==0&&e.Kind!="content"&&e.Target.Length>0)
-                    .OrderBy(e=>Path.GetFileName((e.Root??"").TrimEnd('\\')),StringComparer.OrdinalIgnoreCase).ToList();
+                    .OrderBy(e=>Priority(e)).ThenBy(e=>Path.GetFileName((e.Root??"").TrimEnd('\\')),StringComparer.OrdinalIgnoreCase).ToList();
                 var placed=new List<CatalogEntry>();
                 foreach(CatalogEntry entry in packages)Place(placed,packages,entry,0);
                 foreach(CatalogEntry entry in placed)
@@ -72,6 +74,20 @@ namespace TesmioAutoload
             }
             for(int i=0;i<list.Count;i++)list[i].Index=i;
             return list;
+        }
+
+        // [mod] priority of a package, read straight from its manifest; anything missing or
+        // unreadable counts as 0, which is what Soviet Mod Loader assumes too.
+        static int Priority(CatalogEntry entry)
+        {
+            try
+            {
+                string manifest=Path.Combine(entry.Root??"","soviet.mod.ini");
+                if(!File.Exists(manifest))return 0;
+                int value;
+                return Int32.TryParse(new LooseIni(SafeFiles.Text(manifest)).Get("mod","priority").Trim(),out value)?value:0;
+            }
+            catch(Exception){return 0;}
         }
 
         // Puts an entry after everything it declares a dependency on, the way SML resolves its

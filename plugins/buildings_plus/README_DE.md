@@ -32,7 +32,7 @@ Legt in *Workers & Resources: Soviet Republic* 1.1.1.9 neue Gebäude an, ohne da
 
 ### In drei Schritten
 1. **Eine Installationsmethode wählen** (siehe unten) und das Plugin aktivieren.
-2. **Gebäude anlegen:** In Republic Mod Manager mit + einen Abschnitt anlegen, den Spender eintragen (die Workshop-ID darf leer bleiben), rechts Name und Zeilen. Von Hand: ein Abschnitt in `buildings_plus.ini`, wie das mitgelieferte Beispiel `[example_pharmacy]` (ausgeschaltet).
+2. **Gebäude anlegen:** In Republic Mod Manager auf dem Reiter Gebäude „Hinzufügen“ drücken und im Fenster Objektname, Spender, Name im Spiel und die Zeilen eintragen (die Workshop-ID darf leer bleiben). Von Hand: ein Abschnitt in `buildings_plus.ini`, wie das mitgelieferte Beispiel `[example_pharmacy]` (ausgeschaltet).
 3. **Spiel vollständig neu starten.** Das Gebäude erscheint im Baumenü unter dem Namen aus `name`; im Log steht je Abschnitt eine Zeile mit Ordner und Spender.
 
 ---
@@ -101,10 +101,13 @@ tesmio\buildings.ini läuft unter SML und unter Republic Mod Manager gleich.
 
 ## 🧰 Republic Mod Manager
 
-Das Paket enthält im Ordner `config` ein Editor-Schema. Republic Mod Manager zeigt Buildings Plus in zwei Reitern, deutsch und englisch:
+Das Paket enthält im Ordner `config` ein Editor-Schema. Republic Mod Manager zeigt Buildings Plus in drei Reitern, deutsch und englisch:
 
-- **Allgemein:** Hinweise, Anleitungen und die Schalter Besitzer-ID nachtragen, Aufräumen (prune), Immer neu schreiben (always) und Ausführliches Protokoll
-- **Gebäude:** links die Abschnitte, rechts das gewählte Gebäude mit Schalter, Workshop-ID, Spender, Objektname, Name, Beschreibung, Lebensdauer, den Zeilen der building.ini und den Zeilen, die aus dem Spender entfernt werden sollen. Der Plus-Knopf fragt Spender und Workshop-ID ab; die ID darf leer bleiben.
+- **Allgemein:** Hinweise, Anleitungen, die Karte „Erzeugte Ordner“ mit den Schaltern Besitzer-ID nachtragen und Ordner aufräumen (prune), dazu die Karte „Fehlersuche“ mit Immer neu schreiben (always) und Ausführliches Protokoll
+- **Gebäude:** eine Zeile je Gebäude mit Schalter, Name, Nummer, Spender, Zustand und den Knöpfen Ändern, Öffnen und Löschen. „Hinzufügen“ und „Ändern…“ öffnen dasselbe Fenster mit zwei Reitern: **Angaben** (Objektname, Workshop-ID, Spender, Name im Spiel, Beschreibung, Lebensdauer) und **Zeilen** (die building.ini des Spenders neben deinen Zeilen, samt Anzeige, welche Spenderzeilen jede deiner Zeilen wegnimmt)
+- **SML-Gebäude:** was Soviet Mod Loader selbst nach `media_soviet\workshop_wip` erzeugt hat, mit dem Knopf, der eine fehlende Besitzer-ID nachträgt
+
+Den Schlüssel `object` bietet Republic Mod Manager nicht an — dort ist der Objektname immer der Abschnittsname. Von Hand geschrieben gilt `object` weiterhin.
 
 Persönliche Gebäude liegen in `user_config\buildings_plus.editor.ini`, die wirksame Datei ist `plugins\buildings_plus.ini`; die INI im Paket bleibt unverändert.
 

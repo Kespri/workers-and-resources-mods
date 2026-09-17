@@ -29,6 +29,7 @@ namespace TesmioAutoload
         public readonly List<string> Ids = new List<string>();        // resources, deposits, needs, buildings
         public readonly List<string> Saves = new List<string>();      // saved games that use one of those ids
         public readonly List<string> Buildings = new List<string>();  // 0.5.5: generated building.ini put back
+        public readonly List<string> Overlays = new List<string>();   // 0.5.9: our overlay mod, an absolute path outside the loader folder
         public bool View = true;                                      // the saved window state goes in both levels
         public int Count { get { return Files.Count + Folders.Count + Restored.Count + Edited.Count + Buildings.Count; } }
     }
@@ -78,6 +79,16 @@ namespace TesmioAutoload
                 string upstream = Path.Combine(state, target + ".upstream.ini");
                 if (File.Exists(upstream) && !plan.Restored.Contains(written, StringComparer.OrdinalIgnoreCase)) plan.Restored.Add(written);
             }
+            // 0.5.9: the little overlay mod the editors write for package entries under SML. It sits
+            // in the Workshop folder, outside the loader folder, and only ours is ever touched - the
+            // marker in its manifest says so.
+            try
+            {
+                string overlayRoot = SmlOverlay.Root(build);
+                if (overlayRoot.Length > 0 && Directory.Exists(overlayRoot) && SmlOverlay.IsOverlay(Path.Combine(overlayRoot, "soviet.mod.ini"))
+                    && !plan.Overlays.Contains(overlayRoot, StringComparer.OrdinalIgnoreCase)) plan.Overlays.Add(overlayRoot);
+            }
+            catch (Exception) { }
             // Content packages: their files in the vfs and the ids they added.
             string vfs = LocalEditorSpec.VfsRoot(build);
             foreach (string receipt in Files(Path.Combine(state, "content"), "receipt.ini", true))
@@ -155,6 +166,19 @@ namespace TesmioAutoload
             var folders = new List<string> { "user_config", "plugins" };
             string baseFolder = Sml.Show(build, Path.Combine(Sml.StateDir(build), "base"));
             if (!Path.IsPathRooted(baseFolder) && Directory.Exists(SafeFiles.Child(build, baseFolder))) folders.Add(baseFolder);
+            // 0.5.9: the overlay mod lives outside the loader folder, so it travels into the backup
+            // under its own name.
+            try
+            {
+                string overlayRoot = SmlOverlay.Root(build);
+                if (overlayRoot.Length > 0 && Directory.Exists(overlayRoot) && SmlOverlay.IsOverlay(Path.Combine(overlayRoot, "soviet.mod.ini")))
+                    foreach (string file in Directory.GetFiles(overlayRoot, "*.ini", SearchOption.AllDirectories))
+                    {
+                        string copy = Path.Combine(target, SmlOverlay.Folder, file.Substring(overlayRoot.Length).TrimStart('\\'));
+                        Directory.CreateDirectory(Path.GetDirectoryName(copy)); Copy(file, copy);
+                    }
+            }
+            catch (Exception) { }
             foreach (string folder in folders)
             {
                 string source = SafeFiles.Child(build, folder);
@@ -231,6 +255,18 @@ namespace TesmioAutoload
                     SafeFiles.NoLinks(path); Directory.Delete(path, true); report.AppendLine("removed = " + relative + "\\");
                 }
                 catch (Exception e) { report.AppendLine("failed = " + relative + ": " + e.Message); }
+            }
+            // 0.5.9: our overlay mod in the Workshop folder. Only a folder whose manifest carries
+            // our marker is touched, and it is checked again here - nothing else in that folder is
+            // ours to delete.
+            foreach (string path in plan.Overlays)
+            {
+                try
+                {
+                    if (!Directory.Exists(path) || !SmlOverlay.IsOverlay(Path.Combine(path, "soviet.mod.ini"))) continue;
+                    SafeFiles.NoLinks(path); Directory.Delete(path, true); report.AppendLine("removed = " + path + "\\");
+                }
+                catch (Exception e) { report.AppendLine("failed = " + path + ": " + e.Message); }
             }
             return report.ToString();
         }
